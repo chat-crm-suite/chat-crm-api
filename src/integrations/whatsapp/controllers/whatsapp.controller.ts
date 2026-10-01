@@ -33,7 +33,7 @@ export class WhatsappController {
   }
 
   @Post()
-  create(dto: CreateWhatsAppConfigDto) {
+  create(@Body() dto: CreateWhatsAppConfigDto) {
     return this.service.createConfig(dto);
   }
 

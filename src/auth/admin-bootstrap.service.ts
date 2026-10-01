@@ -42,7 +42,7 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
       const user = await this.users.create({ username, password });
       await this.users.update(user.id, { role: 'admin' });
       this.logger.info({ username }, 'bootstrap: first admin user created');
-    } catch (err) {
+    } catch (err: unknown) {
       this.logger.error({ err }, 'bootstrap: admin user creation failed');
     }
   }

@@ -13,6 +13,8 @@ export class IsInDatabaseConstraint implements ValidatorConstraintInterface {
   async validate(value: unknown, args: ValidationArguments) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const [EntityClass, property = 'id'] = args.constraints;
+    // EntityClass comes from decorator constraints (typed as unknown at runtime)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const repository = this.entityManager.getRepository(EntityClass);
     const row = await repository.findOne({
       where: { [property]: value },

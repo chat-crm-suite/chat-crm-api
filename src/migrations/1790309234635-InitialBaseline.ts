@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- generated migration uses queryRunner.query(): any */
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class InitialBaseline1790309234635 implements MigrationInterface {

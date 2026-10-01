@@ -100,6 +100,8 @@ describe('AdminBootstrapService', () => {
     await expect(service.onApplicationBootstrap()).resolves.toBeUndefined();
 
     expect(mockLogger.error).toHaveBeenCalledWith(
+      // expect.any() returns `any` — safe in test assertion context
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       expect.objectContaining({ err: expect.any(Error) }),
       expect.stringContaining('failed'),
     );

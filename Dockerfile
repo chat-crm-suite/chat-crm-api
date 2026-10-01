@@ -3,6 +3,18 @@ FROM node:22-alpine AS base
 RUN apk add --no-cache bash
 WORKDIR /app
 
+# Desarrollo: dependencias COMPLETAS (incl. devDependencies: @nestjs/cli, jest, eslint)
+# y watch con `nest start --watch`. El bind mount tapa /app, así que node_modules vive
+# en un volumen del compose con este contenido. uid 1000 = usuario host (WSL).
+FROM base AS dev
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN chown -R node:node /app
+USER node
+EXPOSE 3000
+CMD ["npm", "run", "start:dev"]
+
 # Build: instala todo (incl. devDependencies) y compila a dist/
 FROM base AS build
 COPY package*.json ./

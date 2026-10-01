@@ -10,8 +10,6 @@ import {
   MessageStatus,
   MessageDirection
 } from "@modules/message/message.enum";
-import { UserFactory } from './user.factory';
-import { ContactFactory } from './contact.factory';
 
 type MessageTransientParams = {
   manager?: DataSource | EntityManager;
@@ -29,9 +27,10 @@ export const MessageFactory = Factory.define<Message, MessageTransientParams>(
     });
 
     const message = new Message();
-    message.waId = `wa_${faker.string.uuid()}`;
+    // body == content con otro nombre: se mapea a content (única columna de texto).
+    // waId/contact/agent NO van al mensaje: wa_* vive en whatsapp_message_details,
+    // el externo es el chat via Contact y el operador se resuelve por senderType+senderId.
     message.senderType = params.senderType ?? MessageSenderType.AGENT;
-    message.body = faker.lorem.sentence();
     message.content = faker.lorem.sentence();
     message.type = MessageType.TEXT;
     message.mediaUrl = faker.internet.url();
@@ -40,10 +39,8 @@ export const MessageFactory = Factory.define<Message, MessageTransientParams>(
       ? MessageDirection.IN
       : MessageDirection.OUT;
 
-    // relations
+    // relations (solo las que existen en la entidad: chat + senderId polimórfico)
     message.chat = associations.chat;
-    message.contact = associations.contact ?? ContactFactory.build();
-    message.agent = associations.agent ?? UserFactory.build();
     message.senderId = associations.senderId ?? faker.string.uuid();
 
     return message;

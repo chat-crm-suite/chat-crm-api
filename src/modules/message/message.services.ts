@@ -89,6 +89,6 @@ export class MessageService {
   private inferSender(direction: 'in' | 'out') {
     return direction === 'in'
       ? MessageSenderType.CLIENT
-      : MessageSenderType.USER;
+      : MessageSenderType.AGENT;
   }
 }

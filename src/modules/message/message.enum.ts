@@ -9,9 +9,10 @@ export enum MessageType {
 
 export enum MessageSenderType {
   AGENT = 'agent',
-  USER = 'user',
   CLIENT = 'client',
   SYSTEM = 'system'
+  // 'user' eliminado: era redundante con 'agent' (operador logueado).
+  // Filas legacy con senderType='user' en MySQL (enum nativo) se tratan como agent a nivel app.
 }
 
 export enum MessageStatus {

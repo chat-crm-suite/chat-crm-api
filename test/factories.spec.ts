@@ -71,8 +71,8 @@ describe('Entity Factories Integration Tests', () => {
 
     expect(message).toBeDefined();
     expect(message.id).toBeDefined();
-    expect(message.agent?.id).toBeDefined();
-    expect(message.contact?.id).toBeDefined();
+    expect(message.content).toBeDefined();
+    expect(message.senderType).toBeDefined();
   })
 
   it('Analysis factory', async () => {

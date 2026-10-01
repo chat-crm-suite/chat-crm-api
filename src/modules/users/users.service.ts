@@ -14,7 +14,7 @@ import { UserTableQueryDto } from '../../common/schemas/user-table-query.schema'
 import { buildQueryOptions } from '../../lib/helpers/build-query-options.helper';
 import { Chat } from '../chats/entities/index';
 import { User } from './entities/user.entity';
-import { CoreService } from '@core/core.service';
+import { CoreService } from '../../core/core.service';
 import { AuthUser } from '../../auth/index';
 import { ClsService } from 'nestjs-cls';
 import { UserRepository } from './user.repository';

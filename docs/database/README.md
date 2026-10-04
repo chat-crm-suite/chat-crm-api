@@ -58,7 +58,7 @@ New tables: `customer_identities`, `pipeline_stages`, `tags`, `customer_tags`, `
 - **Channels**: adding a channel means adding a `channel_type` value and a provider adapter in code, without new tables. `customer_identities` and `messages.external_id` replace the WhatsApp-specific `wa_id`.
 - **AI analysis**: every analysis type shares the `analyses` header. A type that needs queryable columns gets a 1:1 detail table (the `sentiment_results` pattern); other types store their output in `result` JSON. `type` is a `varchar`, so adding a new analysis type needs no migration.
 - **Durable vs ephemeral**: MySQL stores durable state. Redis stores ephemeral or derived state, and every derived key can be rebuilt from MySQL.
-- **IDs**: uuid is stored as `char(36)` with UUIDv7 generated app-side (time-ordered, unlike the TypeORM v4 default); `message_status_events` is the only `bigint` (append-only). If `messages` grows large, `binary(16)` for that table is the documented escape hatch.
+- **IDs**: uuid is stored as `varchar(36)` with UUIDv7 generated app-side (time-ordered, unlike the TypeORM v4 default); `message_status_events` is the only `bigint` (append-only). If `messages` grows large, `binary(16)` for that table is the documented escape hatch.
 
 
 ## Realtime layer (Redis)

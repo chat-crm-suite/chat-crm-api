@@ -4,6 +4,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { UsersService } from '../modules/users/users.service';
 import { SetupService } from '../modules/setup/setup.service';
 import type { CreateSetupDto } from '../modules/setup/dto/create-setup.dto';
+import { WhatsAppApiVersionSchema } from '../contracts/index';
 
 /**
  * Bootstrap de arranque sin UI (despliegues headless).
@@ -96,7 +97,10 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
       accessToken,
       phoneNumberId,
       webhookUrl,
-      apiVersion: process.env.WHATSAPP_API_VERSION,
+      // Invalid/unknown versions are dropped so the entity default applies.
+      apiVersion: WhatsAppApiVersionSchema.safeParse(
+        process.env.WHATSAPP_API_VERSION,
+      ).data,
     };
   }
 }

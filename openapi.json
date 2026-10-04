@@ -927,7 +927,44 @@
     "/metrics/sentiment/top": {
       "get": {
         "operationId": "MetricsController_sentimentTop",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "actor",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "agent",
+                "client"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "POS",
+                "NEU",
+                "NEG"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 5,
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -941,7 +978,38 @@
     "/metrics/{metric}/compare": {
       "get": {
         "operationId": "MetricsController_metricCompare",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "metric",
+            "required": false,
+            "in": "path",
+            "schema": {
+              "default": "agent",
+              "type": "string",
+              "enum": [
+                "agent",
+                "chat",
+                "message",
+                "transfer",
+                "client"
+              ]
+            }
+          },
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -955,7 +1023,22 @@
     "/metrics/sentiment/trend": {
       "get": {
         "operationId": "MetricsController_getSentimentTrend",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1025,7 +1108,32 @@
     "/integration/webhook/whatsapp": {
       "get": {
         "operationId": "WebhookController_verifyWebhook",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "hub.mode",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.challenge",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.verify_token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -1219,7 +1327,112 @@
       },
       "CreateSetupDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "setupToken": {
+            "type": "string"
+          },
+          "admin": {
+            "type": "object",
+            "properties": {
+              "username": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 255
+              },
+              "password": {
+                "type": "string",
+                "minLength": 8
+              },
+              "firstName": {
+                "type": "string",
+                "maxLength": 255
+              },
+              "lastName": {
+                "type": "string",
+                "maxLength": 255
+              },
+              "email": {
+                "type": "string",
+                "maxLength": 255,
+                "format": "email",
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              },
+              "phoneNumber": {
+                "type": "string",
+                "maxLength": 50
+              }
+            },
+            "required": [
+              "username",
+              "password"
+            ]
+          },
+          "company": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 255
+              },
+              "email": {
+                "type": "string",
+                "maxLength": 255,
+                "format": "email",
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              },
+              "phoneNumber": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "address": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          "whatsapp": {
+            "type": "object",
+            "properties": {
+              "businessId": {
+                "type": "string"
+              },
+              "accessToken": {
+                "type": "string"
+              },
+              "phoneNumberId": {
+                "type": "string"
+              },
+              "webhookUrl": {
+                "type": "string"
+              },
+              "apiVersion": {
+                "type": "string",
+                "enum": [
+                  "v18.0",
+                  "v19.0",
+                  "v20.0",
+                  "v21.0",
+                  "v22.0",
+                  "v23.0"
+                ]
+              },
+              "apiBaseUrl": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "accessToken",
+              "phoneNumberId",
+              "webhookUrl"
+            ]
+          }
+        },
+        "required": [
+          "admin",
+          "company"
+        ]
       },
       "ChatDto": {
         "type": "object",
@@ -1227,7 +1440,22 @@
       },
       "ChatAssignDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "chatId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "agentId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "chatId",
+          "agentId"
+        ]
       },
       "UpdateChatDto": {
         "type": "object",
@@ -1247,11 +1475,55 @@
       },
       "CreateCompanyDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "address": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "suspended"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
       },
       "UpdateAssignmentSettingsDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "autoAssignEnabled": {
+            "type": "boolean"
+          },
+          "autoAssignMaxChats": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "autoAssignSticky": {
+            "type": "boolean"
+          },
+          "autoAssignNotifySupervisors": {
+            "type": "boolean"
+          }
+        }
       },
       "CreateContactDto": {
         "type": "object",

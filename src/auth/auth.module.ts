@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { MembersModule } from '../modules/member/member.module';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '@modules';
+import { SetupModule } from '../modules/setup/setup.module';
 import { JwtStrategy } from '../strategies/jwt.strategy';
 import { AdminBootstrapService } from './admin-bootstrap.service';
 
@@ -20,6 +21,7 @@ import { AdminBootstrapService } from './admin-bootstrap.service';
       signOptions: { expiresIn: '1d' },
     }),
     MembersModule,
+    SetupModule,
   ],
   providers: [AuthService, JwtStrategy, AdminBootstrapService],
   controllers: [AuthController],

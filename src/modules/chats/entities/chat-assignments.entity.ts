@@ -18,7 +18,7 @@ export class ChatAssignments {
   assignedAt: Date;
 
   @Column({ type: 'datetime', nullable: true })
-  unassignedAt?: Date;
+  unassignedAt?: Date | null;
 
   @Column({
     type: 'simple-enum',

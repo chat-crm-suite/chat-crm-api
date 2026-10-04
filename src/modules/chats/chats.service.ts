@@ -6,6 +6,9 @@ import { ChatDto, UpdateChatDto } from './dto/chat.dto';
 import { Chat } from './entities/index';
 import { ChatStatus } from './chat.enum';
 import { ChatRepository } from './chat.repository';
+import { ChatAssignmentService } from './assignment/chat-assignment.service';
+import { ChatAssignmentNotifier } from './assignment/chat-assignment.notifier';
+import { AssignmentOutcome } from './assignment/assignment.types';
 import { ClsService } from 'nestjs-cls';
 import { Message } from '../../entities/index';
 import { MessageSenderType } from '../message/message.enum';
@@ -19,6 +22,8 @@ export class ChatsService {
     @InjectRepository(Chat) private readonly chatRepo: Repository<Chat>,
     private readonly dataSource: DataSource,
     private readonly repo: ChatRepository,
+    private readonly assignment: ChatAssignmentService,
+    private readonly notifier: ChatAssignmentNotifier,
     private readonly logger: PinoLogger,
     private readonly cls: ClsService,
   ) {}
@@ -66,8 +71,65 @@ export class ChatsService {
     return agents.map((agent) => agent.id);
   }
 
-  async assign(chatId: string, agentId: string) {
-    return this.repo.assign(chatId, agentId);
+  /**
+   * Asignación manual/reasignación (Q9/Q14): solo admin/manager pueden quitarle
+   * el chat a otro agente; un miembro activo puede asignar un chat libre.
+   */
+  async assign(
+    chatId: string,
+    agentId: string,
+    options?: { companyId?: string; requesterId?: string },
+  ): Promise<AssignmentOutcome> {
+    const outcome = await this.assignment.assignToAgent(chatId, agentId, options);
+
+    if (outcome === AssignmentOutcome.ASSIGNED) {
+      await this.notifier.notifyAssigned(chatId, agentId);
+    }
+
+    return outcome;
+  }
+
+  /**
+   * Asignación automática al entrar un mensaje (Q1) + avisos (Q12): al agente
+   * elegido si se asignó, a los supervisores si quedó en la cola.
+   */
+  async ensureAssigned(chatId: string, companyId?: string): Promise<AssignmentOutcome> {
+    const outcome = await this.assignment.ensureAssigned(chatId, companyId);
+
+    if (outcome === AssignmentOutcome.ASSIGNED) {
+      const active = await this.assignment.getActiveAssignment(chatId);
+      if (active?.agent?.id) {
+        await this.notifier.notifyAssigned(chatId, active.agent.id);
+      }
+    } else if (outcome === AssignmentOutcome.NO_CANDIDATES) {
+      await this.notifier.notifyUnassigned(chatId, companyId);
+    }
+
+    return outcome;
+  }
+
+  /**
+   * Reclamo manual (Q13): el agente se queda con el chat libre. No genera
+   * notificación para sí mismo, pero sí evento para otras pestañas/clientes.
+   */
+  async claim(
+    chatId: string,
+    agentId: string,
+    companyId?: string,
+  ): Promise<AssignmentOutcome> {
+    const outcome = await this.assignment.claim(chatId, agentId, companyId);
+
+    if (outcome === AssignmentOutcome.ASSIGNED) {
+      await this.notifier.notifyAssigned(chatId, agentId, false);
+    }
+
+    return outcome;
+  }
+
+  /** Cola de chats sin asignar de la empresa (Q6/Q14). */
+  listUnassigned(companyId?: string, limit?: number) {
+    if (!companyId) return [];
+    return this.assignment.listUnassigned(companyId, limit);
   }
 
   updateLastMessage(chatId: string, messageId: string) {

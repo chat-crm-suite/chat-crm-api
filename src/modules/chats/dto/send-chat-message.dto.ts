@@ -13,6 +13,9 @@ export class SendChatMessageDto {
   @IsNotEmpty()
   room: string;
 
+  /** Empresa de origen, para asignación automática multi-empresa (Q4/Q15). */
+  companyId?: string;
+
   @IsNotEmpty()
   @IsPhoneNumber()
   to: string;

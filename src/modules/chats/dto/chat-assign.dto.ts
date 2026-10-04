@@ -1,11 +1,5 @@
-import { IsNotEmpty, IsUUID } from "class-validator";
+import { createZodDto } from 'nestjs-zod';
 
-export class ChatAssignDto {
-  @IsUUID()
-  @IsNotEmpty()
-  chatId: string;
+import { ChatAssignSchema } from '../../../contracts/index';
 
-  @IsUUID()
-  @IsNotEmpty()
-  agentId: string;
-}
+export class ChatAssignDto extends createZodDto(ChatAssignSchema) {}

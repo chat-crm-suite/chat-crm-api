@@ -1,7 +1,5 @@
-import { IsIn } from 'class-validator';
-import type { PeriodTime } from '../../../../lib/period';
+import { createZodDto } from 'nestjs-zod';
 
-export class CompareQuery {
-  @IsIn(['hour', 'day', 'week', 'month'])
-  period: PeriodTime;
-}
+import { CompareQuerySchema } from '../../../../contracts/index';
+
+export class CompareQuery extends createZodDto(CompareQuerySchema) {}

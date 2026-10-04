@@ -1,24 +1,11 @@
-import { IsBoolean, IsInt, IsOptional, Min } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+
+import { UpdateAssignmentSettingsSchema } from '../../../contracts/index';
 
 /**
- * Configuración de asignación automática por empresa (Q18).
- * Solo admin/manager de la empresa pueden modificarla.
+ * Automatic assignment settings per company (Q18).
+ * Only admins/managers of the company can change them.
  */
-export class UpdateAssignmentSettingsDto {
-  @IsOptional()
-  @IsBoolean()
-  autoAssignEnabled?: boolean;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  autoAssignMaxChats?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  autoAssignSticky?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  autoAssignNotifySupervisors?: boolean;
-}
+export class UpdateAssignmentSettingsDto extends createZodDto(
+  UpdateAssignmentSettingsSchema,
+) {}

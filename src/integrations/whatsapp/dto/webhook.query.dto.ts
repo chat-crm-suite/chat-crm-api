@@ -1,12 +1,5 @@
-import { IsString } from "class-validator";
+import { createZodDto } from 'nestjs-zod';
 
-export class WebhookQuery {
-  @IsString()
-  'hub.mode': string;
+import { WebhookQuerySchema } from '../../../contracts/index';
 
-  @IsString()
-  'hub.challenge': string;
-
-  @IsString()
-  'hub.verify_token': string;
-}
+export class WebhookQuery extends createZodDto(WebhookQuerySchema) {}

@@ -1,7 +1,7 @@
-import { IsIn, IsNotEmpty } from "class-validator";
+import { createZodDto } from 'nestjs-zod';
 
-export class SentimentTrendQuery {
-  @IsNotEmpty()
-  @IsIn(['hour', 'day', 'week', 'month'])
-  period: 'hour' | 'day' | 'week' | 'month';
-}
+import { SentimentTrendQuerySchema } from '../../../../contracts/index';
+
+export class SentimentTrendQuery extends createZodDto(
+  SentimentTrendQuerySchema,
+) {}

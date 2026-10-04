@@ -12,4 +12,9 @@
  * - Response schemas are also used by `@ZodResponse` to serialize endpoints.
  */
 export * from './auth.contract';
+export * from './chats.contract';
+export * from './company.contract';
+export * from './metrics.contract';
+export * from './setup.contract';
 export * from './whatsapp-config.contract';
+export * from './whatsapp-webhook.contract';

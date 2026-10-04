@@ -1,4 +1,3 @@
-import { IsOptional, IsPhoneNumber } from 'class-validator';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -10,7 +9,9 @@ import {
 } from 'typeorm';
 import { Contact } from '../../contacts/entities/contact.entity';
 
-export type CompanyStatus = 'active' | 'inactive' | 'suspended';
+// Single source of truth for the allowed statuses lives in the contracts.
+import type { CompanyStatus } from '../../../contracts/index';
+export type { CompanyStatus };
 
 @Entity('companies')
 export class Company {
@@ -24,14 +25,14 @@ export class Company {
   email?: string;
 
   @Column({ length: 50, nullable: true })
-  @IsPhoneNumber()
-  @IsOptional()
   phoneNumber?: string;
 
   @Column({ type: 'text', nullable: true })
   address?: string;
 
-  @Column({ default: 'active' })
+  // Explicit type: the contract type is a re-export, so decorator metadata
+  // cannot infer the column type (matches the varchar(255) column).
+  @Column({ type: 'varchar', default: 'active' })
   status: CompanyStatus;
 
   /**

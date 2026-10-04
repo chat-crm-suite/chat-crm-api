@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
 import { CompanyService } from './company.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
+import { UpdateAssignmentSettingsDto } from './dto/assignment-settings.dto';
 import { CompanyGuard } from './company.guard';
 import { JwtAuthGuard } from '../../auth/guards';
 
@@ -25,6 +26,19 @@ export class CompanyController {
   @UseGuards(CompanyGuard)
   me() {
     return this.service.info;
+  }
+
+  /** Config de asignación automática de la empresa activa (Q18). */
+  @Get('me/assignment-settings')
+  @UseGuards(CompanyGuard)
+  assignmentSettings() {
+    return this.service.getAssignmentSettings();
+  }
+
+  @Patch('me/assignment-settings')
+  @UseGuards(CompanyGuard)
+  updateAssignmentSettings(@Body() dto: UpdateAssignmentSettingsDto) {
+    return this.service.updateAssignmentSettings(dto);
   }
 
   @Get(':id')

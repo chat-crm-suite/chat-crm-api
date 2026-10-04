@@ -21,7 +21,9 @@ COPY --chown=node:node package.json pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile
 COPY --chown=node:node . .
 EXPOSE 3000
-CMD ["pnpm", "run", "start:dev"]
+# Sincroniza node_modules con el lockfile en cada arranque: el volumen nombrado
+# solo se rellena una vez, así que un rebuild no basta si cambian dependencias.
+CMD ["sh", "-c", "pnpm install --frozen-lockfile --prefer-offline && pnpm run start:dev"]
 
 # Build: instala todo (incl. devDependencies) y compila a dist/
 FROM base AS build

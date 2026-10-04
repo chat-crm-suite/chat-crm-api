@@ -24,6 +24,7 @@ import { ContentHandlerPort } from './content-handler.port';
 interface IncomingPayload {
   type: MessageType;
   mediaUrl?: string;
+  externalId?: string;
   content: WhatsAppTextContent | WhatsAppDocumentContent;
 }
 
@@ -66,8 +67,7 @@ export class MessageContentHandlers {
           type: 'customer',
         },
       }),
-    );
-  }
+    );  }
 
   private readonly text: ContentHandlerPort<TextContent> = {
     handle: async (content, context, transmission) => {
@@ -75,6 +75,7 @@ export class MessageContentHandlers {
         context,
         {
           type: 'text',
+          externalId: context.messageId,
           content: {
             body: content.text.body,
             preview_url: content.text.preview_url,
@@ -108,6 +109,7 @@ export class MessageContentHandlers {
         {
           type: 'document',
           mediaUrl: fileUrl,
+          externalId: context.messageId,
           content: {
             link: fileUrl,
             caption: content.document.caption,
@@ -139,6 +141,7 @@ export class MessageContentHandlers {
         {
           type: 'image',
           mediaUrl: fileUrl,
+          externalId: context.messageId,
           content: {
             link: fileUrl,
             caption: content.image.caption,

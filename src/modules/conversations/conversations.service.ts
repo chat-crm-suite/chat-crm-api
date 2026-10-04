@@ -58,7 +58,12 @@ export class ConversationsService {
    */
   async saveMsg(
     conversationId: string,
-    msg: { type: MessageType; content: MessageContentLike; mediaUrl?: string },
+    msg: {
+      type: MessageType;
+      content: MessageContentLike;
+      mediaUrl?: string;
+      externalId?: string;
+    },
     sender: { id: string; type: MessageSenderType },
     companyId?: string,
   ) {
@@ -89,6 +94,7 @@ export class ConversationsService {
       senderMemberId,
       senderCustomerId: inbound ? sender.id : null,
       body: msg.content?.body ?? msg.content?.caption ?? null,
+      externalId: msg.externalId ?? null,
       status: inbound ? 'delivered' : 'sent',
       attachments:
         attachmentType && link

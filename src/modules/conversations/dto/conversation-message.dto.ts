@@ -7,5 +7,9 @@ import type { SendConversationMessageInput } from '../../../contracts/index';
  */
 export interface ConversationMessageDto
   extends Omit<SendConversationMessageInput, 'msg' | 'to'> {
-  msg: SendConversationMessageInput['msg'] & { mediaUrl?: string };
+  msg: SendConversationMessageInput['msg'] & {
+    mediaUrl?: string;
+    /** Provider message id (wamid) for inbound messages. */
+    externalId?: string;
+  };
 }

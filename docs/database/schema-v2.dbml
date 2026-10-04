@@ -1,0 +1,567 @@
+// chat-crm — database schema v2 (proposal)
+// Paste into https://dbdiagram.io/d to render and validate.
+// Conventions: snake_case, uuid `id` PKs, company_id on every business table,
+// soft delete (deleted_at) only on business entities, dependent children CASCADE.
+// Ephemeral realtime state (presence, unread counters, typing, locks) lives in Redis — see README.md.
+
+Project chat_crm {
+  database_type: 'MySQL'
+  Note: 'chat-crm v2 — multi-tenant, multi-channel. Ephemeral realtime state lives in Redis (see README.md).'
+}
+
+// ───────────── Enums ─────────────
+enum company_status {
+  active
+  inactive
+  suspended
+}
+
+enum member_role {
+  admin
+  supervisor
+  agent
+}
+
+enum member_status {
+  active
+  inactive
+  suspended
+}
+
+enum channel_type {
+  whatsapp
+  telegram
+  messenger
+  instagram
+  email
+  sms
+  webchat
+}
+
+enum channel_status {
+  active
+  inactive
+  error
+}
+
+enum customer_source {
+  whatsapp
+  manual
+  import
+  api
+}
+
+enum conversation_status {
+  open
+  pending
+  closed
+  archived
+}
+
+enum conversation_priority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum assignment_reason {
+  auto
+  claim
+  manual
+  transfer
+  escalation
+}
+
+enum message_direction {
+  inbound
+  outbound
+}
+
+enum message_sender_type {
+  customer
+  member
+  system
+  bot
+}
+
+enum message_type {
+  text
+  image
+  audio
+  video
+  document
+  sticker
+  location
+  contact
+  template
+  interactive
+  reaction
+}
+
+enum message_status {
+  pending
+  sent
+  delivered
+  read
+  failed
+}
+
+enum attachment_type {
+  image
+  audio
+  video
+  document
+  sticker
+}
+
+enum template_category {
+  marketing
+  utility
+  authentication
+}
+
+enum template_status {
+  pending
+  approved
+  rejected
+  paused
+  disabled
+}
+
+enum custom_field_type {
+  text
+  number
+  date
+  boolean
+  select
+  multiselect
+}
+
+enum analysis_target {
+  message
+  conversation
+}
+
+enum analysis_status {
+  pending
+  processing
+  completed
+  failed
+}
+
+enum sentiment_label {
+  positive
+  neutral
+  negative
+}
+
+// ───────────── Tenancy & access ─────────────
+Table companies {
+  id uuid [pk]
+  name varchar(255) [not null]
+  email varchar(255) [unique]
+  phone_number varchar(20) [note: 'E.164']
+  address text
+  timezone varchar(64) [not null, default: 'America/Lima']
+  status company_status [not null, default: 'active']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  Note: 'Tenant root.'
+}
+
+Table company_settings {
+  company_id uuid [pk, ref: - companies.id, note: 'ON DELETE CASCADE']
+  auto_assign_enabled boolean [not null, default: true, note: 'kill-switch for the assignment engine']
+  auto_assign_max_open int [not null, default: 10, note: '<= 0 = no limit']
+  auto_assign_sticky boolean [not null, default: true, note: 'prefer previous agent if still eligible']
+  auto_assign_notify_supervisors boolean [not null, default: true]
+  business_hours json
+  updated_at datetime [not null]
+  Note: 'Previously auto_assign_* columns on companies.'
+}
+
+Table users {
+  id uuid [pk]
+  email varchar(255) [unique, not null]
+  username varchar(100) [unique, not null]
+  password_hash varchar(255) [not null]
+  first_name varchar(100)
+  last_name varchar(100)
+  phone_number varchar(20) [unique, note: 'E.164']
+  avatar_url varchar(512)
+  is_platform_admin boolean [not null, default: false, note: 'SaaS superadmin; business role lives in company_members']
+  last_login_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  Note: 'Identity/login only. No role or status: presence lives in Redis.'
+}
+
+Table company_members {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  user_id uuid [not null, ref: > users.id]
+  role member_role [not null, default: 'agent']
+  status member_status [not null, default: 'active']
+  accepts_auto_assign boolean [not null, default: true]
+  max_open_conversations int [note: 'overrides company_settings.auto_assign_max_open']
+  joined_at datetime [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  indexes {
+    (company_id, user_id) [unique]
+    (company_id, role, status)
+  }
+  Note: 'A user inside a company (agent/supervisor/admin). Every business FK to "a person of the staff" points here, not to users.'
+}
+
+// ───────────── Channels ─────────────
+Table channels {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  type channel_type [not null]
+  name varchar(100) [not null]
+  external_account_id varchar(100) [not null, note: 'WA: phone_number_id']
+  display_address varchar(100) [note: 'WA: visible phone number +51...']
+  credentials text [not null, note: 'AES-256-GCM encrypted JSON envelope (accessToken, businessAccountId...). Keys defined by a Zod schema per channel type']
+  settings json [note: 'non-secret: apiVersion, apiBaseUrl, webhookUrl']
+  webhook_verify_token varchar(256)
+  status channel_status [not null, default: 'active']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  indexes {
+    (type, external_account_id) [unique, note: 'webhook routing']
+    (company_id, type)
+  }
+  Note: 'Replaces whatsapp_configs. New channels are new rows, not new tables.'
+}
+
+Table message_templates {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  channel_id uuid [not null, ref: > channels.id]
+  name varchar(512) [not null]
+  language varchar(10) [not null]
+  category template_category [not null]
+  status template_status [not null, default: 'pending']
+  components json [not null]
+  external_id varchar(100)
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  indexes {
+    (channel_id, name, language) [unique]
+  }
+  Note: 'Provider-approved templates (WhatsApp HSM).'
+}
+
+// ───────────── Customers (previously contacts) ─────────────
+Table pipeline_stages {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  name varchar(100) [not null]
+  position int [not null]
+  color varchar(7)
+  is_won boolean [not null, default: false]
+  is_lost boolean [not null, default: false]
+  indexes {
+    (company_id, name) [unique]
+  }
+  Note: 'Configurable sales stages per company (replaces contacts.status).'
+}
+
+Table customers {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  first_name varchar(100)
+  last_name varchar(100)
+  display_name varchar(200)
+  email varchar(255)
+  phone_number varchar(20) [note: 'normalized E.164']
+  avatar_url varchar(512)
+  source customer_source [not null, default: 'manual']
+  pipeline_stage_id uuid [ref: > pipeline_stages.id, note: 'ON DELETE SET NULL']
+  owner_member_id uuid [ref: > company_members.id, note: 'account owner']
+  last_interaction_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  indexes {
+    (company_id, phone_number) [unique]
+    (company_id, pipeline_stage_id)
+    (company_id, last_interaction_at)
+  }
+}
+
+Table customer_identities {
+  id uuid [pk]
+  customer_id uuid [not null, ref: > customers.id, note: 'CASCADE']
+  channel_id uuid [not null, ref: > channels.id]
+  external_id varchar(100) [not null, note: 'WA: wa_id']
+  profile_name varchar(200)
+  created_at datetime [not null]
+  indexes {
+    (channel_id, external_id) [unique]
+  }
+  Note: 'Previously contacts.wa_id (globally unique). Now unique per channel, so one person can talk to several companies/channels.'
+}
+
+Table tags {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  name varchar(50) [not null]
+  color varchar(7)
+  indexes {
+    (company_id, name) [unique]
+  }
+}
+
+Table customer_tags {
+  customer_id uuid [not null, ref: > customers.id, note: 'CASCADE']
+  tag_id uuid [not null, ref: > tags.id, note: 'CASCADE']
+  indexes {
+    (customer_id, tag_id) [pk]
+    tag_id
+  }
+  Note: 'Replaces contacts.tags (simple-array).'
+}
+
+Table custom_field_definitions {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  key varchar(64) [not null]
+  label varchar(100) [not null]
+  field_type custom_field_type [not null]
+  options json [note: 'for select/multiselect']
+  is_required boolean [not null, default: false]
+  position int [not null, default: 0]
+  created_at datetime [not null]
+  indexes {
+    (company_id, key) [unique]
+  }
+}
+
+Table customer_custom_values {
+  customer_id uuid [not null, ref: > customers.id, note: 'CASCADE']
+  field_id uuid [not null, ref: > custom_field_definitions.id, note: 'CASCADE']
+  value text
+  updated_at datetime [not null]
+  indexes {
+    (customer_id, field_id) [pk]
+  }
+}
+
+Table customer_notes {
+  id uuid [pk]
+  customer_id uuid [not null, ref: > customers.id, note: 'CASCADE']
+  conversation_id uuid [ref: > conversations.id, note: 'optional: note written from a conversation']
+  author_member_id uuid [not null, ref: > company_members.id]
+  body text [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  Note: 'Internal notes, never sent to the customer.'
+}
+
+// ───────────── Conversations (previously chats) ─────────────
+Table conversations {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  customer_id uuid [not null, ref: > customers.id]
+  channel_id uuid [not null, ref: > channels.id]
+  status conversation_status [not null, default: 'open']
+  priority conversation_priority [not null, default: 'low']
+  assigned_member_id uuid [ref: > company_members.id, note: 'current assignee (denormalized from conversation_assignments)']
+  last_message_id uuid [ref: > messages.id, note: 'NOT eager; SET NULL']
+  last_message_at datetime
+  last_inbound_at datetime [note: 'WA 24h window + needs-response view']
+  last_outbound_at datetime
+  closed_at datetime
+  closed_by_member_id uuid [ref: > company_members.id]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  indexes {
+    (company_id, status, last_message_at)
+    (company_id, assigned_member_id, status)
+    (company_id, customer_id)
+  }
+}
+
+Table conversation_assignments {
+  id uuid [pk]
+  conversation_id uuid [not null, ref: > conversations.id, note: 'CASCADE']
+  member_id uuid [not null, ref: > company_members.id]
+  assigned_by_member_id uuid [ref: > company_members.id, note: 'NULL = system (auto)']
+  reason assignment_reason [not null, default: 'auto']
+  assigned_at datetime [not null]
+  unassigned_at datetime [note: 'NULL = active assignment']
+  indexes {
+    (conversation_id, assigned_at)
+    (member_id, unassigned_at)
+  }
+  Note: 'History. Merges chat_assignments + transfers (a transfer is a row with reason=transfer; "from" is the previous row). No UNIQUE(conversation, member) so the same agent can be reassigned later.'
+}
+
+Table conversation_reads {
+  conversation_id uuid [not null, ref: > conversations.id, note: 'CASCADE']
+  member_id uuid [not null, ref: > company_members.id, note: 'CASCADE']
+  last_read_message_id uuid [ref: > messages.id]
+  last_read_at datetime [not null]
+  indexes {
+    (conversation_id, member_id) [pk]
+  }
+  Note: 'Minimal persistence; unread counters live in Redis and are rebuilt from here.'
+}
+
+// ───────────── Messages ─────────────
+Table messages {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  conversation_id uuid [not null, ref: > conversations.id, note: 'CASCADE']
+  direction message_direction [not null]
+  sender_type message_sender_type [not null]
+  sender_member_id uuid [ref: > company_members.id, note: 'when sender_type=member']
+  sender_customer_id uuid [ref: > customers.id, note: 'when sender_type=customer']
+  client_message_id varchar(64) [note: 'temp id generated by the front for optimistic UI + idempotent retries']
+  type message_type [not null, default: 'text']
+  body text
+  reply_to_message_id uuid [ref: > messages.id, note: 'SET NULL']
+  template_id uuid [ref: > message_templates.id]
+  external_id varchar(128) [note: 'WA: wamid (previously whatsapp_message_details)']
+  status message_status [not null, default: 'pending']
+  status_updated_at datetime
+  error_code varchar(50)
+  error_message varchar(500)
+  sent_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  indexes {
+    (conversation_id, created_at)
+    external_id [unique]
+    (conversation_id, client_message_id) [unique, note: 'dedupe double-send on reconnect']
+    (company_id, created_at)
+  }
+}
+
+Table message_attachments {
+  id uuid [pk]
+  message_id uuid [not null, ref: > messages.id, note: 'CASCADE']
+  type attachment_type [not null]
+  mime_type varchar(100) [not null]
+  file_name varchar(255)
+  size_bytes bigint
+  storage_url varchar(1024)
+  external_media_id varchar(128)
+  width int
+  height int
+  duration_ms int
+  created_at datetime [not null]
+  Note: 'Replaces messages.media_url; one message can carry several files.'
+}
+
+Table message_status_events {
+  id bigint [pk, increment]
+  message_id uuid [not null, ref: > messages.id, note: 'CASCADE']
+  status message_status [not null]
+  occurred_at datetime [not null]
+  error_code varchar(50)
+  raw_payload json
+  indexes {
+    (message_id, occurred_at)
+  }
+  Note: 'Webhook history sent/delivered/read. Current state stays in messages.status.'
+}
+
+// ───────────── AI analysis (extensible) ─────────────
+Table analyses {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  target analysis_target [not null]
+  message_id uuid [ref: > messages.id, note: 'CASCADE; when target=message']
+  conversation_id uuid [not null, ref: > conversations.id, note: 'always set: enables per-conversation aggregation']
+  type varchar(50) [not null, note: 'sentiment | intent | topic | ... (varchar: new types without enum migration)']
+  model varchar(100)
+  status analysis_status [not null, default: 'pending']
+  label varchar(100) [note: 'primary result']
+  confidence decimal(5,4)
+  result json [note: 'type-specific payload']
+  error varchar(500)
+  created_at datetime [not null]
+  completed_at datetime
+  indexes {
+    (conversation_id, type, created_at)
+    (message_id, type)
+  }
+  Note: 'Common header. Types needing queryable columns get a 1:1 detail table (sentiment_results pattern); others use result JSON.'
+}
+
+Table sentiment_results {
+  analysis_id uuid [pk, ref: - analyses.id, note: 'CASCADE']
+  label sentiment_label [not null]
+  score_positive decimal(5,4) [not null]
+  score_neutral decimal(5,4) [not null]
+  score_negative decimal(5,4) [not null]
+  Note: 'Previously sentiment_analysis.'
+}
+
+// ───────────── Notifications ─────────────
+Table notifications {
+  id uuid [pk]
+  company_id uuid [not null, ref: > companies.id]
+  recipient_member_id uuid [not null, ref: > company_members.id, note: 'CASCADE']
+  type varchar(50) [not null, note: 'conversation_assigned, queue_unassigned, ...']
+  title varchar(255) [not null]
+  body text
+  data json [note: '{conversation_id, ...} for deep-linking']
+  read_at datetime [note: 'NULL = unread']
+  created_at datetime [not null]
+  indexes {
+    (recipient_member_id, read_at, created_at)
+  }
+  Note: 'Durable history (bell list). Realtime delivery, unread badge and dedupe live in Redis; a reconnecting client replays missed events from the Redis stream.'
+}
+
+TableGroup tenancy {
+  companies
+  company_settings
+  users
+  company_members
+}
+
+TableGroup channel {
+  channels
+  message_templates
+}
+
+TableGroup crm {
+  customers
+  customer_identities
+  pipeline_stages
+  tags
+  customer_tags
+  custom_field_definitions
+  customer_custom_values
+  customer_notes
+}
+
+TableGroup inbox {
+  conversations
+  conversation_assignments
+  conversation_reads
+  messages
+  message_attachments
+  message_status_events
+}
+
+TableGroup ai {
+  analyses
+  sentiment_results
+}
+
+TableGroup notify {
+  notifications
+}

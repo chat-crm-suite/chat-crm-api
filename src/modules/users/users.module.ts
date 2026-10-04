@@ -4,7 +4,6 @@ import { CsvModule } from 'nest-csv-parser';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
-import { IsInDatabaseConstraint } from '../../utils/validators/IsInDatabase';
 import { Chat } from '../chats/entities/index';
 import { UserRepository } from './user.repository';
 import { UserSubscriber } from './user.subscriber';
@@ -15,7 +14,7 @@ import { UserSubscriber } from './user.subscriber';
     CsvModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService, IsInDatabaseConstraint, UserRepository, UserSubscriber],
+  providers: [UsersService, UserRepository, UserSubscriber],
   exports: [UsersService]
 })
 export class UsersModule { }

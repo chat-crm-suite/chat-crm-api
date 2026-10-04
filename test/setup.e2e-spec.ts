@@ -4,15 +4,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import cookieParser from 'cookie-parser';
 import { ClsModule } from 'nestjs-cls';
-import type { I18nService } from 'nestjs-i18n';
+import { I18nModule, I18nService } from 'nestjs-i18n';
 import { LoggerModule } from 'nestjs-pino';
 import { ZodValidationPipe } from 'nestjs-zod';
+import { join } from 'path';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
 import { AuthModule } from '../src/auth/auth.module';
 import { ZodValidationExceptionFilter } from '../src/common/filters/zod-validation.filter';
 import { loggerConfig } from '../src/config/logger.config';
+import { i18nConfig } from '../src/config/i18n.config';
 import { clsConfig } from '../src/config/cls.config';
 import {
   Analysis,
@@ -77,6 +79,14 @@ const createApp = async (setupToken?: string): Promise<INestApplication> => {
       ConfigModule.forRoot({ isGlobal: true }),
       LoggerModule.forRoot(loggerConfig),
       ClsModule.forRoot(clsConfig),
+      // Real i18n module (locales resolved from src/, unlike the app build).
+      I18nModule.forRoot({
+        ...i18nConfig,
+        loaderOptions: {
+          path: join(__dirname, '../src/locales/'),
+          watch: false,
+        },
+      }),
       TypeOrmModule.forRoot(getTestSQLiteConfig(entities)),
       SetupModule,
       AuthModule,
@@ -92,12 +102,11 @@ const createApp = async (setupToken?: string): Promise<INestApplication> => {
   const app = moduleFixture.createNestApplication();
   app.useLogger(false);
   app.use(cookieParser());
-  // Same validation pipeline the HTTP bootstrap registers for Zod DTOs. The
-  // i18n service is stubbed: the message mapping itself is covered by
-  // zod-validation.filter.spec.ts.
-  const i18nStub = { t: (key: string) => key } as unknown as I18nService;
+  // Same validation pipeline the HTTP bootstrap registers for Zod DTOs.
   app.useGlobalPipes(new ZodValidationPipe());
-  app.useGlobalFilters(new ZodValidationExceptionFilter(i18nStub));
+  app.useGlobalFilters(
+    new ZodValidationExceptionFilter(app.get(I18nService)),
+  );
   await app.init();
 
   return app;
@@ -208,8 +217,8 @@ describe('Setup first-run flow (e2e)', () => {
         error: 'Bad Request',
       });
       expect(body.message).toEqual([
-        'validations.required',
-        'validations.required',
+        'El campo username es obligatorio.',
+        'El campo password es obligatorio.',
       ]);
     });
   });

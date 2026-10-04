@@ -1,5 +1,4 @@
 import { NestFactory, Reflector } from '@nestjs/core';
-import { useContainer } from 'class-validator';
 import cookieParser from 'cookie-parser';
 import {
   I18nService,
@@ -38,9 +37,6 @@ async function bootstrap() {
     new ClassSerializerInterceptor(app.get(Reflector)),
     new LoggerErrorInterceptor(),
   );
-
-  // Validate decorators (isUnique)
-  useContainer(app.select(AppModule), { fallbackOnErrors: true });
 
   // Authentication
   app.use(cookieParser());

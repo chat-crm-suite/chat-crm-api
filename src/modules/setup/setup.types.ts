@@ -7,6 +7,10 @@ export interface SetupStatus {
   hasAdmin: boolean;
   hasCompany: boolean;
   hasWhatsapp: boolean;
+  /** Existe al menos un usuario (aunque todavía no tenga empresa). */
+  hasUsers: boolean;
+  /** La API exige token para completar el primer arranque. */
+  requiresSetupToken: boolean;
 }
 
 export interface SetupResult {

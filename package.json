@@ -1,6 +1,18 @@
 {
   "name": "chat-crm-api",
   "version": "1.0.0-beta.0",
+  "packageManager": "pnpm@10.34.6",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@parcel/watcher",
+      "bcrypt",
+      "better-sqlite3",
+      "es5-ext",
+      "msgpackr-extract",
+      "unrs-resolver"
+    ]
+  },
   "description": "",
   "author": "",
   "private": true,
@@ -38,6 +50,7 @@
     "@nestjs/serve-static": "^5.0.4",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.1.6",
+    "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.61.0",
     "cacheable": "^1.10.4",
@@ -60,6 +73,7 @@
     "qs": "^6.14.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.3",
     "typeorm": "^0.3.25",
     "typeorm-naming-strategies": "^4.1.0",
     "zod": "^4.1.11"

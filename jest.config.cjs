@@ -19,6 +19,9 @@ module.exports = {
 
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/src/$1',
+    // Misma razón que en test/jest-e2e.json: @nestjs/mapped-types v12 es ESM
+    // y Jest (CJS) no puede requerirlo. El stub replica las factorías.
+    '^@nestjs/mapped-types$': '<rootDir>/test/helpers/mapped-types.stub.ts',
     ...pathsToModuleNameMapper(compilerOptions.paths, {
       prefix: '<rootDir>/',
     }),

@@ -7,6 +7,10 @@ import { WhatsAppConfig } from '../../entities/index';
 import { InjectRepository } from '@nestjs/typeorm';
 import { WhatsAppClient } from './clients/whatsapp.client';
 import { WhatsAppPayload } from './interfaces/whatsapp-message.interface';
+import {
+  CreateWhatsAppConfigInput,
+  UpdateWhatsAppConfigInput,
+} from '../../contracts/index';
 
 @Injectable()
 export class WhatsAppService {
@@ -65,7 +69,7 @@ export class WhatsAppService {
     });
   }
 
-  createConfig(config: Partial<WhatsAppConfig>) {
+  createConfig(config: CreateWhatsAppConfigInput) {
     const company = { id: this.cls.get('company.id') };
     const waConfig = this.configRepository.create({
       ...config,
@@ -75,14 +79,19 @@ export class WhatsAppService {
     return this.configRepository.save(waConfig);
   }
 
-  updateConfig(config: Partial<WhatsAppConfig>) {
-    console.log(config, 'Config in service');
-    return this.configRepository.update(
+  /**
+   * Returns the fresh configuration so the response always matches the
+   * `WhatsAppConfigSchema` contract (the raw `UpdateResult` is not a config).
+   */
+  async updateConfig(config: UpdateWhatsAppConfigInput) {
+    await this.configRepository.update(
       {
         company: { id: this.cls.get('company.id') },
       },
       config,
     );
+
+    return this.getConfig();
   }
 
   // async sendTemplateMessage(to: string, templateName: string, languageCode: string, companyId?: string) {

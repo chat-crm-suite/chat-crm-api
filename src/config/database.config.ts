@@ -1,7 +1,7 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
-export const databaseConfig: TypeOrmModuleOptions = {
+export const mysqlDatabaseConfig: TypeOrmModuleOptions = {
   type: 'mysql',
   host: process.env.DB_HOST,
   port: parseInt(process.env.DB_PORT || '3306', 10),
@@ -29,7 +29,7 @@ export const databaseConfig: TypeOrmModuleOptions = {
 };
 
 export const testDatabaseConfig: TypeOrmModuleOptions = {
-  ...databaseConfig,
+  ...mysqlDatabaseConfig,
   database: process.env.DB_DATABASE + '_test',
   synchronize: true,
   dropSchema: true,
@@ -49,3 +49,16 @@ export const testDatabaseSQLiteConfig: TypeOrmModuleOptions = {
   namingStrategy: new SnakeNamingStrategy(),
   logger: 'formatted-console'
 }
+
+/**
+ * Runtime configuration used by the application.
+ *
+ * `DB_DRIVER=sqlite` swaps MySQL for in-memory SQLite so tooling (OpenAPI
+ * generation: `pnpm run docs:gen|docs:check`) can boot the whole app without
+ * infrastructure. Never use it in production: the Docker env files do not
+ * define it.
+ */
+export const databaseConfig: TypeOrmModuleOptions =
+  process.env.DB_DRIVER === 'sqlite'
+    ? { ...testDatabaseSQLiteConfig, logger: undefined }
+    : mysqlDatabaseConfig;

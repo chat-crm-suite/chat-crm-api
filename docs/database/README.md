@@ -49,13 +49,16 @@ New tables: `customer_identities`, `pipeline_stages`, `tags`, `customer_tags`, `
 
 ## Design rules
 
-- **Tenancy**: every business table has `company_id NOT NULL`, and its composite indexes start with it.
+- **Tenancy**: every table queryable directly by tenant has `company_id NOT NULL`, and its composite indexes start with it. Pure children (`customer_identities`, `customer_tags`, `customer_custom_values`, `customer_notes`, `conversation_reads`, `message_attachments`, `message_status_events`, `sentiment_results`) resolve the tenant through their root.
+- **Domain values**: closed sets are `varchar(50)` validated by Zod contracts in `src/contracts/` (single source of truth shared with the frontend), so adding a value needs no migration.
+- **Identity canon**: `customer_identities` resolves incoming customers (`external_id` stored raw as the channel reports it, so it round-trips to the provider API); `customers.phone_number` is informational and normalized to `+digits` at ingestion; concurrent duplicates are tolerated with read-back; `profile_name` is updated when it changes.
+- **Credentials**: `channels.credentials` stores an AES-256-GCM envelope (`iv`, `authTag`, `ciphertext`) with the key in `CREDENTIALS_ENCRYPTION_KEY`; the plaintext keys inside are defined by a Zod schema per channel type.
 - **People**: `users` holds identity and login. Any business reference to a staff person (assignee, author, sender, recipient) points to `company_members`, so the role and status always apply in the context of a company.
 - **Deletes**: `deleted_at` (soft delete) appears only on business entities. Dependent children use `ON DELETE CASCADE`; other references use explicit `RESTRICT` or `SET NULL`.
 - **Channels**: adding a channel means adding a `channel_type` value and a provider adapter in code, without new tables. `customer_identities` and `messages.external_id` replace the WhatsApp-specific `wa_id`.
 - **AI analysis**: every analysis type shares the `analyses` header. A type that needs queryable columns gets a 1:1 detail table (the `sentiment_results` pattern); other types store their output in `result` JSON. `type` is a `varchar`, so adding a new analysis type needs no migration.
 - **Durable vs ephemeral**: MySQL stores durable state. Redis stores ephemeral or derived state, and every derived key can be rebuilt from MySQL.
-- **IDs**: uuid is stored as `char(36)` (the TypeORM default). If `messages` grows large, consider UUIDv7 or `binary(16)` for better index locality.
+- **IDs**: uuid is stored as `char(36)` with UUIDv7 generated app-side (time-ordered, unlike the TypeORM v4 default); `message_status_events` is the only `bigint` (append-only). If `messages` grows large, `binary(16)` for that table is the documented escape hatch.
 
 
 ## Realtime layer (Redis)

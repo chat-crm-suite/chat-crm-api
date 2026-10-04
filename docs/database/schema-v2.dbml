@@ -1,7 +1,10 @@
 // chat-crm — database schema v2 (proposal)
 // Paste into https://dbdiagram.io/d to render and validate.
-// Conventions: snake_case, uuid `id` PKs, company_id on every business table,
-// soft delete (deleted_at) only on business entities, dependent children CASCADE.
+// Conventions: snake_case, uuid `id` PKs, company_id on tenant-queryable tables
+// (pure children resolve the tenant through their root), soft delete (deleted_at)
+// only on business entities, dependent children CASCADE.
+// Domain values are varchar(50) validated by Zod contracts in src/contracts/ (single
+// source of truth); each column documents its allowed values in a note.
 // Ephemeral realtime state (presence, unread counters, typing, locks) lives in Redis — see README.md.
 
 Project chat_crm {
@@ -9,152 +12,28 @@ Project chat_crm {
   Note: 'chat-crm v2 — multi-tenant, multi-channel. Ephemeral realtime state lives in Redis (see README.md).'
 }
 
-// ───────────── Enums ─────────────
-enum company_status {
-  active
-  inactive
-  suspended
-}
-
-enum member_role {
-  admin
-  supervisor
-  agent
-}
-
-enum member_status {
-  active
-  inactive
-  suspended
-}
-
-enum channel_type {
-  whatsapp
-  telegram
-  messenger
-  instagram
-  email
-  sms
-  webchat
-}
-
-enum channel_status {
-  active
-  inactive
-  error
-}
-
-enum customer_source {
-  whatsapp
-  manual
-  import
-  api
-}
-
-enum conversation_status {
-  open
-  pending
-  closed
-  archived
-}
-
-enum conversation_priority {
-  low
-  medium
-  high
-  urgent
-}
-
-enum assignment_reason {
-  auto
-  claim
-  manual
-  transfer
-  escalation
-}
-
-enum message_direction {
-  inbound
-  outbound
-}
-
-enum message_sender_type {
-  customer
-  member
-  system
-  bot
-}
-
-enum message_type {
-  text
-  image
-  audio
-  video
-  document
-  sticker
-  location
-  contact
-  template
-  interactive
-  reaction
-}
-
-enum message_status {
-  pending
-  sent
-  delivered
-  read
-  failed
-}
-
-enum attachment_type {
-  image
-  audio
-  video
-  document
-  sticker
-}
-
-enum template_category {
-  marketing
-  utility
-  authentication
-}
-
-enum template_status {
-  pending
-  approved
-  rejected
-  paused
-  disabled
-}
-
-enum custom_field_type {
-  text
-  number
-  date
-  boolean
-  select
-  multiselect
-}
-
-enum analysis_target {
-  message
-  conversation
-}
-
-enum analysis_status {
-  pending
-  processing
-  completed
-  failed
-}
-
-enum sentiment_label {
-  positive
-  neutral
-  negative
-}
+// ───────────── Domain value sets (varchar(50), defined in src/contracts/) ─────────────
+//
+// company_status:        active | inactive | suspended                              → company.contract.ts
+// member_role:           admin | supervisor | agent                                 → member.contract.ts
+// member_status:         active | inactive | suspended                              → member.contract.ts
+// channel_type:          whatsapp | telegram | messenger | instagram | email | sms | webchat → channel.contract.ts
+// channel_status:        active | inactive | error                                  → channel.contract.ts
+// customer_source:       whatsapp | manual | import | api                           → customer.contract.ts
+// conversation_status:   open | pending | closed | archived                         → conversation.contract.ts
+// conversation_priority: low | medium | high | urgent                               → conversation.contract.ts
+// assignment_reason:     auto | claim | manual | transfer | escalation              → conversation.contract.ts
+// message_direction:     inbound | outbound                                         → message.contract.ts
+// message_sender_type:   customer | member | system | bot                           → message.contract.ts
+// message_type:          text | image | audio | video | document | sticker | location | contact | template | interactive | reaction → message.contract.ts
+// message_status:        pending | sent | delivered | read | failed                 → message.contract.ts
+// attachment_type:       image | audio | video | document | sticker                 → message.contract.ts
+// template_category:     marketing | utility | authentication                       → template.contract.ts
+// template_status:       pending | approved | rejected | paused | disabled          → template.contract.ts
+// custom_field_type:     text | number | date | boolean | select | multiselect      → customer.contract.ts
+// analysis_target:       message | conversation                                     → analysis.contract.ts
+// analysis_status:       pending | processing | completed | failed                  → analysis.contract.ts
+// sentiment_label:       positive | neutral | negative                              → analysis.contract.ts
 
 // ───────────── Tenancy & access ─────────────
 Table companies {
@@ -164,7 +43,7 @@ Table companies {
   phone_number varchar(20) [note: 'E.164']
   address text
   timezone varchar(64) [not null, default: 'America/Lima']
-  status company_status [not null, default: 'active']
+  status varchar(50) [not null, default: 'active', note: 'active | inactive | suspended (company.contract.ts)']
   created_at datetime [not null]
   updated_at datetime [not null]
   deleted_at datetime
@@ -203,8 +82,8 @@ Table company_members {
   id uuid [pk]
   company_id uuid [not null, ref: > companies.id]
   user_id uuid [not null, ref: > users.id]
-  role member_role [not null, default: 'agent']
-  status member_status [not null, default: 'active']
+  role varchar(50) [not null, default: 'agent', note: 'admin | supervisor | agent (member.contract.ts)']
+  status varchar(50) [not null, default: 'active', note: 'active | inactive | suspended (member.contract.ts)']
   accepts_auto_assign boolean [not null, default: true]
   max_open_conversations int [note: 'overrides company_settings.auto_assign_max_open']
   joined_at datetime [not null]
@@ -221,14 +100,14 @@ Table company_members {
 Table channels {
   id uuid [pk]
   company_id uuid [not null, ref: > companies.id]
-  type channel_type [not null]
+  type varchar(50) [not null, note: 'whatsapp | telegram | messenger | instagram | email | sms | webchat (channel.contract.ts)']
   name varchar(100) [not null]
   external_account_id varchar(100) [not null, note: 'WA: phone_number_id']
   display_address varchar(100) [note: 'WA: visible phone number +51...']
-  credentials text [not null, note: 'AES-256-GCM encrypted JSON envelope (accessToken, businessAccountId...). Keys defined by a Zod schema per channel type']
+  credentials text [not null, note: 'AES-256-GCM envelope {iv, authTag, ciphertext} encrypted with CREDENTIALS_ENCRYPTION_KEY; plaintext keys defined by a Zod schema per channel type']
   settings json [note: 'non-secret: apiVersion, apiBaseUrl, webhookUrl']
   webhook_verify_token varchar(256)
-  status channel_status [not null, default: 'active']
+  status varchar(50) [not null, default: 'active', note: 'active | inactive | error (channel.contract.ts)']
   created_at datetime [not null]
   updated_at datetime [not null]
   deleted_at datetime
@@ -245,8 +124,8 @@ Table message_templates {
   channel_id uuid [not null, ref: > channels.id]
   name varchar(512) [not null]
   language varchar(10) [not null]
-  category template_category [not null]
-  status template_status [not null, default: 'pending']
+  category varchar(50) [not null, note: 'marketing | utility | authentication (template.contract.ts)']
+  status varchar(50) [not null, default: 'pending', note: 'pending | approved | rejected | paused | disabled (template.contract.ts)']
   components json [not null]
   external_id varchar(100)
   created_at datetime [not null]
@@ -279,9 +158,9 @@ Table customers {
   last_name varchar(100)
   display_name varchar(200)
   email varchar(255)
-  phone_number varchar(20) [note: 'normalized E.164']
+  phone_number varchar(20) [note: 'canonical +digits (normalizePhoneNumber); informational — resolution canon is customer_identities']
   avatar_url varchar(512)
-  source customer_source [not null, default: 'manual']
+  source varchar(50) [not null, default: 'manual', note: 'whatsapp | manual | import | api (customer.contract.ts)']
   pipeline_stage_id uuid [ref: > pipeline_stages.id, note: 'ON DELETE SET NULL']
   owner_member_id uuid [ref: > company_members.id, note: 'account owner']
   last_interaction_at datetime
@@ -299,7 +178,7 @@ Table customer_identities {
   id uuid [pk]
   customer_id uuid [not null, ref: > customers.id, note: 'CASCADE']
   channel_id uuid [not null, ref: > channels.id]
-  external_id varchar(100) [not null, note: 'WA: wa_id']
+  external_id varchar(100) [not null, note: 'WA: wa_id — stored raw as the channel reports it (round-trips to the Graph API)']
   profile_name varchar(200)
   created_at datetime [not null]
   indexes {
@@ -333,7 +212,7 @@ Table custom_field_definitions {
   company_id uuid [not null, ref: > companies.id]
   key varchar(64) [not null]
   label varchar(100) [not null]
-  field_type custom_field_type [not null]
+  field_type varchar(50) [not null, note: 'text | number | date | boolean | select | multiselect (customer.contract.ts)']
   options json [note: 'for select/multiselect']
   is_required boolean [not null, default: false]
   position int [not null, default: 0]
@@ -371,8 +250,8 @@ Table conversations {
   company_id uuid [not null, ref: > companies.id]
   customer_id uuid [not null, ref: > customers.id]
   channel_id uuid [not null, ref: > channels.id]
-  status conversation_status [not null, default: 'open']
-  priority conversation_priority [not null, default: 'low']
+  status varchar(50) [not null, default: 'open', note: 'open | pending | closed | archived (conversation.contract.ts)']
+  priority varchar(50) [not null, default: 'low', note: 'low | medium | high | urgent (conversation.contract.ts)']
   assigned_member_id uuid [ref: > company_members.id, note: 'current assignee (denormalized from conversation_assignments)']
   last_message_id uuid [ref: > messages.id, note: 'NOT eager; SET NULL']
   last_message_at datetime
@@ -395,7 +274,7 @@ Table conversation_assignments {
   conversation_id uuid [not null, ref: > conversations.id, note: 'CASCADE']
   member_id uuid [not null, ref: > company_members.id]
   assigned_by_member_id uuid [ref: > company_members.id, note: 'NULL = system (auto)']
-  reason assignment_reason [not null, default: 'auto']
+  reason varchar(50) [not null, default: 'auto', note: 'auto | claim | manual | transfer | escalation (conversation.contract.ts)']
   assigned_at datetime [not null]
   unassigned_at datetime [note: 'NULL = active assignment']
   indexes {
@@ -421,17 +300,17 @@ Table messages {
   id uuid [pk]
   company_id uuid [not null, ref: > companies.id]
   conversation_id uuid [not null, ref: > conversations.id, note: 'CASCADE']
-  direction message_direction [not null]
-  sender_type message_sender_type [not null]
+  direction varchar(50) [not null, note: 'inbound | outbound (message.contract.ts)']
+  sender_type varchar(50) [not null, note: 'customer | member | system | bot (message.contract.ts)']
   sender_member_id uuid [ref: > company_members.id, note: 'when sender_type=member']
   sender_customer_id uuid [ref: > customers.id, note: 'when sender_type=customer']
   client_message_id varchar(64) [note: 'temp id generated by the front for optimistic UI + idempotent retries']
-  type message_type [not null, default: 'text']
+  type varchar(50) [not null, default: 'text', note: 'text | image | audio | video | document | sticker | location | contact | template | interactive | reaction (message.contract.ts)']
   body text
   reply_to_message_id uuid [ref: > messages.id, note: 'SET NULL']
   template_id uuid [ref: > message_templates.id]
-  external_id varchar(128) [note: 'WA: wamid (previously whatsapp_message_details)']
-  status message_status [not null, default: 'pending']
+  external_id varchar(128) [note: 'WA: wamid — stored raw as reported by the provider (previously whatsapp_message_details)']
+  status varchar(50) [not null, default: 'pending', note: 'pending | sent | delivered | read | failed (message.contract.ts)']
   status_updated_at datetime
   error_code varchar(50)
   error_message varchar(500)
@@ -441,7 +320,7 @@ Table messages {
   deleted_at datetime
   indexes {
     (conversation_id, created_at)
-    external_id [unique]
+    (conversation_id, external_id) [unique, note: 'wamid is unique per WhatsApp account, not globally']
     (conversation_id, client_message_id) [unique, note: 'dedupe double-send on reconnect']
     (company_id, created_at)
   }
@@ -450,7 +329,7 @@ Table messages {
 Table message_attachments {
   id uuid [pk]
   message_id uuid [not null, ref: > messages.id, note: 'CASCADE']
-  type attachment_type [not null]
+  type varchar(50) [not null, note: 'image | audio | video | document | sticker (message.contract.ts)']
   mime_type varchar(100) [not null]
   file_name varchar(255)
   size_bytes bigint
@@ -466,7 +345,7 @@ Table message_attachments {
 Table message_status_events {
   id bigint [pk, increment]
   message_id uuid [not null, ref: > messages.id, note: 'CASCADE']
-  status message_status [not null]
+  status varchar(50) [not null, note: 'pending | sent | delivered | read | failed (message.contract.ts)']
   occurred_at datetime [not null]
   error_code varchar(50)
   raw_payload json
@@ -480,12 +359,12 @@ Table message_status_events {
 Table analyses {
   id uuid [pk]
   company_id uuid [not null, ref: > companies.id]
-  target analysis_target [not null]
+  target varchar(50) [not null, note: 'message | conversation (analysis.contract.ts)']
   message_id uuid [ref: > messages.id, note: 'CASCADE; when target=message']
   conversation_id uuid [not null, ref: > conversations.id, note: 'always set: enables per-conversation aggregation']
   type varchar(50) [not null, note: 'sentiment | intent | topic | ... (varchar: new types without enum migration)']
   model varchar(100)
-  status analysis_status [not null, default: 'pending']
+  status varchar(50) [not null, default: 'pending', note: 'pending | processing | completed | failed (analysis.contract.ts)']
   label varchar(100) [note: 'primary result']
   confidence decimal(5,4)
   result json [note: 'type-specific payload']
@@ -501,7 +380,7 @@ Table analyses {
 
 Table sentiment_results {
   analysis_id uuid [pk, ref: - analyses.id, note: 'CASCADE']
-  label sentiment_label [not null]
+  label varchar(50) [not null, note: 'positive | neutral | negative (analysis.contract.ts)']
   score_positive decimal(5,4) [not null]
   score_neutral decimal(5,4) [not null]
   score_negative decimal(5,4) [not null]

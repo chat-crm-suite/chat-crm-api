@@ -11,7 +11,7 @@ import { FindManyOptions, IsNull, Like, Repository, UpdateResult } from 'typeorm
 import { CreateContactDto, UpdateContactDto } from './dto/contact.dto';
 import { Contact } from './entities/contact.entity';
 import { ContactQueryDto } from './contact.types';
-import { ContactTableQueryDto } from '../../common/schemas/contact-table-query.schema';
+import type { ContactTableQuery } from '../../common/schemas/contact-table-query.schema';
 import { buildQueryOptions } from '../../lib/helpers/build-query-options.helper';
 
 @Injectable()
@@ -63,7 +63,7 @@ export class ContactsService {
     );
   }
 
-  async findPaginated(query: ContactTableQueryDto): Promise<Pagination<Contact>> {
+  async findPaginated(query: ContactTableQuery): Promise<Pagination<Contact>> {
     const { findOptions, paginationOptions } = buildQueryOptions(query);
 
     const optionsWithRelations: FindManyOptions<Contact> = {

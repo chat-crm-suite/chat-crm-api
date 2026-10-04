@@ -1,8 +1,9 @@
 import { Readable } from 'stream';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { CsvParser } from 'nest-csv-parser';
+import { I18nService } from 'nestjs-i18n';
 import { PinoLogger } from 'nestjs-pino';
 import { paginate, Pagination } from 'nestjs-typeorm-paginate';
 import { FindManyOptions, IsNull, Like, Repository } from 'typeorm';
@@ -10,7 +11,7 @@ import { UpdateResult } from 'typeorm/browser';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserSearchDto } from './dto/user-search.dto';
-import { UserTableQueryDto } from '../../common/schemas/user-table-query.schema';
+import type { UserTableQuery } from '../../common/schemas/user-table-query.schema';
 import { buildQueryOptions } from '../../lib/helpers/build-query-options.helper';
 import { Chat } from '../chats/entities/index';
 import { User } from './entities/user.entity';
@@ -31,6 +32,7 @@ export class UsersService extends CoreService<User> {
     private readonly logger: PinoLogger,
     private readonly csv: CsvParser,
     private readonly cls: ClsService,
+    private readonly i18n: I18nService,
   ) { super(repo) }
 
   private get userId() {
@@ -75,7 +77,7 @@ export class UsersService extends CoreService<User> {
     return result.affected === 1;
   }
 
-  async table(query: UserTableQueryDto): Promise<Pagination<User>> {
+  async table(query: UserTableQuery): Promise<Pagination<User>> {
     const { findOptions, paginationOptions } = buildQueryOptions<User>(query);
 
     const defaultFindOptions: FindManyOptions<User> = {
@@ -99,9 +101,28 @@ export class UsersService extends CoreService<User> {
 
   // TODO: Using CoreService in this
   override async create(dto: CreateUserDto): Promise<User> {
+    await this.assertUsernameAvailable(dto.username);
+
     const user = this.repo.create(dto);
 
     return this.repo.save(user);
+  }
+
+  /**
+   * Uniqueness lives here (not in the schema): the database unique index is the
+   * race-safe guarantee, this check only produces the translated 400 message.
+   */
+  private async assertUsernameAvailable(
+    username: string,
+    ignoreUserId?: string,
+  ): Promise<void> {
+    const existing = await this.repo.findOne({ where: { username } });
+
+    if (existing && existing.id !== ignoreUserId) {
+      throw new BadRequestException(
+        this.i18n.t('validations.unique', { args: { field: 'username' } }),
+      );
+    }
   }
 
   searchUser(dto: UserSearchDto) {
@@ -161,8 +182,13 @@ export class UsersService extends CoreService<User> {
   }
 
   // TODO: Using CoreService in this
-  override update(id: string, dto: UpdateUserDto): Promise<UpdateResult> {
+  override async update(id: string, dto: UpdateUserDto): Promise<UpdateResult> {
     const { password, ...rest } = dto;
+
+    if (dto.username) {
+      // `id` is ignored so keeping the current username is not a conflict.
+      await this.assertUsernameAvailable(dto.username, id);
+    }
 
     return this.repo.update(id, {
       ...rest,

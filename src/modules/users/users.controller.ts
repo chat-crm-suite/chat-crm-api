@@ -11,20 +11,16 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
-  UsePipes,
   UploadedFile,
 } from '@nestjs/common';
 
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-
-import { type UserSearchDto } from './dto/user-search.dto';
+import { UserSearchDto } from './dto/user-search.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { userTableQuerySchema, type UserTableQueryDto } from '../../common/schemas/user-table-query.schema';
-
+import { UserTableQueryDto } from '../../common/schemas/user-table-query.schema';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 
@@ -50,7 +46,6 @@ export class UsersController {
   }
 
   @Post('table')
-  @UsePipes(new ZodValidationPipe(userTableQuerySchema))
   getTable(@Body() query: UserTableQueryDto) {
     return this.service.table(query);
   }

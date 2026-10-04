@@ -1,11 +1,5 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { IsIn, IsOptional } from 'class-validator';
-import { CreateUserDto } from './create-user.dto';
-import type { UserRole } from '../entities/user.entity';
+import { createZodDto } from 'nestjs-zod';
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {
-  // Rol solo por update (no en create: sin auto-escalacion al registrarse).
-  @IsOptional()
-  @IsIn(['admin', 'supervisor', 'support', 'agent', 'system'])
-  role?: UserRole;
-}
+import { UpdateUserSchema } from '../../../contracts/index';
+
+export class UpdateUserDto extends createZodDto(UpdateUserSchema) {}

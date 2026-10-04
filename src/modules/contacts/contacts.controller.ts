@@ -1,10 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors, UsePipes } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ContactsService } from './contacts.service';
 import { CreateContactDto, UpdateContactDto } from './dto/contact.dto';
-import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { type ContactTableQueryDto, contactTableQuerySchema } from '../../common/schemas/contact-table-query.schema';
+import { ContactTableQueryDto } from '../../common/schemas/contact-table-query.schema';
 
 @Controller('contacts')
 @UseGuards(AuthGuard('jwt'))
@@ -23,9 +22,7 @@ export class ContactsController {
   }
 
   @Post('table')
-  @UsePipes(new ZodValidationPipe(contactTableQuerySchema))
   getTable(@Body() query: ContactTableQueryDto) {
-    console.log(query)
     return this.contactService.findPaginated(query);
   }
 

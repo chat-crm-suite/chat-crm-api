@@ -2,8 +2,9 @@ import { Column, CreateDateColumn, DeleteDateColumn, Entity, Index, OneToMany, P
 import { Notification } from '../../notifications/entities/notification.entity';
 import { Exclude } from "class-transformer";
 
-export type UserRole = 'admin' | 'supervisor' | 'support' | 'agent' | 'system';
-export type UserStatus = 'online' | 'offline' | 'busy';
+// Single source of truth for roles/statuses lives in the contracts.
+import type { UserRole, UserStatus } from '../../../contracts/index';
+export type { UserRole, UserStatus };
 
 @Entity('users')
 export class User {
@@ -33,7 +34,9 @@ export class User {
   @Exclude()
   password: string;
 
-  @Column({ default: 'offline' })
+  // Explicit type: the contract type is a re-export, so decorator metadata
+  // cannot infer the column type (matches the varchar column).
+  @Column({ type: 'varchar', default: 'offline' })
   status: UserStatus;
 
   @Column({ type: 'varchar', default: 'agent' })

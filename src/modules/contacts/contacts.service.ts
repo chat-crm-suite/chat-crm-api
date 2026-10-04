@@ -10,6 +10,10 @@ import {
 import { FindManyOptions, IsNull, Like, Repository, UpdateResult } from 'typeorm';
 import { CreateContactDto, UpdateContactDto } from './dto/contact.dto';
 import { Contact } from './entities/contact.entity';
+import {
+  isDuplicateEntryError,
+  normalizePhoneNumber,
+} from '../../lib/helpers/phone.helper';
 import { ContactQueryDto } from './contact.types';
 import type { ContactTableQuery } from '../../common/schemas/contact-table-query.schema';
 import { buildQueryOptions } from '../../lib/helpers/build-query-options.helper';
@@ -122,23 +126,34 @@ export class ContactsService {
     companyId: string,
     waProfile?: WhatsappNotificationContact
   ): Promise<Contact> {
-    let contact = await this.contactRepo.findOne({
-      where: {
-        phoneNumber,
-        company: { id: companyId }
-      }
-    });
+    const normalizedPhone = normalizePhoneNumber(phoneNumber);
+
+    const findContact = () =>
+      this.contactRepo.findOne({
+        where: {
+          phoneNumber: normalizedPhone,
+          company: { id: companyId }
+        }
+      });
+
+    let contact = await findContact();
 
     if (!contact) {
-      const newContact = this.contactRepo.create({
-        phoneNumber,
-        waId: phoneNumber,
-        source: 'whatsapp',
-        company: { id: companyId },
-        username: waProfile?.profile?.name || 'Unknown',
-      })
-
-      contact = await this.contactRepo.save(newContact);
+      try {
+        contact = await this.contactRepo.save(
+          this.contactRepo.create({
+            phoneNumber: normalizedPhone,
+            waId: normalizedPhone,
+            source: 'whatsapp',
+            company: { id: companyId },
+            username: waProfile?.profile?.name || 'Unknown',
+          }),
+        );
+      } catch (error) {
+        if (!isDuplicateEntryError(error)) throw error;
+        contact = await findContact();
+        if (!contact) throw error;
+      }
     }
 
     return contact;

@@ -3,6 +3,10 @@ import { DataSource, Like } from 'typeorm';
 import { Chat, ChatAssignments } from './entities/index';
 import { MessageContext } from '../../integrations/whatsapp/types/whatsapp.types';
 import { Contact } from '../../entities/index';
+import {
+  isDuplicateEntryError,
+  normalizePhoneNumber,
+} from '../../lib/helpers/phone.helper';
 
 @Injectable()
 export class ChatRepository {
@@ -30,22 +34,34 @@ export class ChatRepository {
   async findOrCreateChatByPhone(context: MessageContext, companyId?: string) {
     const contactRepo = this.dataSource.getRepository(Contact);
     const chatRepo = this.dataSource.getRepository(Chat);
+    const phoneNumber = normalizePhoneNumber(context.from);
 
-    let client = await contactRepo.findOne({
-      where: {
-        phoneNumber: Like(`%${context.from}%`),
-        ...(companyId ? { company: { id: companyId } } : {}),
-      },
-      cache: true,
-    });
+    const findClient = () =>
+      contactRepo.findOne({
+        where: {
+          phoneNumber,
+          ...(companyId ? { company: { id: companyId } } : {}),
+        },
+      });
+
+    let client = await findClient();
 
     if (!client) {
-      client = contactRepo.create({
-        phoneNumber: `+${context.from}`,
-        username: context.senderName,
-        ...(companyId ? { company: { id: companyId } } : {}),
-      });
-      client = await contactRepo.save(client);
+      try {
+        client = await contactRepo.save(
+          contactRepo.create({
+            phoneNumber,
+            username: context.senderName,
+            ...(companyId ? { company: { id: companyId } } : {}),
+          }),
+        );
+      } catch (error) {
+        // Carrera o reintento de WhatsApp: otro worker/proceso ya insertó
+        // el mismo (phoneNumber, company). Re-leer en vez de tumbar el server.
+        if (!isDuplicateEntryError(error)) throw error;
+        client = await findClient();
+        if (!client) throw error;
+      }
     }
 
     let chat = await chatRepo.findOne({
@@ -53,7 +69,6 @@ export class ChatRepository {
         client: { id: client.id },
       },
       relations: ['client'],
-      cache: true,
     });
 
     if (!chat) {

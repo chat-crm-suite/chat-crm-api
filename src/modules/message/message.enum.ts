@@ -1,29 +1,13 @@
-export enum MessageType {
-  TEXT = 'text',
-  IMAGE = 'image',
-  DOCUMENT = 'document',
-  // FILE = 'file',
-  // AUDIO = 'audio',
-  // VIDEO = 'video',
-}
-
-export enum MessageSenderType {
-  AGENT = 'agent',
-  CLIENT = 'client',
-  SYSTEM = 'system'
-  // 'user' eliminado: era redundante con 'agent' (operador logueado).
-  // Filas legacy con senderType='user' en MySQL (enum nativo) se tratan como agent a nivel app.
-}
-
-export enum MessageStatus {
-  SENT = 'sent',
-  DELIVERED = 'delivered',
-  RECEIVED = 'received',
-  READ = 'read',
-  FAILED = 'failed'
-}
-
-export enum MessageDirection {
-  IN = 'in',
-  OUT = 'out'
-}
+/**
+ * Message enums live in the shared contracts (`src/contracts/message.contract.ts`).
+ * Re-exported here so existing imports keep working across the API.
+ *
+ * Historical note: `FILE`/`AUDIO`/`VIDEO` are not persisted yet and the legacy
+ * `user` sender type was folded into `agent` (legacy rows are treated as agent).
+ */
+export {
+  MessageType,
+  MessageSenderType,
+  MessageStatus,
+  MessageDirection,
+} from '../../contracts/index';

@@ -1,30 +1,8 @@
-import { MessageType } from '../../message/domain/message.types';
-import { IsNotEmptyObject } from 'class-validator';
-import { ChatMessageContent } from '../chat.types';
-import {
-  MessageSenderType,
-  MessageStatus,
-} from '../../message/message.enum';
+import { createZodDto } from 'nestjs-zod';
 
-export class BroadcastDto {
-  id!: string;
+import { BroadcastMessageSchema } from '../../../contracts/index';
 
-  chatId?: string;
-
-  status!: MessageStatus;
-
-  timestamp!: Date;
-
-  @IsNotEmptyObject()
-  sender!: {
-    id: string;
-    type: MessageSenderType;
-  };
-
-  @IsNotEmptyObject()
-  msg!: {
-    type: MessageType;
-    mediaUrl?: string;
-    content: ChatMessageContent;
-  };
-}
+/**
+ * `GET /chats/:id/messages` item + `chat:message:broadcast` payload.
+ */
+export class BroadcastDto extends createZodDto(BroadcastMessageSchema) {}

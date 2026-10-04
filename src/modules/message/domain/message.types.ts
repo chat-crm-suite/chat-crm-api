@@ -1,15 +1,21 @@
-import { MessageDirection, MessageSenderType, MessageStatus } from "../message.enum";
+import type {
+  MessageDirection,
+  MessageSenderType,
+  MessageStatus,
+  MessageType,
+} from '../../../contracts/index';
 
-export enum MessageType {
-  TEXT = 'text',
-  IMAGE = 'image',
-  DOCUMENT = 'document',
-}
+export { MessageType } from '../../../contracts/index';
+export type {
+  MessageDirection,
+  MessageSenderType,
+  MessageStatus,
+} from '../../../contracts/index';
 
 export interface CanonicalContent {
-  body?: string;   // texto plano o caption
-  mediaUrl?: string;   // url local (servidor) o link externo
-  filename?: string;   // solo para documentos
+  body?: string; // texto plano o caption
+  mediaUrl?: string; // url local (servidor) o link externo
+  filename?: string; // solo para documentos
 }
 
 export interface CanonicalMessage {
@@ -19,6 +25,6 @@ export interface CanonicalMessage {
   senderType: MessageSenderType;
   senderId?: string;
   content: CanonicalContent;
-  externalId?: string;      // ID que asigna WhatsApp
+  externalId?: string; // ID que asigna WhatsApp
   status: MessageStatus;
 }

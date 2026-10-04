@@ -1,34 +1,8 @@
-import { MessageType } from "../../message/domain/message.types";
-import { ChatMessageContent } from "../chat.types";
-import { MessageSenderType } from "../../message/message.enum";
-import { IsNotEmpty, IsNotEmptyObject, IsPhoneNumber } from "class-validator";
+import { createZodDto } from 'nestjs-zod';
+
+import { SendChatMessageSchema } from '../../../contracts/index';
 
 /**
- * @param room id of room and chat identify
- * @param to phone number to send
- * @param sender sender info
- * @param msg message attributes
+ * `chat:message:send` payload (frontend -> gateway).
  */
-export class SendChatMessageDto {
-  @IsNotEmpty()
-  room: string;
-
-  /** Empresa de origen, para asignación automática multi-empresa (Q4/Q15). */
-  companyId?: string;
-
-  @IsNotEmpty()
-  @IsPhoneNumber()
-  to: string;
-
-  @IsNotEmptyObject()
-  sender: {
-    id: string,
-    type: MessageSenderType,
-  }
-
-  @IsNotEmptyObject()
-  msg: {
-    type: MessageType;
-    content: ChatMessageContent;
-  }
-}
+export class SendChatMessageDto extends createZodDto(SendChatMessageSchema) {}

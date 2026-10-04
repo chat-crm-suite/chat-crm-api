@@ -16,7 +16,7 @@ describe('AdminBootstrapService', () => {
 
   const mockSetupService = {
     status: jest.fn(),
-    run: jest.fn(),
+    provision: jest.fn(),
   };
 
   const mockLogger = {
@@ -126,13 +126,13 @@ describe('AdminBootstrapService', () => {
       await service.onApplicationBootstrap();
 
       expect(mockSetupService.status).not.toHaveBeenCalled();
-      expect(mockSetupService.run).not.toHaveBeenCalled();
+      expect(mockSetupService.provision).not.toHaveBeenCalled();
     });
 
     it('provisions company + admin membership when the app is not initialized', async () => {
       mockUsersService.find.mockResolvedValue({ id: 'existing-user' });
       mockSetupService.status.mockResolvedValue({ initialized: false });
-      mockSetupService.run.mockResolvedValue({
+      mockSetupService.provision.mockResolvedValue({
         user: { id: 'existing-user', username: 'admin' },
         company: { id: 'c1', name: 'J&P' },
         whatsapp: null,
@@ -143,7 +143,7 @@ describe('AdminBootstrapService', () => {
 
       await service.onApplicationBootstrap();
 
-      expect(mockSetupService.run).toHaveBeenCalledWith({
+      expect(mockSetupService.provision).toHaveBeenCalledWith({
         admin: { username: 'admin', password: 'secreta-123' },
         company: { name: 'J&P' },
         whatsapp: undefined,
@@ -159,13 +159,13 @@ describe('AdminBootstrapService', () => {
 
       await service.onApplicationBootstrap();
 
-      expect(mockSetupService.run).not.toHaveBeenCalled();
+      expect(mockSetupService.provision).not.toHaveBeenCalled();
     });
 
     it('passes whatsapp credentials when the env is complete', async () => {
       mockUsersService.find.mockResolvedValue({ id: 'existing-user' });
       mockSetupService.status.mockResolvedValue({ initialized: false });
-      mockSetupService.run.mockResolvedValue({
+      mockSetupService.provision.mockResolvedValue({
         user: { id: 'existing-user', username: 'admin' },
         company: { id: 'c1', name: 'J&P' },
         whatsapp: { id: 'wa-1' },
@@ -181,7 +181,7 @@ describe('AdminBootstrapService', () => {
 
       await service.onApplicationBootstrap();
 
-      expect(mockSetupService.run).toHaveBeenCalledWith(
+      expect(mockSetupService.provision).toHaveBeenCalledWith(
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           whatsapp: expect.objectContaining({
@@ -197,7 +197,7 @@ describe('AdminBootstrapService', () => {
     it('logs instead of crashing when provisioning fails', async () => {
       mockUsersService.find.mockResolvedValue({ id: 'existing-user' });
       mockSetupService.status.mockResolvedValue({ initialized: false });
-      mockSetupService.run.mockRejectedValue(new Error('setup failed'));
+      mockSetupService.provision.mockRejectedValue(new Error('setup failed'));
       process.env.BOOTSTRAP_COMPANY_NAME = 'J&P';
       process.env.BOOTSTRAP_ADMIN_USERNAME = 'admin';
       process.env.BOOTSTRAP_ADMIN_PASSWORD = 'secreta-123';

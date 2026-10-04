@@ -80,7 +80,7 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
       whatsapp: this.whatsappFromEnv(),
     };
 
-    await this.setup.run(dto);
+    await this.setup.provision(dto);
     this.logger.info({ company: companyName }, 'bootstrap: first company created');
   }
 

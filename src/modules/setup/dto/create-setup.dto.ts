@@ -85,6 +85,10 @@ export class SetupWhatsAppDto {
 }
 
 export class CreateSetupDto {
+  @IsOptional()
+  @IsString()
+  setupToken?: string;
+
   @ValidateNested()
   @Type(() => SetupAdminDto)
   admin: SetupAdminDto;

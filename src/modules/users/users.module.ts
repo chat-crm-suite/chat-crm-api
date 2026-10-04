@@ -4,17 +4,16 @@ import { CsvModule } from 'nest-csv-parser';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
-import { Chat } from '../chats/entities/index';
+import { CompanyMember } from '../company-members/entities/company-member.entity';
 import { UserRepository } from './user.repository';
-import { UserSubscriber } from './user.subscriber';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Chat]),
+    TypeOrmModule.forFeature([User, CompanyMember]),
     CsvModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService, UserRepository, UserSubscriber],
+  providers: [UsersService, UserRepository],
   exports: [UsersService]
 })
 export class UsersModule { }

@@ -1,14 +1,13 @@
+import { Controller, Get, UseGuards } from '@nestjs/common';
+
 import { JwtAuthGuard } from '../../auth/guards';
 import { CompanyGuard } from '../company/company.guard';
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { MemberService } from './member.service';
+import { CompanyMemberService } from './company-member.service';
 
-@Controller('member')
+@Controller('company-members')
 @UseGuards(JwtAuthGuard, CompanyGuard)
-export class MemberController {
-  constructor(
-    private readonly service: MemberService,
-  ) { }
+export class CompanyMemberController {
+  constructor(private readonly service: CompanyMemberService) {}
 
   @Get('current')
   me() {

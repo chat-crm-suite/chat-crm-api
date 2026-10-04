@@ -2,17 +2,18 @@ import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { dataTableBaseSchema } from "./data-table-base.schema";
 
-const userFiltersShape = {
-  username: z.string().optional(),
+const customerFiltersShape = {
+  displayName: z.string().optional(),
   phoneNumber: z.string().optional(),
   email: z.string().optional(),
+  pipelineStageId: z.string().optional(),
   createdAt: z.string().optional(),
 };
 
-export const userTableQuerySchema = dataTableBaseSchema.extend(userFiltersShape);
+export const customerTableQuerySchema = dataTableBaseSchema.extend(customerFiltersShape);
 
 /** Plain type (services/helpers) — object-literal types keep the index signature. */
-export type UserTableQuery = z.infer<typeof userTableQuerySchema>;
+export type CustomerTableQuery = z.infer<typeof customerTableQuerySchema>;
 
 /** Validation carrier for `@Body()` (global ZodValidationPipe). */
-export class UserTableQueryDto extends createZodDto(userTableQuerySchema) {}
+export class CustomerTableQueryDto extends createZodDto(customerTableQuerySchema) {}

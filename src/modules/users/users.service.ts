@@ -6,18 +6,23 @@ import { CsvParser } from 'nest-csv-parser';
 import { I18nService } from 'nestjs-i18n';
 import { PinoLogger } from 'nestjs-pino';
 import { paginate, Pagination } from 'nestjs-typeorm-paginate';
-import { FindManyOptions, IsNull, Like, Repository } from 'typeorm';
-import { UpdateResult } from 'typeorm/browser';
+import {
+  FindManyOptions,
+  IsNull,
+  Like,
+  Repository,
+  UpdateResult,
+} from 'typeorm';
+import { ClsService } from 'nestjs-cls';
+
+import type { AuthUser } from '../../contracts/index';
+import { buildQueryOptions } from '../../lib/helpers/build-query-options.helper';
+import type { UserTableQuery } from '../../common/schemas/user-table-query.schema';
+import { CoreService } from '../../core/core.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserSearchDto } from './dto/user-search.dto';
-import type { UserTableQuery } from '../../common/schemas/user-table-query.schema';
-import { buildQueryOptions } from '../../lib/helpers/build-query-options.helper';
-import { Chat } from '../chats/entities/index';
 import { User } from './entities/user.entity';
-import { CoreService } from '../../core/core.service';
-import { AuthUser } from '../../auth/index';
-import { ClsService } from 'nestjs-cls';
 import { UserRepository } from './user.repository';
 
 @Injectable()
@@ -27,13 +32,13 @@ export class UsersService extends CoreService<User> {
     // This will be removed in the future
     private readonly repo: Repository<User>,
     private readonly UserRepo: UserRepository,
-    @InjectRepository(Chat)
-    private readonly chatRepo: Repository<Chat>,
     private readonly logger: PinoLogger,
     private readonly csv: CsvParser,
     private readonly cls: ClsService,
     private readonly i18n: I18nService,
-  ) { super(repo) }
+  ) {
+    super(repo);
+  }
 
   private get userId() {
     return this.cls.get<string>('user-id');
@@ -43,23 +48,30 @@ export class UsersService extends CoreService<User> {
     return this.UserRepo.findUserById(this.userId);
   }
 
-  async importCsv(file: Express.Multer.File, companyId?: string): Promise<{ count: number }> {
+  async importCsv(file: Express.Multer.File): Promise<{ count: number }> {
     const stream = Readable.from(file.buffer);
-    const parsed = await this.csv.parse(stream, CreateUserDto, undefined, undefined, {
-      strict: true,
-      separator: ',',
-    });
+    const parsed = await this.csv.parse(
+      stream,
+      CreateUserDto,
+      undefined,
+      undefined,
+      {
+        strict: true,
+        separator: ',',
+      },
+    );
 
     const users = await Promise.all(
-      parsed.list.map(async (row: Partial<User>) => ({
-        username: row.username,
-        firstName: row.firstName,
-        lastName: row.lastName,
-        phoneNumber: row.phoneNumber,
-        email: row.email,
-        password: await bcrypt.hash(row.password ?? 'password', 10),
-        company: { id: companyId },
-      }))
+      parsed.list.map(
+        async (row: Partial<User> & { password?: string }) => ({
+          username: row.username,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          phoneNumber: row.phoneNumber,
+          email: row.email,
+          passwordHash: await bcrypt.hash(row.password ?? 'password', 10),
+        }),
+      ),
     );
 
     await this.repo.insert(users);
@@ -67,22 +79,12 @@ export class UsersService extends CoreService<User> {
     return { count: users.length };
   }
 
-  async online(id: string) {
-    const result = await this.repo.update({ id }, { status: 'online' })
-    return result.affected === 1;
-  }
-
-  async offline(id: string) {
-    const result = await this.repo.update({ id }, { status: 'offline' })
-    return result.affected === 1;
-  }
-
   async table(query: UserTableQuery): Promise<Pagination<User>> {
     const { findOptions, paginationOptions } = buildQueryOptions<User>(query);
 
     const defaultFindOptions: FindManyOptions<User> = {
       where: { deletedAt: IsNull() },
-      order: { status: 'DESC', updatedAt: 'DESC' },
+      order: { createdAt: 'DESC' },
     };
 
     const mergedFindOptions: FindManyOptions<User> = {
@@ -92,18 +94,18 @@ export class UsersService extends CoreService<User> {
       order: { ...defaultFindOptions.order, ...findOptions.order },
     };
 
-    return paginate<User>(
-      this.repo,
-      paginationOptions,
-      mergedFindOptions,
-    );
+    return paginate<User>(this.repo, paginationOptions, mergedFindOptions);
   }
 
   // TODO: Using CoreService in this
   override async create(dto: CreateUserDto): Promise<User> {
     await this.assertUsernameAvailable(dto.username);
 
-    const user = this.repo.create(dto);
+    const { password, ...rest } = dto;
+    const user = this.repo.create({
+      ...rest,
+      passwordHash: await bcrypt.hash(password, 10),
+    });
 
     return this.repo.save(user);
   }
@@ -128,13 +130,15 @@ export class UsersService extends CoreService<User> {
   searchUser(dto: UserSearchDto) {
     const { q, limit } = dto;
     const findOptions: FindManyOptions<User> = {
-      where: q ? [
-        { username: Like(`%${q}%`) },
-        { firstName: Like(`%${q}%`) },
-        { lastName: Like(`%${q}%`) },
-      ] : {},
+      where: q
+        ? [
+            { username: Like(`%${q}%`) },
+            { firstName: Like(`%${q}%`) },
+            { lastName: Like(`%${q}%`) },
+          ]
+        : {},
       take: limit,
-      order: { username: 'ASC' }
+      order: { username: 'ASC' },
     };
 
     return this.repo.find(findOptions);
@@ -142,43 +146,6 @@ export class UsersService extends CoreService<User> {
 
   findOne(id: string): Promise<User | null> {
     return this.repo.findOne({ where: { id } });
-  }
-
-  // async findAvailableAgent(companyId: string): Promise<User> {
-  //   const agents = await this.repo.find({
-  //     where: {
-  //       status: 'online',
-  //     },
-  //     order: {
-  //       status: 'DESC',
-  //       username: 'ASC'
-  //     },
-  //     relations: ['company'],
-  //   });
-
-  //   if (agents.length === 0) {
-  //     return this.findOrCreateSystemUser(companyId);
-  //   }
-
-  //   const agentsWithLoad = await Promise.all(
-  //     agents.map(async (agent) => {
-  //       const activeChats = await this.chatRepo.count({
-  //         where: { assignedAgent: { id: agent.id }, status: ChatStatus.OPEN },
-  //       });
-  //       return { agent, activeChats };
-  //     }),
-  //   );
-
-  //   agentsWithLoad.sort((a, b) => a.activeChats - b.activeChats);
-  //   const bestAgent = agentsWithLoad[0].agent;
-
-  //   this.logger.debug(`Selected agent ${bestAgent.username}`);
-  //   return bestAgent;
-  // }
-
-  async getAgent() {
-    const agent = await this.repo.findOne({ where: { status: 'online' } });
-    if (agent) return agent;
   }
 
   // TODO: Using CoreService in this
@@ -193,7 +160,7 @@ export class UsersService extends CoreService<User> {
     return this.repo.update(id, {
       ...rest,
       // Solo se regenera el hash si el DTO trae password; si no, no se toca.
-      ...(password ? { password: bcrypt.hashSync(password, 10) } : {}),
+      ...(password ? { passwordHash: bcrypt.hashSync(password, 10) } : {}),
     });
   }
 

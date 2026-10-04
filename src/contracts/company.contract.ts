@@ -18,11 +18,11 @@ export const CreateCompanySchema = z.object({
 export const UpdateCompanySchema = CreateCompanySchema.partial();
 
 /**
- * Automatic assignment settings (Q18). Admins/managers only.
+ * Automatic assignment settings. Admins/supervisors only.
  */
 export const UpdateAssignmentSettingsSchema = z.object({
   autoAssignEnabled: z.boolean().optional(),
-  autoAssignMaxChats: z.number().int().min(1).optional(),
+  autoAssignMaxOpen: z.number().int().min(1).optional(),
   autoAssignSticky: z.boolean().optional(),
   autoAssignNotifySupervisors: z.boolean().optional(),
 });

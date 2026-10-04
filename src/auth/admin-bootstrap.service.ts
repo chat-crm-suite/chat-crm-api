@@ -43,8 +43,7 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
             'BOOTSTRAP_ADMIN_PASSWORD must be at least 8 characters - skipping admin bootstrap',
           );
         } else {
-          const user = await this.users.create({ username, password });
-          await this.users.update(user.id, { role: 'admin' });
+          await this.users.create({ username, password });
           this.logger.info({ username }, 'bootstrap: first admin user created');
         }
       }

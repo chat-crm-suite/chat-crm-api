@@ -1,9 +1,5 @@
-import { IsNotEmpty } from "class-validator";
+import { createZodDto } from 'nestjs-zod';
 
-export class LoginDto {
-  @IsNotEmpty()
-  username: string;
+import { LoginSchema } from '../../contracts/index';
 
-  @IsNotEmpty()
-  password: string;
-}
+export class LoginDto extends createZodDto(LoginSchema) {}

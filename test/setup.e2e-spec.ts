@@ -4,11 +4,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import cookieParser from 'cookie-parser';
 import { ClsModule } from 'nestjs-cls';
+import type { I18nService } from 'nestjs-i18n';
 import { LoggerModule } from 'nestjs-pino';
+import { ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
 import { AuthModule } from '../src/auth/auth.module';
+import { ZodValidationExceptionFilter } from '../src/common/filters/zod-validation.filter';
 import { loggerConfig } from '../src/config/logger.config';
 import { clsConfig } from '../src/config/cls.config';
 import {
@@ -89,6 +92,12 @@ const createApp = async (setupToken?: string): Promise<INestApplication> => {
   const app = moduleFixture.createNestApplication();
   app.useLogger(false);
   app.use(cookieParser());
+  // Same validation pipeline the HTTP bootstrap registers for Zod DTOs. The
+  // i18n service is stubbed: the message mapping itself is covered by
+  // zod-validation.filter.spec.ts.
+  const i18nStub = { t: (key: string) => key } as unknown as I18nService;
+  app.useGlobalPipes(new ZodValidationPipe());
+  app.useGlobalFilters(new ZodValidationExceptionFilter(i18nStub));
   await app.init();
 
   return app;
@@ -181,6 +190,27 @@ describe('Setup first-run flow (e2e)', () => {
       const body = res.body as string[];
 
       expect(body).toEqual([companyId]);
+    });
+
+    it('rejects an empty login payload with the standard 400 envelope', async () => {
+      const res = await request(server)
+        .post('/auth/login')
+        .send({})
+        .expect(400);
+      const body = res.body as {
+        statusCode: number;
+        error: string;
+        message: string[];
+      };
+
+      expect(body).toMatchObject({
+        statusCode: 400,
+        error: 'Bad Request',
+      });
+      expect(body.message).toEqual([
+        'validations.required',
+        'validations.required',
+      ]);
     });
   });
 

@@ -1,26 +1,19 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { IsOptional, IsString, IsUrl, Matches } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
 
-export class CreateWhatsAppConfigDto {
-  @IsString()
-  businessId: string;
+import {
+  CreateWhatsAppConfigSchema,
+  UpdateWhatsAppConfigSchema,
+  WhatsAppConfigSchema,
+} from '../../../contracts/index';
 
-  @IsString()
-  accessToken: string;
+export class CreateWhatsAppConfigDto extends createZodDto(
+  CreateWhatsAppConfigSchema,
+) {}
 
-  @IsString()
-  phoneNumberId: string;
+export class UpdateWhatsAppConfigDto extends createZodDto(
+  UpdateWhatsAppConfigSchema,
+) {}
 
-  @IsString()
-  webhookUrl: string;
-
-  @IsOptional()
-  @Matches(/^v\d{2}\.\d$/)
-  apiVersion: string;
-
-  @IsOptional()
-  @IsUrl()
-  apiBaseUrl: string;
-}
-
-export class UpdateWhatsAppConfigDto extends PartialType(CreateWhatsAppConfigDto) { }
+export class WhatsAppConfigResponseDto extends createZodDto(
+  WhatsAppConfigSchema,
+) {}

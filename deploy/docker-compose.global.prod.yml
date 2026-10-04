@@ -100,6 +100,10 @@ services:
       context: ./chat-crm-app
       dockerfile: Dockerfile
       target: production
+      # Shared contracts: single source of truth lives in the API repo.
+      # Both checkouts are siblings on the server.
+      additional_contexts:
+        contracts: ./chat-crm-api/src/contracts
       args:
         VITE_API_URL: http://jypsac.dyndns.org:8002
         VITE_SOCKET_URL: http://jypsac.dyndns.org:8002/chat

@@ -102,3 +102,26 @@ export const SendChatMessageSchema = z.object({
 
 export type BroadcastMessage = z.infer<typeof BroadcastMessageSchema>;
 export type SendChatMessageInput = z.infer<typeof SendChatMessageSchema>;
+
+/**
+ * Internal message record (message module): the payload used to persist a
+ * message row. Not an HTTP payload, but kept here so the enums and the shape
+ * stay in one place.
+ */
+export const CreateMessageSchema = z.object({
+  waMessageId: z.string().optional(),
+  replyToMessageId: z.string().optional(),
+  senderType: MessageSenderTypeSchema,
+  body: z.string().optional(),
+  type: MessageTypeSchema,
+  mediaUrl: z.string().optional(),
+  status: MessageStatusSchema,
+  direction: MessageDirectionSchema,
+  reactions: z.unknown().optional(),
+  contactId: z.uuid(),
+});
+
+export const UpdateMessageSchema = CreateMessageSchema.partial();
+
+export type CreateMessageInput = z.infer<typeof CreateMessageSchema>;
+export type UpdateMessageInput = z.infer<typeof UpdateMessageSchema>;

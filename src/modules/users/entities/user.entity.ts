@@ -1,6 +1,5 @@
 import { Column, CreateDateColumn, DeleteDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Notification } from '../../notifications/entities/notification.entity';
-import { Exclude } from "class-transformer";
 
 // Single source of truth for roles/statuses lives in the contracts.
 import type { UserRole, UserStatus } from '../../../contracts/index';
@@ -31,7 +30,6 @@ export class User {
   avatar?: string;
 
   @Column()
-  @Exclude()
   password: string;
 
   // Explicit type: the contract type is a re-export, so decorator metadata

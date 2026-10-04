@@ -18,6 +18,7 @@ export * from './company.contract';
 export * from './contact.contract';
 export * from './message.contract';
 export * from './metrics.contract';
+export * from './pagination.contract';
 export * from './setup.contract';
 export * from './user.contract';
 export * from './whatsapp-config.contract';

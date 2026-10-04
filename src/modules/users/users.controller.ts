@@ -19,7 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
 
-import { AuthUserSchema, UserResponseSchema } from '../../contracts/index';
+import { AuthUserSchema, UserResponseSchema, paginatedSchema } from '../../contracts/index';
 
 import { UserSearchDto } from './dto/user-search.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -54,6 +54,7 @@ export class UsersController {
   }
 
   @Post('table')
+  @ZodSerializerDto(paginatedSchema(UserResponseSchema))
   getTable(@Body() query: UserTableQueryDto) {
     return this.service.table(query);
   }

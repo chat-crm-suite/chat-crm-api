@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Message } from './message.entity';
 import { MessageSenderType, MessageType } from './message.enum';
 import { DataSource, Repository } from 'typeorm';
-import { CreateMessageDto } from './entities/create-message.dto';
+import type { CreateMessageInput } from '../../contracts/index';
 
 @Injectable()
 export class MessageRepository {
@@ -13,7 +13,7 @@ export class MessageRepository {
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(dto: CreateMessageDto, chatId: string) {
+  async create(dto: CreateMessageInput, chatId: string) {
     const message = this.repo.create({
       ...dto,
       chat: { id: chatId },

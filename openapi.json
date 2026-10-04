@@ -442,7 +442,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ChatDto"
+                "$ref": "#/components/schemas/CreateChatDto"
               }
             }
           }
@@ -1643,9 +1643,46 @@
           "company"
         ]
       },
-      "ChatDto": {
+      "CreateChatDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "pending",
+              "closed",
+              "archived"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "urgent"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "whatsapp",
+              "telegram",
+              "messenger",
+              "sms",
+              "email"
+            ]
+          }
+        },
+        "required": [
+          "clientId"
+        ]
       },
       "ChatAssignDto": {
         "type": "object",
@@ -1669,16 +1706,33 @@
       "UpdateChatDto": {
         "type": "object",
         "properties": {
-          "title": {
-            "type": "string"
-          },
-          "contactId": {
+          "status": {
             "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            "enum": [
+              "open",
+              "pending",
+              "closed",
+              "archived"
+            ]
           },
-          "lastMessageId": {
-            "type": "number"
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "urgent"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "whatsapp",
+              "telegram",
+              "messenger",
+              "sms",
+              "email"
+            ]
           }
         }
       },

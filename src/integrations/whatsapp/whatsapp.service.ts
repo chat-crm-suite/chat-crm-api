@@ -59,6 +59,8 @@ export class WhatsAppService {
         phoneNumberId,
         isActive: true,
       },
+      // La empresa es necesaria para asignar el chat al agente correcto (Q4).
+      relations: ['company'],
       cache: true,
     });
   }

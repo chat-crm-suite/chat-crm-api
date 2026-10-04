@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, Like } from 'typeorm';
 import { Chat, ChatAssignments } from './entities/index';
-import { ReasonAssignment } from './chat.enum';
 import { MessageContext } from '../../integrations/whatsapp/types/whatsapp.types';
 import { Contact } from '../../entities/index';
 
@@ -24,15 +23,18 @@ export class ChatRepository {
   /**
    * This is a method for whatsapp module
    * @param context WhatsApp message context info
+   * @param companyId Empresa del config de WhatsApp, para aislar contactos por
+   *   empresa (Q4) y asignar el chat al pool correcto.
    * @returns Chat Entity
    */
-  async findOrCreateChatByPhone(context: MessageContext) {
+  async findOrCreateChatByPhone(context: MessageContext, companyId?: string) {
     const contactRepo = this.dataSource.getRepository(Contact);
     const chatRepo = this.dataSource.getRepository(Chat);
 
     let client = await contactRepo.findOne({
       where: {
         phoneNumber: Like(`%${context.from}%`),
+        ...(companyId ? { company: { id: companyId } } : {}),
       },
       cache: true,
     });
@@ -41,6 +43,7 @@ export class ChatRepository {
       client = contactRepo.create({
         phoneNumber: `+${context.from}`,
         username: context.senderName,
+        ...(companyId ? { company: { id: companyId } } : {}),
       });
       client = await contactRepo.save(client);
     }
@@ -61,14 +64,6 @@ export class ChatRepository {
     }
 
     return chat;
-  }
-
-  assign(chatId: string, agentId: string, reason?: ReasonAssignment) {
-    return this.dataSource.getRepository(ChatAssignments).save({
-      chat: { id: chatId },
-      agent: { id: agentId },
-      reason,
-    });
   }
 
   /**
@@ -118,7 +113,9 @@ export class ChatRepository {
       LEFT JOIN contacts co ON
           co.id = ch.client_id
       WHERE
-          ch_a.agent_id = ${agentId} AND ch.status NOT IN('closed', 'archived')
+          ch_a.agent_id = ${agentId}
+          AND ch_a.unassigned_at IS NULL
+          AND ch.status NOT IN('closed', 'archived')
     `;
 
     return query;

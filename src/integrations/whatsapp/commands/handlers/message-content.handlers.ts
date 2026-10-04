@@ -27,13 +27,15 @@ export class MessageContentHandlers {
   private async saveMessage(
     context: MessageContext,
     payload: SaveChatMessageCommand['data']['msg'],
+    companyId?: string,
   ): Promise<void> {
-    const chat = await this.chatRepository.findOrCreateChatByPhone(context);
+    const chat = await this.chatRepository.findOrCreateChatByPhone(context, companyId);
 
     void this.commandBus.execute(
       new SaveChatMessageCommand({
         msg: payload,
         room: chat.id,
+        companyId,
         sender: {
           id: chat.client.id,
           type: MessageSenderType.CLIENT,
@@ -43,14 +45,14 @@ export class MessageContentHandlers {
   }
 
   private readonly text: ContentHandlerPort<TextContent> = {
-    handle: async (content, context, _config) => {
+    handle: async (content, context, config) => {
       await this.saveMessage(context, {
         type: MessageType.TEXT,
         content: {
           body: content.text.body,
           preview_url: content.text.preview_url,
         },
-      });
+      }, config?.company?.id);
     },
   };
 
@@ -76,7 +78,7 @@ export class MessageContentHandlers {
           link: fileUrl,
           preview_url: content.document.mime_type === 'application/pdf',
         },
-      });
+      }, config.company?.id);
     },
   };
 
@@ -100,7 +102,7 @@ export class MessageContentHandlers {
           link: fileUrl,
           caption: content.image.caption,
         },
-      });
+      }, config.company?.id);
     },
   };
 
@@ -114,6 +116,7 @@ export class MessageContentHandlers {
       image: this.image,
       document: this.document,
     };
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- la correlación K→handler se pierde sin el cast en indexed access genérico
     return handlers[type] as
       | ContentHandlerPort<Extract<MessageContent, { type: K }>>
       | undefined;

@@ -53,7 +53,7 @@ export class ChatProcessor extends WorkerHost {
     if (job.name === 'send-message') {
       this.eventBus.publish(new ChatMessageSentEvent(job.data))
     } else if (job.name === 'save-message') {
-      this.eventBus.publish(new MessageSavedEvent(result))
+      this.eventBus.publish(new MessageSavedEvent(result, job.data.companyId))
     }
   }
 }

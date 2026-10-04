@@ -32,5 +32,9 @@ export enum ChatGatewayEvent {
   ErrorMessage = 'chat:message:error',
   SendMessage = 'chat:message:send',
   ReceivedMessage = 'chat:message:received',
-  UpdateSentimentIndicator = 'chat:sentiment:update'
+  UpdateSentimentIndicator = 'chat:sentiment:update',
+  /** Evento que ya escucha el frontend (socket-provider) para notificaciones. */
+  NewNotification = 'new-notification',
+  ChatAssigned = 'chat:assigned',
+  ChatUnassigned = 'chat:unassigned',
 }

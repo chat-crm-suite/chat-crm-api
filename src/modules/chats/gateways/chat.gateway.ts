@@ -17,7 +17,7 @@ import { SendChatMessageCommand } from '../commands/send-chat-message.command';
 
 interface AuthHandshake {
   companyId?: string;
-  user?: string;
+  user?: string | { id?: string };
 }
 
 interface CustomSocket extends Socket {
@@ -65,11 +65,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
    */
   @SubscribeMessage(Event.SendMessage)
   handleSendMessage(
-    @ConnectedSocket() _client: Socket,
+    @ConnectedSocket() client: CustomSocket,
     @MessageBody() data: SendChatMessageDto,
   ) {
+    const companyId =
+      (client.handshake.headers['x-company-id'] as string | undefined) ??
+      client.handshake.auth.companyId;
+
     this.logger.debug('Execute Command: SentChatMessageCommand');
-    void this.commandBus.execute(new SendChatMessageCommand(data));
+    void this.commandBus.execute(
+      new SendChatMessageCommand({ ...data, companyId: data.companyId ?? companyId }),
+    );
   }
 
   async hasSockets(roomName: string): Promise<boolean> {
@@ -81,7 +87,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return sockets !== undefined && sockets.length > 0;
   }
 
-  handleConnection(client: Socket, ..._args: any[]) {
+  handleConnection(client: CustomSocket, ..._args: any[]) {
+    const auth = client.handshake.auth as AuthHandshake & {
+      user?: { id?: string };
+    };
+    const headerUserId = client.handshake.headers['x-user-id'] as string | undefined;
+    const userId = (typeof auth?.user === 'object' ? auth.user?.id : auth?.user) ?? headerUserId;
+    const headerCompanyId = client.handshake.headers['x-company-id'] as string | undefined;
+    const companyId = headerCompanyId ?? auth?.companyId;
+
+    // Rooms personales/empresa: el front no necesita join manual; el backend lo
+    // hace al conectar para poder emitir notificaciones y eventos dirigidos.
+    if (userId) void client.join(`user:${userId}`);
+    if (companyId) void client.join(`company:${companyId}`);
+
     this.logger.debug(client.handshake, 'client connection');
   }
 

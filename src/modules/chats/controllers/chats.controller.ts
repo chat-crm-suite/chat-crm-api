@@ -92,6 +92,24 @@ export class ChatsController {
   }
 
   /**
+   * Vista "sin respuesta" (Q10): chats cuyo último mensaje es del cliente y
+   * lleva más de `minutes` sin respuesta (default 15, tope 1440). Solo lectura.
+   */
+  @Get('needs-response')
+  needsResponse(@Query('minutes') minutes?: string) {
+    const parsed = minutes ? Number(minutes) : undefined;
+    const safeMinutes =
+      parsed && Number.isFinite(parsed) && parsed > 0
+        ? Math.min(parsed, 1440)
+        : undefined;
+
+    return this.service.listNeedsResponse(
+      this.cls.get<string>(CLS_COMPANY_ID),
+      safeMinutes,
+    );
+  }
+
+  /**
    * Reclamo explícito de un chat libre (Q13). El reclamo implícito al
    * responder ya existe; 409 si el chat pertenece a otro agente (Q9).
    */

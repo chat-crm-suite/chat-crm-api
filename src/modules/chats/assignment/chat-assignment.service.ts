@@ -6,6 +6,7 @@ import { ChatStatus, ReasonAssignment } from '../chat.enum';
 import { Company } from '../../company/entities/company.entity';
 import { Member } from '../../member/member.entity';
 import { MemberRole, MemberStatus } from '../../member/member.types';
+import { MessageSenderType } from '../../message/message.enum';
 import {
   AssignmentCandidate,
   AssignmentOutcome,
@@ -227,6 +228,75 @@ export class ChatAssignmentService {
       status: chat.status,
       createdAt: chat.createdAt,
       waitingSince: chat.lastMessageAt ?? chat.createdAt,
+    }));
+  }
+
+  /**
+   * Vista "sin respuesta" (Q10): chats abiertos/pendientes cuyo último mensaje
+   * es del cliente y lleva más de `minutes` esperando. Solo lectura, sin
+   * reasignación automática; incluye el dueño actual (o null si está en cola).
+   */
+  async listNeedsResponse(companyId: string, minutes = 15, limit = 50) {
+    const cutoff = new Date(Date.now() - minutes * 60_000);
+
+    const rows = await this.dataSource
+      .getRepository(Chat)
+      .createQueryBuilder('chat')
+      .innerJoin('chat.client', 'client')
+      .innerJoin('chat.lastMessage', 'lastMessage')
+      .leftJoin(ChatAssignments, 'ca', 'ca.chat_id = chat.id AND ca.unassigned_at IS NULL')
+      .leftJoin('ca.agent', 'agent')
+      .select('chat.id', 'chatId')
+      .addSelect('chat.status', 'chatStatus')
+      .addSelect('chat.lastMessageAt', 'lastMessageAt')
+      .addSelect('lastMessage.content', 'lastMessageContent')
+      .addSelect('client.id', 'clientId')
+      .addSelect('client.username', 'clientUsername')
+      .addSelect('client.phoneNumber', 'clientPhone')
+      .addSelect('client.profile', 'clientProfile')
+      .addSelect('agent.id', 'agentId')
+      .addSelect('agent.username', 'agentUsername')
+      .where('client.company_id = :companyId', { companyId })
+      .andWhere('chat.status IN (:...statuses)', {
+        statuses: [ChatStatus.OPEN, ChatStatus.PENDING],
+      })
+      .andWhere('chat.deleted_at IS NULL')
+      .andWhere('lastMessage.senderType = :senderType', {
+        senderType: MessageSenderType.CLIENT,
+      })
+      .andWhere('chat.last_message_at < :cutoff', { cutoff })
+      .orderBy('chat.lastMessageAt', 'ASC')
+      .limit(limit)
+      .getRawMany<{
+        chatId: string;
+        chatStatus: string;
+        lastMessageAt: Date | string | null;
+        lastMessageContent: string | null;
+        clientId: string;
+        clientUsername: string | null;
+        clientPhone: string;
+        clientProfile: string | null;
+        agentId: string | null;
+        agentUsername: string | null;
+      }>();
+
+    return rows.map((row) => ({
+      id: row.chatId,
+      preview: {
+        content: row.lastMessageContent ?? null,
+        datetime: row.lastMessageAt ?? null,
+      },
+      client: {
+        id: row.clientId,
+        username: row.clientUsername,
+        profile: row.clientProfile,
+        phone: row.clientPhone,
+      },
+      status: row.chatStatus,
+      waitingSince: row.lastMessageAt,
+      agent: row.agentId
+        ? { id: row.agentId, username: row.agentUsername }
+        : null,
     }));
   }
 

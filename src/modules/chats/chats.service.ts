@@ -132,6 +132,12 @@ export class ChatsService {
     return this.assignment.listUnassigned(companyId, limit);
   }
 
+  /** Vista "sin respuesta" de la empresa (Q10): solo lectura, no reasigna. */
+  listNeedsResponse(companyId?: string, minutes?: number) {
+    if (!companyId) return [];
+    return this.assignment.listNeedsResponse(companyId, minutes);
+  }
+
   updateLastMessage(chatId: string, messageId: string) {
     return this.chatRepo.update(
       { id: chatId },

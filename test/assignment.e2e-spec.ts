@@ -14,7 +14,7 @@ import {
   User,
   WhatsAppConfig,
 } from '../src/entities/index';
-import { WhatsAppMessageDetail } from '../src/integrations/whatsapp/entities/index';
+import { WhatsAppMessageDetail } from '../src/integrations/whatsapp/entities/whatsapp-message-detail.entity';
 import {
   ASSIGNED_NOTIFICATION_TITLE,
   ChatAssignmentNotifier,
@@ -29,6 +29,12 @@ import { ChatAssignments, Transfer } from '../src/modules/chats/entities/index';
 import type { ChatGateway } from '../src/modules/chats/gateways/chat.gateway';
 import { Member } from '../src/modules/member/member.entity';
 import { MemberRole, MemberStatus } from '../src/modules/member/member.types';
+import {
+  MessageDirection,
+  MessageSenderType,
+  MessageStatus,
+  MessageType,
+} from '../src/modules/message/message.enum';
 import { NotificationsService } from '../src/modules/notifications/notifications.service';
 import { getTestSQLiteConfig } from './helpers/test-database.helper';
 
@@ -155,6 +161,32 @@ describe('ChatAssignmentService (e2e)', () => {
       where: { chat: { id: chatId }, unassignedAt: IsNull() },
       relations: ['agent'],
     });
+
+  const addLastMessage = async (
+    chat: Chat,
+    senderType: MessageSenderType,
+    at: Date,
+  ) => {
+    const messages = dataSource.getRepository(Message);
+    const message = await messages.save(
+      messages.create({
+        chat: { id: chat.id },
+        senderId: senderType === MessageSenderType.CLIENT ? 'client' : 'agent',
+        senderType,
+        content: 'seed',
+        direction:
+          senderType === MessageSenderType.CLIENT
+            ? MessageDirection.IN
+            : MessageDirection.OUT,
+        status: MessageStatus.SENT,
+        type: MessageType.TEXT,
+      }),
+    );
+    await dataSource
+      .getRepository(Chat)
+      .update({ id: chat.id }, { lastMessage: { id: message.id }, lastMessageAt: at });
+    return message;
+  };
 
   it('assigns the least-loaded active member of the company', async () => {
     const company = await seedCompany();
@@ -491,6 +523,48 @@ describe('ChatAssignmentService (e2e)', () => {
       expect(outcome).toBe(AssignmentOutcome.ASSIGNED);
       expect(await dataSource.getRepository(Notification).count()).toBe(0);
       expect(events.some((e) => e.event === ChatGatewayEvent.ChatAssigned)).toBe(true);
+    });
+  });
+
+  describe('needs-response view (Q10)', () => {
+    it('lists client messages waiting for a reply with their current owner', async () => {
+      const company = await seedCompany();
+      const agent = await seedMember(company);
+      const waiting = await seedChat(company);
+      const pending = await seedChat(company);
+      const answered = await seedChat(company);
+      const recent = await seedChat(company);
+      const foreign = await seedChat(await seedCompany());
+
+      await addLastMessage(
+        waiting,
+        MessageSenderType.CLIENT,
+        new Date('2026-10-01T10:00:00Z'),
+      );
+      await addLastMessage(
+        pending,
+        MessageSenderType.CLIENT,
+        new Date('2026-10-01T11:00:00Z'),
+      );
+      await addLastMessage(
+        answered,
+        MessageSenderType.AGENT,
+        new Date('2026-10-01T09:00:00Z'),
+      );
+      await addLastMessage(recent, MessageSenderType.CLIENT, new Date());
+      await addLastMessage(
+        foreign,
+        MessageSenderType.CLIENT,
+        new Date('2026-10-01T08:00:00Z'),
+      );
+
+      await assign(waiting, agent.user);
+
+      const result = await service.listNeedsResponse(company.id, 15);
+
+      expect(result.map((chat) => chat.id)).toEqual([waiting.id, pending.id]);
+      expect(result[0].agent?.id).toBe(agent.user.id);
+      expect(result[1].agent).toBeNull();
     });
   });
 });

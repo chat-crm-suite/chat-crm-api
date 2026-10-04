@@ -55,8 +55,8 @@ Deliverables: `schema-v2.dbml`; `README.md` design rules.
 
 Deliverables: `package.json` scripts; `src/config/database.config.ts`.
 
-- [ ] npm scripts against `data-source.ts`: `migration:generate`, `migration:run`, `migration:revert`, `db:reset` (drop + create + run + setup).
-- [ ] Remove `synchronize` from the dev path (it remains only in `testDatabaseSQLiteConfig`).
+- [ ] npm scripts against `data-source.ts`: `migration:generate`, `migration:run`, `migration:revert`, `db:reset` (drop + run migrations; the idempotent `AdminBootstrapService` provisions setup on next boot).
+- [ ] Remove `synchronize` from the dev path (it remains only in test configurations until Phase 6).
 - [ ] Recreate dev databases from scratch.
 
 **Verification**: `db:reset` leaves a usable DB with no `synchronize` anywhere.

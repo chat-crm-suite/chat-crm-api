@@ -13,7 +13,9 @@ export const mysqlDatabaseConfig: TypeOrmModuleOptions = {
     __dirname + '/../integrations/**/*.entity{.ts,.js}'
   ],
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
-  synchronize: process.env.NODE_ENV !== 'production',
+  // Schema comes from migrations in every environment (dev and prod); the
+  // `synchronize` shortcut is deliberately left to test configurations only.
+  synchronize: false,
   migrationsRun: process.env.NODE_ENV === 'production',
   namingStrategy: new SnakeNamingStrategy(),
   // logging: ['query'],

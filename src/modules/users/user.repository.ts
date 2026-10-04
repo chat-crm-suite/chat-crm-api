@@ -23,6 +23,8 @@ export class UserRepository {
         email: true,
         phoneNumber: true,
         status: true,
+        // The front gates admin-only UI with this field.
+        role: true,
       }
     });
   }

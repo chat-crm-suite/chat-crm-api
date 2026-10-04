@@ -1,12 +1,10 @@
-import { createZodDto } from "nestjs-zod";
-import { ContactSchema } from "../contact.schema";
+import { createZodDto } from 'nestjs-zod';
 
-export class CreateContactDto extends createZodDto(
-  ContactSchema.omit({ id: true })
-) { }
+import {
+  CreateContactSchema,
+  UpdateContactSchema,
+} from '../../../contracts/index';
 
-export class UpdateContactDto extends createZodDto(
-  ContactSchema.partial().omit({ id: true })
-) { }
+export class CreateContactDto extends createZodDto(CreateContactSchema) {}
 
-export class ContactResponseDto extends createZodDto(ContactSchema) { }
+export class UpdateContactDto extends createZodDto(UpdateContactSchema) {}

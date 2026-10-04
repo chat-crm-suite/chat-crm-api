@@ -14,6 +14,7 @@
 export * from './auth.contract';
 export * from './chats.contract';
 export * from './company.contract';
+export * from './contact.contract';
 export * from './metrics.contract';
 export * from './setup.contract';
 export * from './user.contract';

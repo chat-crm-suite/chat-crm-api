@@ -7,6 +7,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { UsersModule } from './users/users.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { MessageModule } from './message/message.module';
+import { SetupModule } from './setup/setup.module';
 
 export {
   ChatsModule,
@@ -17,6 +18,7 @@ export {
   UsersModule,
   AnalysisModule,
   MessageModule,
+  SetupModule,
 };
 
 export const modules = [
@@ -28,6 +30,7 @@ export const modules = [
   MetricsModule,
   AnalysisModule,
   MessageModule,
+  SetupModule,
 ]
 
 @Module({

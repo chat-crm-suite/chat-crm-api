@@ -8,13 +8,19 @@ export const SENTIMENT_LABELS_MAP = {
   negative: SentimentLabel.NEGATIVE,
 } as const;
 
+/**
+ * Schema v2 targets for the compare endpoint.
+ * - chat: conversations
+ * - transfer: conversation_assignments (transfers are rows with reason='transfer')
+ * - agent/client: distinct senders of outbound/inbound messages
+ */
 export const COMPARE_PERIOD_CONFIG: Record<
   CompareMetric,
-  { target: Table; column: string; where?: string }
+  { target: Table; column: string; where?: string; timeColumn?: string }
 > = {
   chat: {
     column: 'id',
-    target: 'chats',
+    target: 'conversations',
   },
   message: {
     column: 'id',
@@ -22,17 +28,19 @@ export const COMPARE_PERIOD_CONFIG: Record<
   },
   transfer: {
     column: 'id',
-    target: 'transfers',
+    target: 'conversation_assignments',
+    timeColumn: 'assigned_at',
+    where: "reason = 'transfer'",
   },
   agent: {
     target: 'messages',
-    column: 'sender_id',
-    where: 'sender_type = "agent"',
+    column: 'sender_member_id',
+    where: "direction = 'outbound'",
   },
   client: {
     target: 'messages',
-    column: 'sender_id',
-    where: 'sender_type = "client"',
+    column: 'sender_customer_id',
+    where: "direction = 'inbound'",
   },
 } as const;
 

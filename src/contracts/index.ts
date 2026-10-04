@@ -14,10 +14,7 @@
 export * from './analysis.contract';
 export * from './auth.contract';
 export * from './channel.contract';
-export * from './chat.contract';
-export * from './chats.contract';
 export * from './company.contract';
-export * from './contact.contract';
 export * from './conversation.contract';
 export * from './customer.contract';
 export * from './member.contract';
@@ -27,5 +24,4 @@ export * from './pagination.contract';
 export * from './setup.contract';
 export * from './template.contract';
 export * from './user.contract';
-export * from './whatsapp-config.contract';
 export * from './whatsapp-webhook.contract';

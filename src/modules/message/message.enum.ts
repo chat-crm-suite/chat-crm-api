@@ -1,13 +1,20 @@
 /**
- * Message enums live in the shared contracts (`src/contracts/message.contract.ts`).
- * Re-exported here so existing imports keep working across the API.
+ * Message domain values live in the shared contracts (`src/contracts/message.contract.ts`).
+ * Re-exported here so existing import paths keep working across the API.
  *
- * Historical note: `FILE`/`AUDIO`/`VIDEO` are not persisted yet and the legacy
- * `user` sender type was folded into `agent` (legacy rows are treated as agent).
+ * v2 values are string unions validated by Zod (`MESSAGE_TYPES`, ...), so the
+ * legacy `MessageType.TEXT`-style value objects no longer exist.
  */
 export {
-  MessageType,
+  MESSAGE_DIRECTIONS,
+  MESSAGE_SENDER_TYPES,
+  MESSAGE_STATUSES,
+  MESSAGE_TYPES,
+} from '../../contracts/index';
+
+export type {
+  MessageDirection,
   MessageSenderType,
   MessageStatus,
-  MessageDirection,
+  MessageType,
 } from '../../contracts/index';

@@ -1,29 +1,23 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Message } from './message.entity';
-import { MessageService } from './message.services';
+
+import { Conversation } from '../conversations/entities/conversation.entity';
+import { MessageAttachment } from './entities/message-attachment.entity';
+import { MessageStatusEvent } from './entities/message-status-event.entity';
+import { Message } from './entities/message.entity';
 import { MessageRepository } from './message.repository';
-import { MessageSubscriber } from './message.subscriber';
-import { MessageProcessor } from './message.processor';
-import { BullModule } from '@nestjs/bullmq';
+import { MessageService } from './message.service';
 
 @Module({
   imports: [
-    BullModule.registerQueue({
-      name: 'message',
-    }),
-    TypeOrmModule.forFeature([Message])
+    TypeOrmModule.forFeature([
+      Message,
+      MessageAttachment,
+      MessageStatusEvent,
+      Conversation,
+    ]),
   ],
-  providers: [
-    MessageService,
-    MessageRepository,
-    MessageSubscriber,
-    MessageProcessor,
-  ],
-  exports: [
-    MessageService,
-    MessageRepository,
-    MessageProcessor
-  ]
+  providers: [MessageService, MessageRepository],
+  exports: [MessageService, MessageRepository],
 })
-export class MessageModule { }
+export class MessageModule {}

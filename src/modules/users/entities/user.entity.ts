@@ -14,8 +14,8 @@ import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
  */
 @Entity('users')
 export class User extends UuidV7Entity {
-  @Column({ length: 255, unique: true })
-  email: string;
+  @Column({ length: 255, unique: true, nullable: true })
+  email?: string;
 
   @Column({ length: 100, unique: true })
   username: string;

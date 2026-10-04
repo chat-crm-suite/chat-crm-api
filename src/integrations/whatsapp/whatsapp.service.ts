@@ -1,22 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { PinoLogger } from 'nestjs-pino';
 import { ClsService } from 'nestjs-cls';
-import { Repository } from 'typeorm';
+import { PinoLogger } from 'nestjs-pino';
 
-import { WhatsAppConfig } from '../../entities/index';
-import { InjectRepository } from '@nestjs/typeorm';
+import {
+  ChannelsService,
+  ChannelTransmission,
+} from '../../modules/channels/channels.service';
 import { WhatsAppClient } from './clients/whatsapp.client';
 import { WhatsAppPayload } from './interfaces/whatsapp-message.interface';
-import {
-  CreateWhatsAppConfigInput,
-  UpdateWhatsAppConfigInput,
-} from '../../contracts/index';
 
+/**
+ * Provider facade for WhatsApp: resolves the company channel (decrypted
+ * credentials) and delegates to the HTTP client. Config CRUD lives in
+ * `ChannelsService` / `/channels`.
+ */
 @Injectable()
 export class WhatsAppService {
   constructor(
-    @InjectRepository(WhatsAppConfig)
-    private readonly configRepository: Repository<WhatsAppConfig>,
+    private readonly channels: ChannelsService,
     private readonly client: WhatsAppClient,
     private readonly cls: ClsService,
     private readonly logger: PinoLogger,
@@ -24,108 +25,38 @@ export class WhatsAppService {
     this.logger.setContext(WhatsAppService.name);
   }
 
-  async verifyToken(token: string) {
-    return !!(await this.configRepository.findOne({
-      where: { webhookVerifyToken: token },
-      cache: true,
-    }));
+  verifyToken(token: string) {
+    return this.channels.verifyToken(token);
   }
 
-  async getConfig() {
-    this.logger.debug(
-      `User ${this.cls.get('user.id')} get config with ${this.cls.get('company.id')}`,
-    );
-    return this.configRepository.findOne({
-      where: {
-        company: { id: this.cls.get('company.id') },
-      },
-      cache: true,
-    });
+  /** Webhook routing: active channel by phone_number_id, decrypted. */
+  getTransmissionByPhoneNumberId(
+    phoneNumberId: string,
+  ): Promise<ChannelTransmission | null> {
+    return this.channels.getTransmissionByExternalAccountId(phoneNumberId);
   }
 
-  async sendMessage(payload: WhatsAppPayload) {
-    const config = await this.getConfig();
+  async sendMessage(payload: WhatsAppPayload, companyId?: string) {
+    const resolvedCompanyId =
+      companyId ?? this.cls.get<string>('company.id');
 
-    if (!config) {
-      this.logger.error('Config no found in service');
+    if (!resolvedCompanyId) {
+      this.logger.error('No company context to send a WhatsApp message');
       return;
     }
 
-    this.logger.debug(config, 'Config in service');
-    this.client.setConfig(config);
+    const transmission =
+      await this.channels.getTransmissionForCompany(resolvedCompanyId);
+    if (!transmission) {
+      this.logger.error(
+        { companyId: resolvedCompanyId },
+        'No active WhatsApp channel for company',
+      );
+      return;
+    }
+
+    this.client.setChannel(transmission.channel, transmission.credentials);
 
     return this.client.send(payload);
   }
-
-  async getConfigByPhoneNumberId(phoneNumberId: string) {
-    return this.configRepository.findOne({
-      where: {
-        phoneNumberId,
-        isActive: true,
-      },
-      // La empresa es necesaria para asignar el chat al agente correcto (Q4).
-      relations: ['company'],
-      cache: true,
-    });
-  }
-
-  createConfig(config: CreateWhatsAppConfigInput) {
-    const company = { id: this.cls.get('company.id') };
-    const waConfig = this.configRepository.create({
-      ...config,
-      company,
-    });
-
-    return this.configRepository.save(waConfig);
-  }
-
-  /**
-   * Returns the fresh configuration so the response always matches the
-   * `WhatsAppConfigSchema` contract (the raw `UpdateResult` is not a config).
-   */
-  async updateConfig(config: UpdateWhatsAppConfigInput) {
-    await this.configRepository.update(
-      {
-        company: { id: this.cls.get('company.id') },
-      },
-      config,
-    );
-
-    return this.getConfig();
-  }
-
-  // async sendTemplateMessage(to: string, templateName: string, languageCode: string, companyId?: string) {
-  //   const { apiBaseUrl, apiVersion, phoneNumberId, accessToken } = await this.configService.getActiveByCompany(companyId ?? '');
-  //   const url = `${apiBaseUrl}/${apiVersion}/${phoneNumberId}/messages`;
-  //   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  //   const payload: any = this.factory.template(to, templateName, languageCode);
-
-  //   return this.client.sendMessage(url, accessToken, payload).catch(err => {
-  //     this.logger.debug(`Info request WhatsApp API: ${apiBaseUrl} - ${apiVersion} - ${phoneNumberId}`);
-  //     this.logger.debug(`Payload request WhatsApp API: ${JSON.stringify(payload, null, 2)}`);
-  //     this.logger.debug(`Error sending template message to ${to}`);
-  //     throw err;
-  //   });
-  // }
-
-  // async sendTextMessage(to: string, message: string, companyId?: string) {
-  //   const { apiBaseUrl, apiVersion, phoneNumberId, accessToken } = await this.configService.getActiveByCompany(companyId);
-  //   const url = `${apiBaseUrl}/${apiVersion}/${phoneNumberId}/messages`;
-  //   const payload = this.factory.text(to, message);
-
-  //   return this.client.sendMessage(url, accessToken, payload).catch(err => {
-  //     this.logger.debug(`Info request WhatsApp API: ${apiBaseUrl} - ${apiVersion} - ${phoneNumberId}`);
-  //     this.logger.debug(`Payload request WhatsApp API: ${JSON.stringify(payload, null, 2)}`);
-  //     this.logger.debug(`Error sending message to ${to}`);
-  //     throw err;
-  //   });
-  // }
-
-  // async sendMessage(to: string, message: string) {
-  //   const { apiBaseUrl, phoneNumberId, accessToken } = await this.configService.active();
-  //   const url = `${apiBaseUrl}/${phoneNumberId}/messages`;
-  //   const payload = this.factory.text(to, message);
-
-  //   return this.client.sendMessage(url, accessToken, payload);
-  // }
 }

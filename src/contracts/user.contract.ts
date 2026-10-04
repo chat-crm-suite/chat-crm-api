@@ -22,7 +22,6 @@ export const CreateUserSchema = z.object({
   phoneNumber: z.string().optional(),
   email: z.email().optional(),
   avatarUrl: z.string().optional(),
-  address: z.string().optional(),
   password: z.string().min(8),
 });
 
@@ -45,7 +44,6 @@ export const UserResponseSchema = z.object({
   email: z.string().nullish(),
   username: z.string(),
   avatarUrl: z.string().nullish(),
-  address: z.string().nullish(),
   isPlatformAdmin: z.boolean(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
@@ -57,7 +55,6 @@ export const AuthUserSchema = UserResponseSchema.pick({
   username: true,
   firstName: true,
   lastName: true,
-  address: true,
   avatarUrl: true,
   email: true,
   phoneNumber: true,

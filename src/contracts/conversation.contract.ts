@@ -103,6 +103,14 @@ export const ConversationListItemSchema = z.object({
 export type ConversationCustomer = z.infer<typeof ConversationCustomerSchema>;
 export type ConversationListItem = z.infer<typeof ConversationListItemSchema>;
 
+/** `POST /conversations/assign` payload. */
+export const AssignConversationSchema = z.object({
+  conversationId: z.string(),
+  memberId: z.string(),
+});
+
+export type AssignConversationInput = z.infer<typeof AssignConversationSchema>;
+
 /** `conversation:message:send` payload (frontend -> gateway). */
 export const SendConversationMessageSchema = z.object({
   room: z.string(),

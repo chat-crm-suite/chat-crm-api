@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { WhatsAppApiVersionSchema } from './whatsapp-config.contract';
+import { CreateChannelSchema } from './channel.contract';
 
 /**
  * First-run setup contracts (public wizard endpoints).
@@ -22,17 +22,10 @@ export const SetupCompanySchema = z.object({
 });
 
 /**
- * WhatsApp block of the wizard. Unlike `CreateWhatsAppConfigSchema`,
- * `businessId` may be omitted (the setup form can leave it empty).
+ * WhatsApp block of the wizard: creating a channel (credentials travel
+ * plaintext over the wire and are encrypted before hitting the database).
  */
-export const SetupWhatsAppSchema = z.object({
-  businessId: z.string().optional(),
-  accessToken: z.string(),
-  phoneNumberId: z.string(),
-  webhookUrl: z.string(),
-  apiVersion: WhatsAppApiVersionSchema.optional(),
-  apiBaseUrl: z.string().optional(),
-});
+export const SetupWhatsAppSchema = CreateChannelSchema.omit({ type: true });
 
 export const CreateSetupSchema = z.object({
   setupToken: z.string().optional(),
@@ -53,8 +46,8 @@ export const SetupStatusSchema = z.object({
 export const SetupResultSchema = z.object({
   user: z.object({ id: z.string(), username: z.string() }),
   company: z.object({ id: z.string(), name: z.string() }),
-  whatsapp: z
-    .object({ id: z.string(), webhookVerifyToken: z.string() })
+  channel: z
+    .object({ id: z.string(), webhookVerifyToken: z.string().nullable() })
     .nullable(),
 });
 

@@ -3,16 +3,22 @@ import { startOfMonth, subMonths } from 'date-fns';
 import { DataSource } from 'typeorm';
 import { AgentQuery, ClientQuery, ContactQuery } from './metrics.interface';
 import { period, PeriodTime } from '../../lib/period';
+import type { SentimentType, Table } from './metrics.types';
 
-export type Table = 'messages' | 'transfers' | 'chats' | 'contacts' | 'users';
-export type SentimentType = 'POS' | 'NEU' | 'NEG';
+export type { SentimentType } from './metrics.types';
 
-type comparePeriodsParams = {
+type ComparePeriodsParams = {
   targetTable: Table;
   column: string;
   timeUnit: PeriodTime;
+  timeColumn?: string;
 };
-type CompareParams = { target: Table; column: string; period: PeriodTime };
+type CompareParams = {
+  target: Table;
+  column: string;
+  period: PeriodTime;
+  timeColumn?: string;
+};
 
 @Injectable()
 export class MetricsRepository {
@@ -21,12 +27,13 @@ export class MetricsRepository {
   async comparePeriod(filters: CompareParams, whereClause?: string) {
     const curr = period(filters.period);
     const prev = period(filters.period, 1);
+    const timeColumn = filters.timeColumn ?? 'created_at';
 
     const raw: { current: string; previous: string }[] = await this.dataSource
       .sql`
       SELECT 
-        COUNT(DISTINCT CASE WHEN created_at BETWEEN ${curr.start} AND ${curr.end} THEN ${() => filters.column} END) AS current,
-        COUNT(DISTINCT CASE WHEN created_at BETWEEN ${prev.start} AND ${prev.end} THEN ${() => filters.column} END) AS previous
+        COUNT(DISTINCT CASE WHEN ${() => timeColumn} BETWEEN ${curr.start} AND ${curr.end} THEN ${() => filters.column} END) AS current,
+        COUNT(DISTINCT CASE WHEN ${() => timeColumn} BETWEEN ${prev.start} AND ${prev.end} THEN ${() => filters.column} END) AS previous
       FROM ${() => filters.target}
       WHERE ${() => filters.column} IS NOT NULL
         AND (${() => whereClause ?? '1=1'});
@@ -42,7 +49,8 @@ export class MetricsRepository {
     targetTable,
     column = 'id',
     timeUnit,
-  }: comparePeriodsParams) {
+    timeColumn = 'created_at',
+  }: ComparePeriodsParams) {
     const currentPeriod = period(timeUnit);
     const previousPeriod = period(timeUnit, 1);
 
@@ -55,11 +63,11 @@ export class MetricsRepository {
       .sql`
       SELECT (
         SELECT COUNT(DISTINCT(${() => column})) FROM ${() => targetTable}
-        WHERE created_at BETWEEN ${currentStart} AND ${currentEnd} 
+        WHERE ${() => timeColumn} BETWEEN ${currentStart} AND ${currentEnd} 
         AND ${() => column} IS NOT NULL
       ) as current, (
         SELECT COUNT(DISTINCT(${() => column})) FROM ${() => targetTable}
-        WHERE created_at BETWEEN ${previousStart} AND ${previousEnd} 
+        WHERE ${() => timeColumn} BETWEEN ${previousStart} AND ${previousEnd} 
         AND ${() => column} IS NOT NULL
       ) as previous
     `;
@@ -77,19 +85,19 @@ export class MetricsRepository {
     const results: ContactQuery[] = await this.dataSource.sql`
         SELECT 
           c.id,
-          c.username,
-          c.first_names AS firstNames,
-          c.last_names AS lastNames,
+          c.display_name AS username,
+          c.first_name AS firstNames,
+          c.last_name AS lastNames,
           c.phone_number AS phoneNumber,
-          c.profile,
-          COUNT(m.message_id) AS count,
-          RANK() OVER (ORDER BY COUNT(m.message_id) DESC) AS \'rank\'
+          c.display_name AS profile,
+          COUNT(m.id) AS count,
+          RANK() OVER (ORDER BY COUNT(m.id) DESC) AS \`rank\`
         FROM messages m
-        INNER JOIN contacts c ON m.sender_id = c.id
-        WHERE m.sender_type = 'client'
+        INNER JOIN customers c ON m.sender_customer_id = c.id
+        WHERE m.direction = 'inbound'
         AND m.created_at >= ${start}
         GROUP BY c.id
-        ORDER BY count DESC, c.username
+        ORDER BY count DESC, c.display_name
         LIMIT ${limit}`;
 
     return results; // MySQL returns COUNT(*) directly as a number
@@ -101,20 +109,22 @@ export class MetricsRepository {
   ): Promise<AgentQuery[]> {
     const qb: AgentQuery[] = await this.dataSource.sql`
       SELECT 
-        u.id AS agentId,
+        u.id AS id,
         u.username AS username,
         u.first_name AS firstName,
         u.last_name AS lastName,
-        COUNT(sa.sentiment_analysis_id) AS total,
-        AVG(sa.score_pos) AS avgPos,
-        AVG(sa.score_neu) AS avgNeu,
-        AVG(sa.score_neg) AS avgNeg
+        COUNT(sr.analysis_id) AS total,
+        AVG(sr.score_positive) AS avgPos,
+        AVG(sr.score_neutral) AS avgNeu,
+        AVG(sr.score_negative) AS avgNeg
       FROM messages m
-      INNER JOIN users u ON u.id = m.sender_id
-      INNER JOIN analysis a ON a.message_id =m.message_id
-      INNER JOIN sentiment_analysis sa ON sa.analysis_id = a.analysis_id
-      WHERE m.sender_type = 'agent'
-      GROUP BY sa.sentiment_analysis_id
+      INNER JOIN company_members cm ON cm.id = m.sender_member_id
+      INNER JOIN users u ON u.id = cm.user_id
+      INNER JOIN analyses a ON a.message_id = m.id
+      INNER JOIN sentiment_results sr ON sr.analysis_id = a.id
+      WHERE m.direction = 'outbound'
+        AND sr.label = ${label}
+      GROUP BY u.id
       ORDER BY total DESC
       LIMIT ${limit}
     `;
@@ -130,15 +140,19 @@ export class MetricsRepository {
     const qb: ClientQuery[] = await this.dataSource.sql`
       SELECT 
         c.id AS contactId,
-        c.username AS username,
+        COALESCE(c.display_name, NULLIF(CONCAT_WS(' ', c.first_name, c.last_name), '')) AS username,
         COUNT(m.id) AS totalMessages,
-        AVG(sa.pos) AS avgPos,
-        COUNT(sa.id) AS totalPositive,
-        COUNT(m.id) * AVG(sa.pos) AS score
-      FROM message m
-      INNER JOIN contacts c ON m.contact_id = c.id
-      LEFT JOIN sentiment_analysis sa ON sa.message_id =m.message_id AND sa.label = ${label}
-      WHERE m.agent_id = ${userId}
+        AVG(sr.score_positive) AS avgPos,
+        COUNT(sr.analysis_id) AS totalPositive,
+        COUNT(m.id) * AVG(sr.score_positive) AS score
+      FROM messages m
+      INNER JOIN conversations conv ON conv.id = m.conversation_id
+      INNER JOIN company_members cm ON cm.id = conv.assigned_member_id
+      INNER JOIN customers c ON c.id = m.sender_customer_id
+      LEFT JOIN analyses a ON a.message_id = m.id AND a.type = 'sentiment'
+      LEFT JOIN sentiment_results sr ON sr.analysis_id = a.id AND sr.label = ${label}
+      WHERE cm.user_id = ${userId}
+        AND m.direction = 'inbound'
       GROUP BY c.id
       ORDER BY score DESC
       LIMIT ${limit}

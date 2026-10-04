@@ -1,7 +1,7 @@
+import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { SentimentType } from '../metrics.types';
 import { SentimentTopQuery, TrendPeriodQuery } from '../metrics.interface';
-import { Injectable } from '@nestjs/common';
 import { period, PeriodTime } from '../../../lib/period';
 import { DATE_FORMAT_SQL } from '../constants/metrics.constants';
 
@@ -20,15 +20,15 @@ export class SentimentRepository {
     const query: Promise<TrendPeriodQuery[]> = this.dataSource.sql`
       SELECT 
         DATE_FORMAT(m.created_at, ${DATE_FORMAT_SQL[periodTime]}) as date,
-        AVG(sa.score_pos) as avg_pos,
-        AVG(sa.score_neu) as avg_neu,
-        AVG(sa.score_neg) as avg_neg 
-      FROM sentiment_analysis sa 
-      INNER JOIN analysis a ON a.analysis_id = sa.analysis_id
-      INNER JOIN messages m ON m.message_id = a.message_id 
-      LEFT JOIN users u ON u.id = m.sender_id AND m.sender_type = 'agent'
+        AVG(sr.score_positive) as avg_pos,
+        AVG(sr.score_neutral) as avg_neu,
+        AVG(sr.score_negative) as avg_neg 
+      FROM sentiment_results sr 
+      INNER JOIN analyses a ON a.id = sr.analysis_id
+      INNER JOIN messages m ON m.id = a.message_id 
+      LEFT JOIN company_members cm ON cm.id = m.sender_member_id
       WHERE m.created_at BETWEEN ${start} AND ${end}
-        AND u.id = COALESCE(${userId}, u.id)
+        AND cm.user_id = COALESCE(${userId}, cm.user_id)
       GROUP BY date
       ORDER By date
     `;
@@ -44,20 +44,21 @@ export class SentimentRepository {
       SELECT 
         u.id AS id,
         u.username AS username,
-        COUNT(sa.sentiment_analysis_id) AS total,
-        sa.label as label,
-        AVG(sa.score_pos) AS avgPos,
-        AVG(sa.score_neu) AS avgNeu,
-        AVG(sa.score_neg) AS avgNeg
+        COUNT(sr.analysis_id) AS total,
+        sr.label as label,
+        AVG(sr.score_positive) AS avgPos,
+        AVG(sr.score_neutral) AS avgNeu,
+        AVG(sr.score_negative) AS avgNeg
       FROM messages m
-      INNER JOIN users u ON u.id = m.sender_id -- agent relation
-      INNER JOIN analysis a ON a.message_id = m.message_id
-      INNER JOIN sentiment_analysis sa ON sa.analysis_id = a.analysis_id
+      INNER JOIN company_members cm ON cm.id = m.sender_member_id -- agent relation
+      INNER JOIN users u ON u.id = cm.user_id
+      INNER JOIN analyses a ON a.message_id = m.id
+      INNER JOIN sentiment_results sr ON sr.analysis_id = a.id
       WHERE 
-        sa.label = COALESCE(${label}, sa.label) AND 
-        m.sender_type = 'agent' AND
-        m.sender_id IS NOT NULL
-      GROUP BY u.id, sa.label
+        sr.label = COALESCE(${label}, sr.label) AND 
+        m.direction = 'outbound' AND
+        m.sender_member_id IS NOT NULL
+      GROUP BY u.id, sr.label
       ORDER BY total DESC
       LIMIT ${limit}
     `;
@@ -70,21 +71,21 @@ export class SentimentRepository {
     return this.dataSource.sql`
       SELECT 
         c.id AS id,
-        c.username AS username,
-        sa.label as label,
-        COUNT(sa.sentiment_analysis_id) AS total,
-        AVG(sa.score_pos) AS avgPos,
-        AVG(sa.score_neu) AS avgNeu,
-        AVG(sa.score_neg) AS avgNeg
+        COALESCE(c.display_name, NULLIF(CONCAT_WS(' ', c.first_name, c.last_name), '')) AS username,
+        sr.label as label,
+        COUNT(sr.analysis_id) AS total,
+        AVG(sr.score_positive) AS avgPos,
+        AVG(sr.score_neutral) AS avgNeu,
+        AVG(sr.score_negative) AS avgNeg
       FROM messages m
-      INNER JOIN contacts c ON c.id = m.sender_id -- contact relation
-      INNER JOIN analysis a ON a.message_id =m.message_id
-      INNER JOIN sentiment_analysis sa ON sa.analysis_id = a.analysis_id
+      INNER JOIN customers c ON c.id = m.sender_customer_id -- customer relation
+      INNER JOIN analyses a ON a.message_id = m.id
+      INNER JOIN sentiment_results sr ON sr.analysis_id = a.id
       WHERE 
-        sa.label = COALESCE(${label}, sa.label) AND
-        m.sender_type = 'client' AND
-        m.sender_id IS NOT NULL
-      GROUP BY c.id, sa.label
+        sr.label = COALESCE(${label}, sr.label) AND
+        m.direction = 'inbound' AND
+        m.sender_customer_id IS NOT NULL
+      GROUP BY c.id, sr.label
       ORDER BY total DESC
       LIMIT ${limit}
     `;

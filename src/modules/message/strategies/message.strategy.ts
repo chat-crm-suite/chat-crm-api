@@ -1,21 +1,24 @@
-import { Message } from '../../../entities/index';
-import { BroadcastDto } from '../../chats/dto/broadcast.dto';
-import {
+import type {
   WhatsAppMessageContent,
   WhatsAppPayload,
 } from '../../../integrations/whatsapp/interfaces/whatsapp-message.interface';
+import type { MessageAttachment } from '../entities/message-attachment.entity';
+import type { Message } from '../entities/message.entity';
+import type { ConversationMessagePayload } from '../message.types';
 
 export interface MessageStrategy {
-  // Send to Whatsapp Business API
+  /** Builds the WhatsApp Cloud API payload for an outbound message. */
   toWhatsAppPayload(
     to: string,
     content: WhatsAppMessageContent,
   ): WhatsAppPayload;
 
-  // Save in db with mapper
-  toEntityFields(
-    content: WhatsAppMessageContent & { medialUrl?: string },
-  ): Partial<Message>;
-
-  toBroadcastFields(message: Message): BroadcastDto;
+  /**
+   * Maps a persisted message (plus its attachments) to the v2 REST/socket
+   * payload (`GET /conversations/:id/messages`).
+   */
+  toBroadcastFields(
+    message: Message,
+    attachments?: MessageAttachment[],
+  ): ConversationMessagePayload;
 }

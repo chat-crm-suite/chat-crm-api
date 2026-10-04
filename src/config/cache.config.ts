@@ -5,6 +5,9 @@ import { CacheableMemory } from 'cacheable';
 import { Keyv } from 'keyv';
 
 export const cacheConfig: CacheModuleAsyncOptions = {
+  // Global: CACHE_MANAGER queda inyectable en cualquier módulo (HealthModule,
+  // features, etc.) sin re-registrar el mismo store en cada uno.
+  isGlobal: true,
   useFactory: () => ({
     stores: [
       new Keyv({

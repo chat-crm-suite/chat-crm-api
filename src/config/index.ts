@@ -20,6 +20,8 @@ import { bullmqConfig } from './bullmq.config';
 import { ClsModule } from 'nestjs-cls';
 import { clsConfig } from './cls.config';
 
+import { HealthModule } from '../modules/health/health.module';
+
 const configs = [
   I18nModule.forRoot(i18nConfig),
   LoggerModule.forRoot(loggerConfig),
@@ -28,6 +30,9 @@ const configs = [
   BullModule.forRoot(bullmqConfig),
   ClsModule.forRoot(clsConfig),
   CqrsModule.forRoot(cqrsConfig),
+  // El módulo de salud vive aquí porque consume estas configuraciones
+  // (DataSource, CacheModule, BullModule) y así hay una sola fuente de ensamblaje.
+  HealthModule,
 ]
 
 @Module({

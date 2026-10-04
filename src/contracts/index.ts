@@ -1,7 +1,7 @@
 /**
  * Shared API contracts (Zod schemas + inferred types).
  *
- * Single source of truth for request/response payloads:
+ * Single source of truth for request/response payloads and domain values:
  * - API imports them with a relative path and wraps them with `createZodDto`.
  * - Frontend resolves `@chat-crm/contracts` to this folder (Vite/TS alias).
  *
@@ -11,15 +11,21 @@
  *   (empty-string placeholders, min lengths for typing) belongs to the app.
  * - Response schemas are also used by `@ZodResponse` to serialize endpoints.
  */
+export * from './analysis.contract';
 export * from './auth.contract';
+export * from './channel.contract';
 export * from './chat.contract';
 export * from './chats.contract';
 export * from './company.contract';
 export * from './contact.contract';
+export * from './conversation.contract';
+export * from './customer.contract';
+export * from './member.contract';
 export * from './message.contract';
 export * from './metrics.contract';
 export * from './pagination.contract';
 export * from './setup.contract';
+export * from './template.contract';
 export * from './user.contract';
 export * from './whatsapp-config.contract';
 export * from './whatsapp-webhook.contract';

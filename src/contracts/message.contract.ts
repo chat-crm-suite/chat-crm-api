@@ -1,127 +1,54 @@
 import { z } from 'zod';
 
-import { ChatMessageContentSchema } from './chat.contract';
-
 /**
- * Message contracts: enums, the broadcast payload the API emits/returns and
- * the socket send payload.
+ * Message domain values (v2). Single source of truth, shared with the
+ * frontend; the DB columns are varchar(50) validated by these schemas.
  */
-const messageTypeValues = {
-  TEXT: 'text',
-  IMAGE: 'image',
-  DOCUMENT: 'document',
-  // FILE/AUDIO/VIDEO are not persisted yet (see message.enum.ts history).
-} as const;
+export const MESSAGE_DIRECTIONS = ['inbound', 'outbound'] as const;
+export const MessageDirectionSchema = z.enum(MESSAGE_DIRECTIONS);
+export type MessageDirection = z.infer<typeof MessageDirectionSchema>;
 
-export const MessageType = messageTypeValues;
-export type MessageType =
-  (typeof messageTypeValues)[keyof typeof messageTypeValues];
-export const MessageTypeSchema = z.enum(
-  Object.values(messageTypeValues) as [MessageType, ...MessageType[]],
-);
+export const MESSAGE_SENDER_TYPES = [
+  'customer',
+  'member',
+  'system',
+  'bot',
+] as const;
+export const MessageSenderTypeSchema = z.enum(MESSAGE_SENDER_TYPES);
+export type MessageSenderType = z.infer<typeof MessageSenderTypeSchema>;
 
-const messageSenderTypeValues = {
-  AGENT: 'agent',
-  CLIENT: 'client',
-  SYSTEM: 'system',
-} as const;
+export const MESSAGE_TYPES = [
+  'text',
+  'image',
+  'audio',
+  'video',
+  'document',
+  'sticker',
+  'location',
+  'contact',
+  'template',
+  'interactive',
+  'reaction',
+] as const;
+export const MessageTypeSchema = z.enum(MESSAGE_TYPES);
+export type MessageType = z.infer<typeof MessageTypeSchema>;
 
-export const MessageSenderType = messageSenderTypeValues;
-export type MessageSenderType =
-  (typeof messageSenderTypeValues)[keyof typeof messageSenderTypeValues];
-export const MessageSenderTypeSchema = z.enum(
-  Object.values(messageSenderTypeValues) as [
-    MessageSenderType,
-    ...MessageSenderType[],
-  ],
-);
+export const MESSAGE_STATUSES = [
+  'pending',
+  'sent',
+  'delivered',
+  'read',
+  'failed',
+] as const;
+export const MessageStatusSchema = z.enum(MESSAGE_STATUSES);
+export type MessageStatus = z.infer<typeof MessageStatusSchema>;
 
-const messageStatusValues = {
-  SENT: 'sent',
-  DELIVERED: 'delivered',
-  RECEIVED: 'received',
-  READ: 'read',
-  FAILED: 'failed',
-} as const;
-
-export const MessageStatus = messageStatusValues;
-export type MessageStatus =
-  (typeof messageStatusValues)[keyof typeof messageStatusValues];
-export const MessageStatusSchema = z.enum(
-  Object.values(messageStatusValues) as [MessageStatus, ...MessageStatus[]],
-);
-
-const messageDirectionValues = {
-  IN: 'in',
-  OUT: 'out',
-} as const;
-
-export const MessageDirection = messageDirectionValues;
-export type MessageDirection =
-  (typeof messageDirectionValues)[keyof typeof messageDirectionValues];
-export const MessageDirectionSchema = z.enum(
-  Object.values(messageDirectionValues) as [MessageDirection, ...MessageDirection[]],
-);
-
-/**
- * `GET /chats/:id/messages` item + `chat:message:broadcast` payload.
- */
-export const BroadcastMessageSchema = z.object({
-  id: z.string(),
-  chatId: z.string().optional(),
-  status: MessageStatusSchema,
-  timestamp: z.coerce.date(),
-  sender: z.object({
-    id: z.string(),
-    type: MessageSenderTypeSchema,
-  }),
-  msg: z.object({
-    type: MessageTypeSchema,
-    mediaUrl: z.string().optional(),
-    content: ChatMessageContentSchema,
-  }),
-});
-
-/**
- * `chat:message:send` payload (frontend -> gateway).
- */
-export const SendChatMessageSchema = z.object({
-  room: z.string(),
-  /** Empresa de origen, para asignación automática multi-empresa (Q4/Q15). */
-  companyId: z.string().optional(),
-  to: z.string(),
-  sender: z.object({
-    id: z.string(),
-    type: MessageSenderTypeSchema,
-  }),
-  msg: z.object({
-    type: MessageTypeSchema,
-    content: ChatMessageContentSchema,
-  }),
-});
-
-export type BroadcastMessage = z.infer<typeof BroadcastMessageSchema>;
-export type SendChatMessageInput = z.infer<typeof SendChatMessageSchema>;
-
-/**
- * Internal message record (message module): the payload used to persist a
- * message row. Not an HTTP payload, but kept here so the enums and the shape
- * stay in one place.
- */
-export const CreateMessageSchema = z.object({
-  waMessageId: z.string().optional(),
-  replyToMessageId: z.string().optional(),
-  senderType: MessageSenderTypeSchema,
-  body: z.string().optional(),
-  type: MessageTypeSchema,
-  mediaUrl: z.string().optional(),
-  status: MessageStatusSchema,
-  direction: MessageDirectionSchema,
-  reactions: z.unknown().optional(),
-  contactId: z.uuid(),
-});
-
-export const UpdateMessageSchema = CreateMessageSchema.partial();
-
-export type CreateMessageInput = z.infer<typeof CreateMessageSchema>;
-export type UpdateMessageInput = z.infer<typeof UpdateMessageSchema>;
+export const ATTACHMENT_TYPES = [
+  'image',
+  'audio',
+  'video',
+  'document',
+  'sticker',
+] as const;
+export const AttachmentTypeSchema = z.enum(ATTACHMENT_TYPES);
+export type AttachmentType = z.infer<typeof AttachmentTypeSchema>;

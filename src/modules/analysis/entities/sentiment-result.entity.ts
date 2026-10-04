@@ -6,7 +6,7 @@ import { Analysis } from './analysis.entity';
 /** Previously sentiment_analysis: 1:1 detail of `analyses`. */
 @Entity('sentiment_results')
 export class SentimentResult {
-  @PrimaryColumn({ name: 'analysis_id', type: 'char', length: 36 })
+  @PrimaryColumn({ name: 'analysis_id', type: 'varchar', length: 36 })
   analysisId: string;
 
   @OneToOne(() => Analysis, { onDelete: 'CASCADE' })

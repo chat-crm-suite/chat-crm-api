@@ -22,7 +22,7 @@ import { Company } from '../../company/entities/company.entity';
 @Index(['type', 'externalAccountId'], { unique: true })
 @Index(['companyId', 'type'])
 export class Channel extends UuidV7Entity {
-  @Column({ name: 'company_id', type: 'char', length: 36 })
+  @Column({ name: 'company_id', type: 'varchar', length: 36 })
   companyId: string;
 
   @ManyToOne(() => Company, { onDelete: 'CASCADE' })

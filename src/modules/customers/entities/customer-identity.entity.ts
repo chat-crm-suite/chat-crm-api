@@ -18,14 +18,14 @@ import { Customer } from './customer.entity';
 @Entity('customer_identities')
 @Index(['channelId', 'externalId'], { unique: true })
 export class CustomerIdentity extends UuidV7Entity {
-  @Column({ name: 'customer_id', type: 'char', length: 36 })
+  @Column({ name: 'customer_id', type: 'varchar', length: 36 })
   customerId: string;
 
   @ManyToOne(() => Customer, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
 
-  @Column({ name: 'channel_id', type: 'char', length: 36 })
+  @Column({ name: 'channel_id', type: 'varchar', length: 36 })
   channelId: string;
 
   @ManyToOne(() => Channel, { onDelete: 'CASCADE' })

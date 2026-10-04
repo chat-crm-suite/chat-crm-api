@@ -24,7 +24,7 @@ import { PipelineStage } from './pipeline-stage.entity';
 @Index(['companyId', 'pipelineStageId'])
 @Index(['companyId', 'lastInteractionAt'])
 export class Customer extends UuidV7Entity {
-  @Column({ name: 'company_id', type: 'char', length: 36 })
+  @Column({ name: 'company_id', type: 'varchar', length: 36 })
   companyId: string;
 
   @ManyToOne(() => Company, { onDelete: 'CASCADE' })
@@ -53,7 +53,7 @@ export class Customer extends UuidV7Entity {
   @Column({ type: 'varchar', length: 50, default: 'manual' })
   source: CustomerSource;
 
-  @Column({ name: 'pipeline_stage_id', type: 'char', length: 36, nullable: true })
+  @Column({ name: 'pipeline_stage_id', type: 'varchar', length: 36, nullable: true })
   pipelineStageId?: string | null;
 
   @ManyToOne(() => PipelineStage, { nullable: true, onDelete: 'SET NULL' })
@@ -61,7 +61,7 @@ export class Customer extends UuidV7Entity {
   pipelineStage?: PipelineStage | null;
 
   /** Account owner. */
-  @Column({ name: 'owner_member_id', type: 'char', length: 36, nullable: true })
+  @Column({ name: 'owner_member_id', type: 'varchar', length: 36, nullable: true })
   ownerMemberId?: string | null;
 
   @ManyToOne(() => CompanyMember, { nullable: true, onDelete: 'SET NULL' })

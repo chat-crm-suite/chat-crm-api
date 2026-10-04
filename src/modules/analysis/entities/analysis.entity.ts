@@ -21,7 +21,7 @@ import { Message } from '../../message/entities/message.entity';
 @Index(['conversationId', 'type', 'createdAt'])
 @Index(['messageId', 'type'])
 export class Analysis extends UuidV7Entity {
-  @Column({ name: 'company_id', type: 'char', length: 36 })
+  @Column({ name: 'company_id', type: 'varchar', length: 36 })
   companyId: string;
 
   @ManyToOne(() => Company, { onDelete: 'CASCADE' })
@@ -32,7 +32,7 @@ export class Analysis extends UuidV7Entity {
   target: AnalysisTarget;
 
   /** CASCADE; used when target=message. */
-  @Column({ name: 'message_id', type: 'char', length: 36, nullable: true })
+  @Column({ name: 'message_id', type: 'varchar', length: 36, nullable: true })
   messageId?: string | null;
 
   @ManyToOne(() => Message, { nullable: true, onDelete: 'CASCADE' })
@@ -40,7 +40,7 @@ export class Analysis extends UuidV7Entity {
   message?: Message | null;
 
   /** Always set: enables per-conversation aggregation. */
-  @Column({ name: 'conversation_id', type: 'char', length: 36 })
+  @Column({ name: 'conversation_id', type: 'varchar', length: 36 })
   conversationId: string;
 
   @ManyToOne(() => Conversation, { onDelete: 'CASCADE' })

@@ -7,14 +7,14 @@ import { Tag } from './tag.entity';
 @Entity('customer_tags')
 @Index(['tagId'])
 export class CustomerTag {
-  @PrimaryColumn({ name: 'customer_id', type: 'char', length: 36 })
+  @PrimaryColumn({ name: 'customer_id', type: 'varchar', length: 36 })
   customerId: string;
 
   @ManyToOne(() => Customer, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
 
-  @PrimaryColumn({ name: 'tag_id', type: 'char', length: 36 })
+  @PrimaryColumn({ name: 'tag_id', type: 'varchar', length: 36 })
   tagId: string;
 
   @ManyToOne(() => Tag, { onDelete: 'CASCADE' })

@@ -21,14 +21,14 @@ import { User } from '../../users/entities/user.entity';
 @Index(['companyId', 'userId'], { unique: true })
 @Index(['companyId', 'role', 'status'])
 export class CompanyMember extends UuidV7Entity {
-  @Column({ name: 'company_id', type: 'char', length: 36 })
+  @Column({ name: 'company_id', type: 'varchar', length: 36 })
   companyId: string;
 
   @ManyToOne(() => Company, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ name: 'user_id', type: 'char', length: 36 })
+  @Column({ name: 'user_id', type: 'varchar', length: 36 })
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })

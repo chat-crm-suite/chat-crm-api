@@ -13,7 +13,7 @@ import { Company } from '../../company/entities/company.entity';
 @Entity('pipeline_stages')
 @Index(['companyId', 'name'], { unique: true })
 export class PipelineStage extends UuidV7Entity {
-  @Column({ name: 'company_id', type: 'char', length: 36 })
+  @Column({ name: 'company_id', type: 'varchar', length: 36 })
   companyId: string;
 
   @ManyToOne(() => Company, { onDelete: 'CASCADE' })

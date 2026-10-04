@@ -18,14 +18,14 @@ import { CompanyMember } from '../../company-members/entities/company-member.ent
 @Entity('notifications')
 @Index(['recipientMemberId', 'readAt', 'createdAt'])
 export class Notification extends UuidV7Entity {
-  @Column({ name: 'company_id', type: 'char', length: 36 })
+  @Column({ name: 'company_id', type: 'varchar', length: 36 })
   companyId: string;
 
   @ManyToOne(() => Company, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ name: 'recipient_member_id', type: 'char', length: 36 })
+  @Column({ name: 'recipient_member_id', type: 'varchar', length: 36 })
   recipientMemberId: string;
 
   @ManyToOne(() => CompanyMember, { onDelete: 'CASCADE' })

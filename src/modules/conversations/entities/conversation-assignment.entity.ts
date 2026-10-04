@@ -20,14 +20,14 @@ import { Conversation } from './conversation.entity';
 @Index(['conversationId', 'assignedAt'])
 @Index(['memberId', 'unassignedAt'])
 export class ConversationAssignment extends UuidV7Entity {
-  @Column({ name: 'conversation_id', type: 'char', length: 36 })
+  @Column({ name: 'conversation_id', type: 'varchar', length: 36 })
   conversationId: string;
 
   @ManyToOne(() => Conversation, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'conversation_id' })
   conversation: Conversation;
 
-  @Column({ name: 'member_id', type: 'char', length: 36 })
+  @Column({ name: 'member_id', type: 'varchar', length: 36 })
   memberId: string;
 
   @ManyToOne(() => CompanyMember, { onDelete: 'CASCADE' })
@@ -35,7 +35,7 @@ export class ConversationAssignment extends UuidV7Entity {
   member: CompanyMember;
 
   /** NULL = system (auto). */
-  @Column({ name: 'assigned_by_member_id', type: 'char', length: 36, nullable: true })
+  @Column({ name: 'assigned_by_member_id', type: 'varchar', length: 36, nullable: true })
   assignedByMemberId?: string | null;
 
   @ManyToOne(() => CompanyMember, { nullable: true, onDelete: 'SET NULL' })

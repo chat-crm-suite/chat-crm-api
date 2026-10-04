@@ -28,14 +28,14 @@ import { Conversation } from '../../conversations/entities/conversation.entity';
 @Index(['conversationId', 'clientMessageId'], { unique: true })
 @Index(['companyId', 'createdAt'])
 export class Message extends UuidV7Entity {
-  @Column({ name: 'company_id', type: 'char', length: 36 })
+  @Column({ name: 'company_id', type: 'varchar', length: 36 })
   companyId: string;
 
   @ManyToOne(() => Company, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ name: 'conversation_id', type: 'char', length: 36 })
+  @Column({ name: 'conversation_id', type: 'varchar', length: 36 })
   conversationId: string;
 
   @ManyToOne(() => Conversation, { onDelete: 'CASCADE' })
@@ -48,14 +48,14 @@ export class Message extends UuidV7Entity {
   @Column({ name: 'sender_type', type: 'varchar', length: 50 })
   senderType: MessageSenderType;
 
-  @Column({ name: 'sender_member_id', type: 'char', length: 36, nullable: true })
+  @Column({ name: 'sender_member_id', type: 'varchar', length: 36, nullable: true })
   senderMemberId?: string | null;
 
   @ManyToOne(() => CompanyMember, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'sender_member_id' })
   senderMember?: CompanyMember | null;
 
-  @Column({ name: 'sender_customer_id', type: 'char', length: 36, nullable: true })
+  @Column({ name: 'sender_customer_id', type: 'varchar', length: 36, nullable: true })
   senderCustomerId?: string | null;
 
   @ManyToOne(() => Customer, { nullable: true, onDelete: 'SET NULL' })
@@ -72,14 +72,14 @@ export class Message extends UuidV7Entity {
   @Column({ type: 'text', nullable: true })
   body?: string | null;
 
-  @Column({ name: 'reply_to_message_id', type: 'char', length: 36, nullable: true })
+  @Column({ name: 'reply_to_message_id', type: 'varchar', length: 36, nullable: true })
   replyToMessageId?: string | null;
 
   @ManyToOne(() => Message, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'reply_to_message_id' })
   replyToMessage?: Message | null;
 
-  @Column({ name: 'template_id', type: 'char', length: 36, nullable: true })
+  @Column({ name: 'template_id', type: 'varchar', length: 36, nullable: true })
   templateId?: string | null;
 
   @ManyToOne(() => MessageTemplate, { nullable: true, onDelete: 'SET NULL' })

@@ -17,14 +17,14 @@ import { Channel } from './channel.entity';
 @Entity('message_templates')
 @Index(['channelId', 'name', 'language'], { unique: true })
 export class MessageTemplate extends UuidV7Entity {
-  @Column({ name: 'company_id', type: 'char', length: 36 })
+  @Column({ name: 'company_id', type: 'varchar', length: 36 })
   companyId: string;
 
   @ManyToOne(() => Company, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Column({ name: 'channel_id', type: 'char', length: 36 })
+  @Column({ name: 'channel_id', type: 'varchar', length: 36 })
   channelId: string;
 
   @ManyToOne(() => Channel, { onDelete: 'CASCADE' })

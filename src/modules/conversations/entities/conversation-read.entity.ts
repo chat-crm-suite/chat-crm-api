@@ -16,21 +16,21 @@ import { Conversation } from './conversation.entity';
  */
 @Entity('conversation_reads')
 export class ConversationRead {
-  @PrimaryColumn({ name: 'conversation_id', type: 'char', length: 36 })
+  @PrimaryColumn({ name: 'conversation_id', type: 'varchar', length: 36 })
   conversationId: string;
 
   @ManyToOne(() => Conversation, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'conversation_id' })
   conversation: Conversation;
 
-  @PrimaryColumn({ name: 'member_id', type: 'char', length: 36 })
+  @PrimaryColumn({ name: 'member_id', type: 'varchar', length: 36 })
   memberId: string;
 
   @ManyToOne(() => CompanyMember, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'member_id' })
   member: CompanyMember;
 
-  @Column({ name: 'last_read_message_id', type: 'char', length: 36, nullable: true })
+  @Column({ name: 'last_read_message_id', type: 'varchar', length: 36, nullable: true })
   lastReadMessageId?: string | null;
 
   @ManyToOne(() => Message, { nullable: true, onDelete: 'SET NULL' })

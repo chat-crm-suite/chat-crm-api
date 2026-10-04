@@ -15,7 +15,7 @@ import { Company } from './company.entity';
  */
 @Entity('company_settings')
 export class CompanySettings {
-  @PrimaryColumn({ name: 'company_id', type: 'char', length: 36 })
+  @PrimaryColumn({ name: 'company_id', type: 'varchar', length: 36 })
   companyId: string;
 
   @ManyToOne(() => Company, { onDelete: 'CASCADE' })

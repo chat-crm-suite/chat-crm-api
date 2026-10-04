@@ -1,9 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import type { SentimentLabel } from '../../../contracts/index';
 import { SentimentType } from '../metrics.types';
 import { SentimentTopQuery, TrendPeriodQuery } from '../metrics.interface';
 import { period, PeriodTime } from '../../../lib/period';
 import { DATE_FORMAT_SQL } from '../constants/metrics.constants';
+
+/**
+ * Metrics queries use the short labels (POS/NEU/NEG) while
+ * `sentiment_results.label` stores the analysis contract labels (long form).
+ * Bridge both directions at the repository boundary.
+ */
+const ANALYSIS_LABEL_BY_METRIC: Record<SentimentType, SentimentLabel> = {
+  POS: 'positive',
+  NEU: 'neutral',
+  NEG: 'negative',
+};
 
 @Injectable()
 export class SentimentRepository {
@@ -40,12 +52,14 @@ export class SentimentRepository {
     label?: SentimentType,
     limit: number = 5,
   ): Promise<SentimentTopQuery[]> {
+    const storedLabel = label ? ANALYSIS_LABEL_BY_METRIC[label] : null;
+
     return this.dataSource.sql`
       SELECT 
         u.id AS id,
         u.username AS username,
         COUNT(sr.analysis_id) AS total,
-        sr.label as label,
+        COALESCE(${label ?? null}, sr.label) AS label,
         AVG(sr.score_positive) AS avgPos,
         AVG(sr.score_neutral) AS avgNeu,
         AVG(sr.score_negative) AS avgNeg
@@ -55,7 +69,7 @@ export class SentimentRepository {
       INNER JOIN analyses a ON a.message_id = m.id
       INNER JOIN sentiment_results sr ON sr.analysis_id = a.id
       WHERE 
-        sr.label = COALESCE(${label}, sr.label) AND 
+        sr.label = COALESCE(${storedLabel}, sr.label) AND 
         m.direction = 'outbound' AND
         m.sender_member_id IS NOT NULL
       GROUP BY u.id, sr.label
@@ -68,11 +82,13 @@ export class SentimentRepository {
     label?: SentimentType,
     limit: number = 5,
   ): Promise<SentimentTopQuery[]> {
+    const storedLabel = label ? ANALYSIS_LABEL_BY_METRIC[label] : null;
+
     return this.dataSource.sql`
       SELECT 
         c.id AS id,
         COALESCE(c.display_name, NULLIF(CONCAT_WS(' ', c.first_name, c.last_name), '')) AS username,
-        sr.label as label,
+        COALESCE(${label ?? null}, sr.label) AS label,
         COUNT(sr.analysis_id) AS total,
         AVG(sr.score_positive) AS avgPos,
         AVG(sr.score_neutral) AS avgNeu,
@@ -82,7 +98,7 @@ export class SentimentRepository {
       INNER JOIN analyses a ON a.message_id = m.id
       INNER JOIN sentiment_results sr ON sr.analysis_id = a.id
       WHERE 
-        sr.label = COALESCE(${label}, sr.label) AND
+        sr.label = COALESCE(${storedLabel}, sr.label) AND
         m.direction = 'inbound' AND
         m.sender_customer_id IS NOT NULL
       GROUP BY c.id, sr.label

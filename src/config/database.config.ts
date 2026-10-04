@@ -1,6 +1,19 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
+import * as entityExports from '../entities/index';
+
+/**
+ * sqlite cannot AUTOINCREMENT a bigint PK, so `message_status_events` (the
+ * append-only ticks table, MySQL-only) is excluded from the sqlite schema.
+ * Everything else is shared.
+ */
+const sqliteEntities = Object.values(entityExports).filter(
+  (candidate) =>
+    typeof candidate === 'function' &&
+    candidate.name !== 'MessageStatusEvent',
+) as unknown as Function[];
+
 export const mysqlDatabaseConfig: TypeOrmModuleOptions = {
   type: 'mysql',
   host: process.env.DB_HOST,
@@ -43,10 +56,7 @@ export const testDatabaseSQLiteConfig: TypeOrmModuleOptions = {
   database: ':memory:',
   synchronize: true,
   dropSchema: true,
-  entities: [
-    __dirname + '/../modules/**/*.entity{.ts,.js}',
-    __dirname + '/../integrations/**/*.entity{.ts,.js}'
-  ],
+  entities: sqliteEntities,
   migrations: [__dirname + '/../migrations/*.ts'],
   namingStrategy: new SnakeNamingStrategy(),
   logger: 'formatted-console'

@@ -16,7 +16,7 @@ import { Customer } from './customer.entity';
 /** Internal notes, never sent to the customer. */
 @Entity('customer_notes')
 export class CustomerNote extends UuidV7Entity {
-  @Column({ name: 'customer_id', type: 'char', length: 36 })
+  @Column({ name: 'customer_id', type: 'varchar', length: 36 })
   customerId: string;
 
   @ManyToOne(() => Customer, { onDelete: 'CASCADE' })
@@ -24,14 +24,14 @@ export class CustomerNote extends UuidV7Entity {
   customer: Customer;
 
   /** Optional: note written from a conversation. */
-  @Column({ name: 'conversation_id', type: 'char', length: 36, nullable: true })
+  @Column({ name: 'conversation_id', type: 'varchar', length: 36, nullable: true })
   conversationId?: string | null;
 
   @ManyToOne(() => Conversation, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'conversation_id' })
   conversation?: Conversation | null;
 
-  @Column({ name: 'author_member_id', type: 'char', length: 36 })
+  @Column({ name: 'author_member_id', type: 'varchar', length: 36 })
   authorMemberId: string;
 
   @ManyToOne(() => CompanyMember, { onDelete: 'CASCADE' })

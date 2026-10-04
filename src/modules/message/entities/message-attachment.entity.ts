@@ -13,7 +13,7 @@ import { Message } from './message.entity';
 /** Replaces `messages.media_url`; one message can carry several files. */
 @Entity('message_attachments')
 export class MessageAttachment extends UuidV7Entity {
-  @Column({ name: 'message_id', type: 'char', length: 36 })
+  @Column({ name: 'message_id', type: 'varchar', length: 36 })
   messageId: string;
 
   @ManyToOne(() => Message, { onDelete: 'CASCADE' })

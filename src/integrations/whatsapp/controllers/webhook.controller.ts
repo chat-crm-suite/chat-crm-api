@@ -56,11 +56,11 @@ export class WebhookController {
   receiveMessage(@Body() payload: WhatsappNotification, @Res() res: Response) {
     this.logger.debug(payload, 'Webhook object');
 
-    // IMPORTANT: Always respond with 200 OK first, 
+    // IMPORTANT: Always respond with 200 OK first,
     // otherwise WhatsApp will keep retrying the webhook endlessly.
     res.sendStatus(HttpStatus.OK)
 
-    const change = payload.entry[0].changes[0].value;
+    const change = payload?.entry?.[0]?.changes?.[0]?.value;
     if (!change) return;
 
     const { messages, statuses } = mapWebhookToMessages(payload);
@@ -75,7 +75,10 @@ export class WebhookController {
           break;
         case WhatsappNotificationStatusStatus.Failed:
           status.errors?.map((err) => {
-            void this.commandBus.execute(new FailWhatsAppMessageCommand(status.recipient_id, err));
+            this.executeSafely(
+              new FailWhatsAppMessageCommand(status.recipient_id, err),
+              `FailWhatsAppMessage(${status.id})`,
+            );
 
             void this.logger.error(
               err.error_data,
@@ -87,8 +90,23 @@ export class WebhookController {
     }
 
     for (const msg of messages) {
-      void this.commandBus.execute(new ReceiveWhatsAppMessageCommand(msg))
+      this.executeSafely(
+        new ReceiveWhatsAppMessageCommand(msg),
+        `ReceiveWhatsAppMessage(${msg.context.messageId})`,
+      );
     }
+  }
+
+  /**
+   * El webhook ya respondió 200 a WhatsApp: un fallo procesando el mensaje
+   * (ej. ER_DUP_ENTRY en contactos) debe quedar en logs, nunca tumbar Node.
+   */
+  private executeSafely(command: object, description: string): void {
+    this.commandBus
+      .execute(command)
+      .catch((error: unknown) => {
+        this.logger.error(error, `Async webhook command failed: ${description}`);
+      });
   }
 }
 

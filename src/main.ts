@@ -8,6 +8,15 @@ import { ZodValidationExceptionFilter } from './common/filters/zod-validation.fi
 import { setupSwagger } from './docs/openapi';
 
 async function bootstrap() {
+  // Red de seguridad: un rechazo async no manejado (ej. jobs post-webhook)
+  // debe quedar en logs, no tumbar el proceso como ocurrió con ER_DUP_ENTRY.
+  process.on('unhandledRejection', (reason) => {
+    console.error('[unhandledRejection]', reason);
+  });
+  process.on('uncaughtException', (error) => {
+    console.error('[uncaughtException]', error);
+  });
+
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
   // Logger nest-pino

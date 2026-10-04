@@ -4,12 +4,16 @@ import { Repository } from 'typeorm';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { Company } from './entities/company.entity';
 import { ClsService } from 'nestjs-cls';
+import { Member } from '../member/member.entity';
+import { MemberRole, MemberStatus } from '../member/member.types';
 
 @Injectable()
 export class CompanyService {
   constructor(
     @InjectRepository(Company)
     private readonly repo: Repository<Company>,
+    @InjectRepository(Member)
+    private readonly members: Repository<Member>,
     private readonly cls: ClsService,
   ) { }
 
@@ -25,8 +29,23 @@ export class CompanyService {
     return companyId
   }
 
-  create(dto: CreateCompanyDto) {
-    return this.repo.save(dto);
+  async create(dto: CreateCompanyDto) {
+    const company = await this.repo.save(this.repo.create(dto));
+
+    // El creador queda como member admin: evita empresas huérfanas.
+    const userId = this.cls.get<string>('user.id');
+    if (userId) {
+      await this.members.save(
+        this.members.create({
+          user: { id: userId },
+          company,
+          role: MemberRole.ADMIN,
+          status: MemberStatus.ACTIVE,
+        }),
+      );
+    }
+
+    return company;
   }
 
   findAll() {

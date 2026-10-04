@@ -49,7 +49,7 @@ Deliverables: `schema-v2.dbml`; `README.md` design rules.
 - [x] Tenancy rule rewritten as: every table queryable directly by tenant carries `company_id NOT NULL` and its composite indexes start with it; pure children resolve the tenant through their root.
 - [x] Document the credentials envelope and the identity canon (raw `external_id`, `+digits` phone).
 
-**Verification**: render in dbdiagram.io; 25 tables, FKs and indexes match the decisions.
+**Verification**: render in dbdiagram.io; 23 tables, FKs and indexes match the decisions.
 
 ### Phase 2 — Migration infrastructure
 
@@ -66,7 +66,7 @@ Deliverables: `package.json` scripts; `src/config/database.config.ts`.
 Deliverables: `src/contracts/*`; entities under `src/modules/**/entities/*` and `src/integrations/**`; credential helper.
 
 - [x] Additive v2 domain contracts first: `member.contract.ts` (`admin|supervisor|agent`), channel types, conversation/message/analysis statuses, pipeline stages. Framework-free (only `zod`).
-- [x] The 25 entities per DBML, `varchar` columns typed by the contract unions, no class-validator.
+- [x] The 23 entities per DBML, `varchar` columns typed by the contract unions, no class-validator.
 - [x] Abstract base with app-side UUIDv7 PK (`uuidv7()` in `@BeforeInsert`), except `message_status_events`.
 - [x] Delete the 13 legacy entities; complete the `src/entities/index.ts` barrel.
 - [x] `encryptCredentials`/`decryptCredentials` (AES-256-GCM, IV + authTag).
@@ -78,7 +78,7 @@ Deliverables: `src/contracts/*`; entities under `src/modules/**/entities/*` and 
 Deliverables: a single baseline migration; legacy migrations deleted.
 
 - [x] Delete the four legacy migration files.
-- [x] `BaselineV2` creates the 25 tables + indexes + FKs from an empty DB. No data SQL.
+- [x] `BaselineV2` creates the 23 tables + indexes + FKs from an empty DB. No data SQL.
 
 **Verification**: `db:reset` cold → zero divergence between migration and entities.
 

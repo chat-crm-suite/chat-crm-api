@@ -26,7 +26,7 @@
     "start:prod": "node dist/main",
     "docs:gen": "nest build && node dist/scripts/generate-openapi",
     "docs:check": "nest build && node dist/scripts/generate-openapi --check",
-    "migration:generate": "node --env-file-if-exists=.env ./node_modules/typeorm/cli-ts-node-commonjs.js migration:generate -d data-source.ts",
+    "migration:generate": "node ./scripts/migration-generate.mjs",
     "migration:run": "node --env-file-if-exists=.env ./node_modules/typeorm/cli-ts-node-commonjs.js migration:run -d data-source.ts",
     "migration:revert": "node --env-file-if-exists=.env ./node_modules/typeorm/cli-ts-node-commonjs.js migration:revert -d data-source.ts",
     "db:reset": "node --env-file-if-exists=.env -r ts-node/register/transpile-only ./scripts/db-reset.ts",

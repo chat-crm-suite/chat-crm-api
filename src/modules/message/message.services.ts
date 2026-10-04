@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MessageRepository } from './message.repository';
-import { CreateMessageDto } from './entities/create-message.dto';
+import type { CreateMessageInput } from '../../contracts/index';
 import { Message } from './message.entity';
 import { MessageSenderType, MessageStatus, MessageType } from './message.enum';
 import { MessageContent } from '../../integrations/whatsapp/types/whatsapp.types';
@@ -52,7 +52,7 @@ export class MessageService {
     }
   }
 
-  async create(dto: CreateMessageDto, chatId: string) {
+  async create(dto: CreateMessageInput, chatId: string) {
     return this.repo.create(dto, chatId);
   }
 

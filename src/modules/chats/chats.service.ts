@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, Repository } from 'typeorm';
-import { ChatDto, UpdateChatDto } from './dto/chat.dto';
+import { CreateChatDto, UpdateChatDto } from './dto/chat.dto';
 import { Chat } from './entities/index';
 import { ChatStatus } from './chat.enum';
 import { ChatRepository } from './chat.repository';
@@ -167,10 +167,10 @@ export class ChatsService {
     }));
   }
 
-  create(dto: ChatDto) {
+  create(dto: CreateChatDto) {
     const chat = this.chatRepo.save({
       ...dto,
-      client: { id: dto.client_id },
+      client: { id: dto.clientId },
     });
 
     return chat;
@@ -180,15 +180,15 @@ export class ChatsService {
     return this.chatRepo.find();
   }
 
-  findOne(id: number) {
+  findOne(id: string) {
     return `This action returns a #${id} chat`;
   }
 
-  update(id: number, _dto: UpdateChatDto) {
+  update(id: string, _dto: UpdateChatDto) {
     return `This action updates a #${id} chat`;
   }
 
-  remove(id: number) {
+  remove(id: string) {
     return `This action removes a #${id} chat`;
   }
 }

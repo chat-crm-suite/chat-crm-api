@@ -8,7 +8,6 @@
   },
   "moduleNameMapper": {
     "^src/(.*)$": "<rootDir>/../src/$1",
-    "^@nestjs/mapped-types$": "<rootDir>/helpers/mapped-types.stub.ts",
     "^@lib/(.*)$": "<rootDir>/../src/lib/$1",
     "^@utils/(.*)$": "<rootDir>/../src/utils/$1",
     "^@auth$": "<rootDir>/../src/auth/index",

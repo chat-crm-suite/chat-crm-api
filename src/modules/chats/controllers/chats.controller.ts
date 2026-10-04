@@ -19,7 +19,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ChatsService } from '../chats.service';
-import { ChatDto, UpdateChatDto } from '../dto/chat.dto';
+import { CreateChatDto, UpdateChatDto } from '../dto/chat.dto';
 import { MessageService } from '../../message/message.services';
 import { ChatAssignExceptionFilter } from '../filters/chat-assign.filter';
 import { ChatAssignDto } from '../dto/chat-assign.dto';
@@ -51,7 +51,7 @@ export class ChatsController {
   }
 
   @Post()
-  create(@Body() dto: ChatDto) {
+  create(@Body() dto: CreateChatDto) {
     return this.service.create(dto);
   }
 
@@ -141,11 +141,11 @@ export class ChatsController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateChatDto: UpdateChatDto) {
-    return this.service.update(+id, updateChatDto);
+    return this.service.update(id, updateChatDto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.service.remove(+id);
+    return this.service.remove(id);
   }
 }

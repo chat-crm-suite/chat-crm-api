@@ -53,8 +53,8 @@ export class UsersService extends CoreService<User> {
     const users = await Promise.all(
       parsed.list.map(async (row: Partial<User>) => ({
         username: row.username,
-        firstNames: row.firstName,
-        lastNames: row.lastName,
+        firstName: row.firstName,
+        lastName: row.lastName,
         phoneNumber: row.phoneNumber,
         email: row.email,
         password: await bcrypt.hash(row.password ?? 'password', 10),

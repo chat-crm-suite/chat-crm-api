@@ -118,6 +118,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
         "tags": [
           "Users"
         ]
@@ -132,6 +137,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
         "tags": [
           "Users"
         ]
@@ -156,6 +166,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
         "tags": [
           "Users"
         ]
@@ -168,6 +183,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
         "tags": [
           "Users"
         ]
@@ -192,6 +212,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
         "tags": [
           "Users"
         ]
@@ -226,6 +251,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
         "tags": [
           "Users"
         ]
@@ -249,6 +279,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
         "tags": [
           "Users"
         ]
@@ -282,6 +317,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
         "tags": [
           "Users"
         ]
@@ -303,6 +343,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
         "tags": [
           "Users"
         ]
@@ -1366,10 +1411,10 @@
             "maxLength": 255,
             "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
           },
-          "firstNames": {
+          "firstName": {
             "type": "string"
           },
-          "lastNames": {
+          "lastName": {
             "type": "string"
           },
           "phoneNumber": {
@@ -1453,10 +1498,10 @@
             "maxLength": 255,
             "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
           },
-          "firstNames": {
+          "firstName": {
             "type": "string"
           },
-          "lastNames": {
+          "lastName": {
             "type": "string"
           },
           "phoneNumber": {

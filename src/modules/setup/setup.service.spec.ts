@@ -1,7 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
+import { PinoLogger } from 'nestjs-pino';
 import { DataSource } from 'typeorm';
 
 import { Company, User, WhatsAppConfig } from '../../entities/index';
@@ -25,17 +26,27 @@ const createMockRepo = (): MockRepo => ({
     Promise.resolve({
       ...entity,
       id: 'saved-id',
-    }),
+    })
   ),
 });
 
 describe('SetupService', () => {
-  let service: SetupService;
   let usersRepo: MockRepo;
   let companiesRepo: MockRepo;
   let membersRepo: MockRepo;
   let whatsappRepo: MockRepo;
   let transaction: jest.Mock;
+
+  const logger = {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    setContext: jest.fn(),
+  };
+
+  const originalSetupToken = process.env.SETUP_TOKEN;
+  const originalNodeEnv = process.env.NODE_ENV;
 
   const dto = (): CreateSetupDto => ({
     admin: { username: 'admin', password: 'secreta-123' },
@@ -46,17 +57,24 @@ describe('SetupService', () => {
     companies: number,
     admins: number,
     whatsapp: number,
+    users = 0
   ) => {
     companiesRepo.count.mockResolvedValue(companies);
     membersRepo.count.mockResolvedValue(admins);
     whatsappRepo.count.mockResolvedValue(whatsapp);
+    usersRepo.count.mockResolvedValue(users);
   };
 
-  beforeEach(async () => {
-    usersRepo = createMockRepo();
-    companiesRepo = createMockRepo();
-    membersRepo = createMockRepo();
-    whatsappRepo = createMockRepo();
+  const build = async (env: {
+    SETUP_TOKEN?: string;
+    NODE_ENV?: string;
+  } = {}): Promise<SetupService> => {
+    if (env.SETUP_TOKEN === undefined) {
+      delete process.env.SETUP_TOKEN;
+    } else {
+      process.env.SETUP_TOKEN = env.SETUP_TOKEN;
+    }
+    process.env.NODE_ENV = env.NODE_ENV ?? 'test';
 
     const manager = {
       getRepository: jest.fn((entity: unknown) => {
@@ -78,36 +96,57 @@ describe('SetupService', () => {
         { provide: getRepositoryToken(Member), useValue: membersRepo },
         { provide: getRepositoryToken(WhatsAppConfig), useValue: whatsappRepo },
         { provide: DataSource, useValue: { transaction } },
+        { provide: PinoLogger, useValue: logger },
       ],
     }).compile();
 
-    service = module.get<SetupService>(SetupService);
+    return module.get<SetupService>(SetupService);
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    usersRepo = createMockRepo();
+    companiesRepo = createMockRepo();
+    membersRepo = createMockRepo();
+    whatsappRepo = createMockRepo();
+  });
+
+  afterAll(() => {
+    if (originalSetupToken === undefined) delete process.env.SETUP_TOKEN;
+    else process.env.SETUP_TOKEN = originalSetupToken;
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   describe('status', () => {
     it('reports a fresh database as not initialized', async () => {
-      mockStatusCounts(0, 0, 0);
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build();
 
       await expect(service.status()).resolves.toEqual({
         initialized: false,
         hasAdmin: false,
         hasCompany: false,
         hasWhatsapp: false,
+        hasUsers: false,
+        requiresSetupToken: false,
       });
     });
 
-    it('does not count a loose user without an admin membership', async () => {
-      // Solo hay un usuario (bootstrap legacy): empresa y admins siguen en 0.
-      mockStatusCounts(0, 0, 0);
+    it('flags an existing user without an admin membership', async () => {
+      // Bootstrap legacy: hay usuario pero ni empresa ni member admin.
+      mockStatusCounts(0, 0, 0, 1);
+      const service = await build();
 
       const status = await service.status();
 
-      expect(status.initialized).toBe(false);
+      expect(status.hasUsers).toBe(true);
       expect(status.hasAdmin).toBe(false);
+      expect(status.initialized).toBe(false);
     });
 
     it('is initialized only with company + active admin member', async () => {
-      mockStatusCounts(1, 1, 0);
+      mockStatusCounts(1, 1, 0, 1);
+      const service = await build();
 
       const status = await service.status();
 
@@ -122,31 +161,82 @@ describe('SetupService', () => {
       });
     });
 
-    it('reports whatsapp connectivity independently', async () => {
-      mockStatusCounts(1, 1, 1);
+    it('requires a token when SETUP_TOKEN is configured', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build({ SETUP_TOKEN: 'super-secreto' });
 
       await expect(service.status()).resolves.toMatchObject({
-        initialized: true,
-        hasWhatsapp: true,
+        requiresSetupToken: true,
+      });
+    });
+
+    it('auto-generates and logs a token in production when unset', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build({ NODE_ENV: 'production' });
+
+      await expect(service.status()).resolves.toMatchObject({
+        requiresSetupToken: true,
+      });
+      expect(logger.info).toHaveBeenCalledWith(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        expect.objectContaining({ setupToken: expect.any(String) }),
+        expect.stringContaining('setup token')
+      );
+    });
+
+    it('does not require a token outside production when unset', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build({ NODE_ENV: 'development' });
+
+      await expect(service.status()).resolves.toMatchObject({
+        requiresSetupToken: false,
       });
     });
   });
 
-  describe('run', () => {
-    it('rejects with a conflict when the app is already initialized', async () => {
-      mockStatusCounts(1, 1, 1);
+  describe('run (token protection)', () => {
+    it('rejects a request without a token when one is required', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build({ SETUP_TOKEN: 'super-secreto' });
 
-      await expect(service.run(dto())).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.run(dto())).rejects.toBeInstanceOf(
+        ForbiddenException
+      );
       expect(transaction).not.toHaveBeenCalled();
     });
 
-    it('creates user, company, admin membership and whatsapp config atomically', async () => {
-      mockStatusCounts(0, 0, 0);
+    it('rejects a request with a wrong token', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build({ SETUP_TOKEN: 'super-secreto' });
+
+      await expect(
+        service.run({ ...dto(), setupToken: 'otro' })
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(transaction).not.toHaveBeenCalled();
+    });
+
+    it('accepts a request with the right token', async () => {
+      mockStatusCounts(0, 0, 0, 0);
       companiesRepo.findOne.mockResolvedValue(null);
       usersRepo.findOne.mockResolvedValue(null);
       membersRepo.findOne.mockResolvedValue(null);
+      const service = await build({ SETUP_TOKEN: 'super-secreto' });
 
-      await service.run({
+      await service.run({ ...dto(), setupToken: 'super-secreto' });
+
+      expect(transaction).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('provision', () => {
+    it('creates user, company, admin membership and whatsapp config atomically', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      companiesRepo.findOne.mockResolvedValue(null);
+      usersRepo.findOne.mockResolvedValue(null);
+      membersRepo.findOne.mockResolvedValue(null);
+      const service = await build();
+
+      await service.provision({
         ...dto(),
         whatsapp: {
           businessId: 'biz-1',
@@ -163,38 +253,83 @@ describe('SetupService', () => {
         expect.objectContaining({
           role: MemberRole.ADMIN,
           status: MemberStatus.ACTIVE,
-        }),
+        })
       );
       expect(whatsappRepo.save).toHaveBeenCalledTimes(1);
     });
 
     it('skips the whatsapp config when the step is omitted', async () => {
-      mockStatusCounts(0, 0, 0);
+      mockStatusCounts(0, 0, 0, 0);
       companiesRepo.findOne.mockResolvedValue(null);
       usersRepo.findOne.mockResolvedValue(null);
       membersRepo.findOne.mockResolvedValue(null);
+      const service = await build();
 
-      await service.run(dto());
+      await service.provision(dto());
 
       expect(whatsappRepo.save).not.toHaveBeenCalled();
     });
 
+    it('checks initialization inside the transaction (race fix)', async () => {
+      mockStatusCounts(1, 1, 0, 1);
+      const service = await build();
+
+      await expect(service.provision(dto())).rejects.toBeInstanceOf(
+        ConflictException
+      );
+      expect(transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('serializes concurrent provision calls', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      companiesRepo.findOne.mockResolvedValue(null);
+      usersRepo.findOne.mockResolvedValue(null);
+      membersRepo.findOne.mockResolvedValue(null);
+      const service = await build();
+
+      let running = 0;
+      let maxConcurrent = 0;
+      transaction.mockImplementation(
+        async (cb: (m: unknown) => unknown) => {
+          running += 1;
+          maxConcurrent = Math.max(maxConcurrent, running);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          const result = await cb({
+            getRepository: (entity: unknown) => {
+              if (entity === User) return usersRepo;
+              if (entity === Company) return companiesRepo;
+              if (entity === Member) return membersRepo;
+              if (entity === WhatsAppConfig) return whatsappRepo;
+              throw new Error('unexpected entity');
+            },
+          });
+          running -= 1;
+          return result;
+        }
+      );
+
+      await Promise.all([service.provision(dto()), service.provision(dto())]);
+
+      expect(maxConcurrent).toBe(1);
+    });
+
     it('reuses an existing company instead of creating a new one', async () => {
-      mockStatusCounts(0, 0, 0);
+      mockStatusCounts(0, 0, 0, 0);
       companiesRepo.findOne.mockResolvedValue({ id: 'c1', name: 'Existing' });
       usersRepo.findOne.mockResolvedValue(null);
       membersRepo.findOne.mockResolvedValue(null);
+      const service = await build();
 
-      await service.run(dto());
+      await service.provision(dto());
 
       expect(companiesRepo.save).not.toHaveBeenCalled();
       expect(membersRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ company: { id: 'c1', name: 'Existing' } }),
+        expect.objectContaining({ company: { id: 'c1', name: 'Existing' } })
       );
     });
 
     it('reuses an existing admin when the password matches (partial state)', async () => {
-      mockStatusCounts(0, 0, 0);
+      mockStatusCounts(0, 0, 0, 1);
       companiesRepo.findOne.mockResolvedValue(null);
       usersRepo.findOne.mockResolvedValue({
         id: 'u1',
@@ -202,47 +337,51 @@ describe('SetupService', () => {
         password: bcrypt.hashSync('secreta-123', 4),
       });
       membersRepo.findOne.mockResolvedValue(null);
+      const service = await build();
 
-      await service.run(dto());
+      await service.provision(dto());
 
       expect(usersRepo.save).not.toHaveBeenCalled();
       expect(membersRepo.save).toHaveBeenCalledTimes(1);
     });
 
-    it('rejects when an existing admin password does not match', async () => {
-      mockStatusCounts(0, 0, 0);
+    it('rejects with a conflict when an existing admin password does not match', async () => {
+      mockStatusCounts(0, 0, 0, 1);
       companiesRepo.findOne.mockResolvedValue(null);
       usersRepo.findOne.mockResolvedValue({
         id: 'u1',
         username: 'admin',
         password: bcrypt.hashSync('otra-clave-123', 4),
       });
+      const service = await build();
 
-      await expect(service.run(dto())).rejects.toBeInstanceOf(
-        UnauthorizedException,
+      await expect(service.provision(dto())).rejects.toBeInstanceOf(
+        ConflictException
       );
       expect(membersRepo.save).not.toHaveBeenCalled();
     });
 
     it('does not duplicate an existing membership', async () => {
-      mockStatusCounts(0, 0, 0);
+      mockStatusCounts(0, 0, 0, 0);
       companiesRepo.findOne.mockResolvedValue({ id: 'c1', name: 'Existing' });
       usersRepo.findOne.mockResolvedValue(null);
       membersRepo.findOne.mockResolvedValue({ id: 'm1' });
+      const service = await build();
 
-      await service.run(dto());
+      await service.provision(dto());
 
       expect(membersRepo.save).not.toHaveBeenCalled();
     });
 
     it('propagates transaction failures so nothing is left half-created', async () => {
-      mockStatusCounts(0, 0, 0);
+      mockStatusCounts(0, 0, 0, 0);
       companiesRepo.findOne.mockResolvedValue(null);
       usersRepo.findOne.mockResolvedValue(null);
       membersRepo.findOne.mockResolvedValue(null);
       membersRepo.save.mockRejectedValue(new Error('insert failed'));
+      const service = await build();
 
-      await expect(service.run(dto())).rejects.toThrow('insert failed');
+      await expect(service.provision(dto())).rejects.toThrow('insert failed');
     });
   });
 });

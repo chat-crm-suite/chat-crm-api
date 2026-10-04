@@ -34,6 +34,8 @@ interface SetupStatusBody {
   hasAdmin: boolean;
   hasCompany: boolean;
   hasWhatsapp: boolean;
+  hasUsers: boolean;
+  requiresSetupToken: boolean;
 }
 
 interface SetupResultBody {
@@ -60,7 +62,13 @@ const entities = [
 
 // Flujo de primer arranque sobre SQLite en memoria (sin MySQL/Redis).
 // Cubre el contrato de `setup` y que la sesión creada sirve para autenticar.
-const createApp = async (): Promise<INestApplication> => {
+const createApp = async (setupToken?: string): Promise<INestApplication> => {
+  if (setupToken === undefined) {
+    delete process.env.SETUP_TOKEN;
+  } else {
+    process.env.SETUP_TOKEN = setupToken;
+  }
+
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({ isGlobal: true }),
@@ -84,6 +92,11 @@ const createApp = async (): Promise<INestApplication> => {
   await app.init();
 
   return app;
+};
+
+const validSetup = {
+  admin: { username: 'admin', password: 'secreta-123' },
+  company: { name: 'J&P Perifericos' },
 };
 
 describe('Setup first-run flow (e2e)', () => {
@@ -110,16 +123,15 @@ describe('Setup first-run flow (e2e)', () => {
         hasAdmin: false,
         hasCompany: false,
         hasWhatsapp: false,
+        hasUsers: false,
+        requiresSetupToken: false,
       });
     });
 
     it('creates admin, company and membership in a single call', async () => {
       const res = await request(server)
         .post('/setup')
-        .send({
-          admin: { username: 'admin', password: 'secreta-123' },
-          company: { name: 'J&P Perifericos' },
-        })
+        .send(validSetup)
         .expect(201);
       const body = res.body as SetupResultBody;
 
@@ -137,17 +149,13 @@ describe('Setup first-run flow (e2e)', () => {
         hasAdmin: true,
         hasCompany: true,
         hasWhatsapp: false,
+        hasUsers: true,
+        requiresSetupToken: false,
       });
     });
 
     it('blocks a second setup with 409', async () => {
-      await request(server)
-        .post('/setup')
-        .send({
-          admin: { username: 'admin', password: 'secreta-123' },
-          company: { name: 'Otra empresa' },
-        })
-        .expect(409);
+      await request(server).post('/setup').send(validSetup).expect(409);
     });
 
     it('authenticates the created admin and serves its company', async () => {
@@ -193,8 +201,7 @@ describe('Setup first-run flow (e2e)', () => {
       const created = await request(server)
         .post('/setup')
         .send({
-          admin: { username: 'admin', password: 'secreta-123' },
-          company: { name: 'J&P Perifericos' },
+          ...validSetup,
           whatsapp: {
             businessId: 'biz-1',
             accessToken: 'token',
@@ -213,6 +220,46 @@ describe('Setup first-run flow (e2e)', () => {
 
       expect(body.initialized).toBe(true);
       expect(body.hasWhatsapp).toBe(true);
+    });
+  });
+
+  describe('workspace protected by a setup token', () => {
+    let app: INestApplication;
+    let server: App;
+
+    beforeAll(async () => {
+      app = await createApp('token-de-prueba');
+      server = app.getHttpServer() as App;
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('flags that a token is required', async () => {
+      const res = await request(server).get('/setup/status').expect(200);
+      const body = res.body as SetupStatusBody;
+
+      expect(body.requiresSetupToken).toBe(true);
+      expect(body.initialized).toBe(false);
+    });
+
+    it('rejects a setup without the token', async () => {
+      await request(server).post('/setup').send(validSetup).expect(403);
+    });
+
+    it('rejects a setup with a wrong token', async () => {
+      await request(server)
+        .post('/setup')
+        .send({ ...validSetup, setupToken: 'incorrecto' })
+        .expect(403);
+    });
+
+    it('accepts a setup with the right token', async () => {
+      await request(server)
+        .post('/setup')
+        .send({ ...validSetup, setupToken: 'token-de-prueba' })
+        .expect(201);
     });
   });
 });

@@ -1,6 +1,6 @@
-# Ejemplo OPCIONAL: compose global si quieres un solo `up` desde /home/jypsac/Proyectos/CRM/
+# Ejemplo OPCIONAL: compose global si quieres un solo `up` desde ~/Proyectos/CRM/
 # NO commiteado como compose real. Si lo usas, colócalo manualmente en el servidor como
-# /home/jypsac/Proyectos/CRM/docker-compose.yml y ajusta build contexts.
+# ~/Proyectos/CRM/docker-compose.yml y ajusta build contexts.
 # Recomendado actual: usar los 3 composes separados (ya comparten `crm-network` por nombre).
 name: crm-prod
 services:
@@ -59,8 +59,8 @@ services:
       dockerfile: Dockerfile
       target: production
       args:
-        VITE_API_URL: http://100.77.254.40:3000
-        VITE_SOCKET_URL: http://100.77.254.40:3000/whatsapp
+        VITE_API_URL: http://<SERVER_IP>:3000
+        VITE_SOCKET_URL: http://<SERVER_IP>:3000
     container_name: chat-crm-app-prod
     ports:
       - "8081:80"

@@ -1,10 +1,10 @@
-# Compose GLOBAL de producción — /home/jypsac/Proyectos/CRM/docker-compose.yml
+# Compose GLOBAL de producción — ~/Proyectos/CRM/docker-compose.yml
 # Cómo usarlo en el servidor (tú lo ejecutas):
-#   cd /home/jypsac/Proyectos/CRM
+#   cd ~/Proyectos/CRM
 #   cp chat-crm-api/.env.prod.example chat-crm-api/.env.prod   # solo 1ra vez
-#   nano chat-crm-api/.env.prod                                # rellena secretos + CORS=http://jypsac.dyndns.org:8003
+#   nano chat-crm-api/.env.prod                                # rellena secretos + CORS=http://<TU_DOMINIO>:8003
 #   cp chat-crm-app/.env.prod.example chat-crm-app/.env.prod   # solo 1ra vez
-#   nano chat-crm-app/.env.prod                                # VITE_API_URL=http://jypsac.dyndns.org:8002 VITE_SOCKET_URL=.../chat APP_PORT=8003
+#   nano chat-crm-app/.env.prod                                # VITE_API_URL=http://<TU_DOMINIO>:8002 VITE_SOCKET_URL=<base sin namespace> APP_PORT=8003
 #   cp chat-crm-api/deploy/docker-compose.global.prod.yml docker-compose.yml  # o respalda antes: cp docker-compose.yml docker-compose.yml.bak-dev
 #   docker compose up --build -d
 #   curl -s http://localhost:8002/health && curl -s http://localhost:8003/health
@@ -105,8 +105,8 @@ services:
       additional_contexts:
         contracts: ./chat-crm-api/src/contracts
       args:
-        VITE_API_URL: http://jypsac.dyndns.org:8002
-        VITE_SOCKET_URL: http://jypsac.dyndns.org:8002/chat
+        VITE_API_URL: http://<TU_DOMINIO>:8002
+        VITE_SOCKET_URL: http://<TU_DOMINIO>:8002
     container_name: chat-crm-app
     ports:
       - "8003:80"

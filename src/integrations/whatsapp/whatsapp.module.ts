@@ -12,6 +12,8 @@ import { MessageContentHandlers } from './commands/handlers/message-content.hand
 import { ReceiveWhatsAppMessageHandler } from './commands/handlers/receive-whatsapp-message.handler';
 import { SendWhatsAppMessageHandler } from './commands/handlers/send-whatsapp-message.handler';
 import { WebhookController } from './controllers/index';
+import { WhatsappInboundEvent } from './entities/whatsapp-inbound-event.entity';
+import { WhatsAppIntakeService } from './intake/whatsapp-intake.service';
 import { WhatsAppService } from './whatsapp.service';
 
 @Module({
@@ -20,7 +22,7 @@ import { WhatsAppService } from './whatsapp.service';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forFeature([Channel]),
+    TypeOrmModule.forFeature([Channel, WhatsappInboundEvent]),
     HttpModule,
     ChannelsModule,
     ConversationsModule,
@@ -28,6 +30,7 @@ import { WhatsAppService } from './whatsapp.service';
   controllers: [WebhookController],
   providers: [
     WhatsAppService,
+    WhatsAppIntakeService,
     WhatsAppClient,
     ReceiveWhatsAppMessageHandler,
     MessageContentHandlers,

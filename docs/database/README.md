@@ -2,9 +2,9 @@
 
 `schema-v2.dbml` is the proposed redesign of the chat-crm MySQL schema. Paste it into <https://dbdiagram.io/d> to render it.
 
-Status: **implementation started** on `feature/database-schema-v2`. See `IMPLEMENTATION.md` for the execution plan (phases, cutover runbook, acceptance criteria).
+Status: **implemented** on `feature/database-schema-v2` (runtime, entities, single `BaselineV2`, tests and seed). See `IMPLEMENTATION.md` for the execution plan, the old→new contract map and the cutover runbook.
 
-The database is disposable while production is being configured, so there is **no data backfill**: the cutover is a recreate plus a single `BaselineV2` migration, and the legacy migration history is squashed.
+The database is disposable while production is being configured, so there is **no data backfill**: the cutover is a recreate plus the `BaselineV2` migration, and the legacy migration history is squashed.
 
 ## Why
 

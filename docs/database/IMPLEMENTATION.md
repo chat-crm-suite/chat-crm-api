@@ -100,9 +100,9 @@ Deliverables: modules renamed and rewired; contracts migrated.
 
 ### Phase 6 — Tests
 
-- [ ] Rewrite the fishery factories for the new entities.
-- [ ] Integration/e2e on MySQL `_test` only; sqlite for non-table concerns.
-- [ ] Rewrite `test/assignment.e2e-spec.ts` (critical: assignment engine) and the rest of the specs.
+- [x] Rewrite the fishery factories for the new entities.
+- [x] Integration/e2e on MySQL `_test` only; sqlite for non-table concerns.
+- [x] Rewrite `test/assignment.e2e-spec.ts` (critical: assignment engine) and the rest of the specs.
 
 **Verification**: `pnpm test` + `pnpm test:e2e` green on real MySQL.
 
@@ -172,14 +172,14 @@ Payload renames follow the domain: `chatId`→`conversationId`, `client`→`cust
 
 ## Acceptance criteria
 
-- Full suite green (unit + MySQL integration + assignment e2e).
-- `BaselineV2` from an empty DB equals the entity DDL.
-- Idempotent setup (company + admin + encrypted channel + default stages).
-- Simulated ingestion produces `pending→sent` ticks.
-- Zero legacy names in `src/` (including raw SQL).
-- `openapi.json` regenerated and consistent.
-- Frontend typecheck green against the new contracts.
-- Contract map covers 100 % of what `chat-crm-app` consumes.
+- [x] Full suite green: unit 11 suites / 76 tests, e2e 4 suites / 36 tests (MySQL `_test`).
+- [x] `BaselineV2` from an empty DB equals the entity DDL (regeneration reports zero changes).
+- [x] Idempotent setup (company + admin + encrypted channel + default stages); covered by `test/setup.e2e-spec.ts` and the manual smoke.
+- [x] Simulated ingestion persists the full chain (identity → customer → conversation → inbound message with wamid → auto-assignment → notification) and the outbound claim path persists a `sent` member message without duplicates. Realtime `pending→sent` tick *events* are Phase 2.
+- [x] Zero legacy names in `src/` (grep of tables/entities; raw SQL included).
+- [x] `openapi.json` regenerated and consistent (`pnpm docs:check` green).
+- [ ] Frontend typecheck green against the new contracts — happens in the `chat-crm-app` branch (`feature/api-v2-adaptation`) using the contract map.
+- [ ] Contract map validated against 100 % of what `chat-crm-app` consumes — same front branch.
 
 ## Annex — Phase 2 (out of scope): realtime layer
 

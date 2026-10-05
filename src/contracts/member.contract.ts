@@ -17,6 +17,7 @@ export type MemberStatus = z.infer<typeof MemberStatusSchema>;
 
 /** Membership summary returned by `GET /auth/me` for company switching/UI gating. */
 export const MemberSummarySchema = z.object({
+  id: z.string(),
   companyId: z.string(),
   companyName: z.string(),
   role: MemberRoleSchema,
@@ -24,3 +25,30 @@ export const MemberSummarySchema = z.object({
 });
 
 export type MemberSummary = z.infer<typeof MemberSummarySchema>;
+
+/** `GET /company-members` item (staff of the active company). */
+export const CompanyMemberResponseSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  username: z.string(),
+  firstName: z.string().nullish(),
+  lastName: z.string().nullish(),
+  email: z.string().nullish(),
+  role: MemberRoleSchema,
+  status: MemberStatusSchema,
+  acceptsAutoAssign: z.boolean(),
+  maxOpenConversations: z.number().nullish(),
+  joinedAt: z.coerce.date(),
+});
+
+export const CompanyMemberListQuerySchema = z.object({
+  q: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export type CompanyMemberResponse = z.infer<
+  typeof CompanyMemberResponseSchema
+>;
+export type CompanyMemberListQuery = z.infer<
+  typeof CompanyMemberListQuerySchema
+>;

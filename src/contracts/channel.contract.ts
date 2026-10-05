@@ -89,6 +89,18 @@ export const ChannelResponseSchema = z.object({
   updatedAt: z.coerce.date(),
 });
 
+/**
+ * `GET /channels/whatsapp/config` only: the settings form needs the stored
+ * access token to prefill its (masked) password input. No other endpoint
+ * returns it.
+ */
+export const WhatsAppConfigResponseSchema = ChannelResponseSchema.extend({
+  accessToken: z.string().nullish(),
+});
+
 export type CreateChannelInput = z.infer<typeof CreateChannelSchema>;
 export type UpdateChannelInput = z.infer<typeof UpdateChannelSchema>;
 export type ChannelResponse = z.infer<typeof ChannelResponseSchema>;
+export type WhatsAppConfigResponse = z.infer<
+  typeof WhatsAppConfigResponseSchema
+>;

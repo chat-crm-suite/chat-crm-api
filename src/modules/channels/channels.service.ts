@@ -8,6 +8,7 @@ import type {
   ChannelResponse,
   CreateChannelInput,
   UpdateChannelInput,
+  WhatsAppConfigResponse,
   WhatsAppCredentials,
 } from '../../contracts/index';
 import {
@@ -23,8 +24,8 @@ export interface ChannelTransmission {
 
 /**
  * Channels: a company talks to customers through N channels. WhatsApp is the
- * first provider; credentials are stored as an AES-256-GCM envelope and never
- * returned by the API.
+ * first provider; credentials are stored as an AES-256-GCM envelope and only
+ * returned (decrypted) by `getWhatsAppConfigWithToken`, for the settings form.
  */
 @Injectable()
 export class ChannelsService {
@@ -49,6 +50,17 @@ export class ChannelsService {
   async getWhatsAppConfig(): Promise<ChannelResponse | null> {
     const channel = await this.findWhatsAppChannel();
     return channel ? this.sanitize(channel) : null;
+  }
+
+  /** Settings form only: same as `getWhatsAppConfig` plus the decrypted token. */
+  async getWhatsAppConfigWithToken(): Promise<WhatsAppConfigResponse | null> {
+    const channel = await this.findWhatsAppChannel();
+    if (!channel) return null;
+
+    return {
+      ...this.sanitize(channel),
+      accessToken: this.tryDecrypt(channel.credentials).accessToken || null,
+    };
   }
 
   async create(dto: CreateChannelInput): Promise<ChannelResponse> {

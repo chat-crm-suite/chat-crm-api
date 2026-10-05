@@ -1,54 +1,126 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Message } from './message.entity';
-import { MessageSenderType, MessageType } from './message.enum';
-import { DataSource, Repository } from 'typeorm';
-import { CreateMessageDto } from './entities/create-message.dto';
+import { DataSource, In, Repository } from 'typeorm';
+
+import type {
+  AttachmentType,
+  MessageDirection,
+  MessageSenderType,
+  MessageStatus,
+  MessageType,
+} from '../../contracts/index';
+import { Conversation } from '../conversations/entities/conversation.entity';
+import { MessageAttachment } from './entities/message-attachment.entity';
+import { Message } from './entities/message.entity';
+
+export interface SaveMessageAttachment {
+  type: AttachmentType;
+  mimeType?: string;
+  fileName?: string;
+  storageUrl?: string;
+  externalMediaId?: string;
+  sizeBytes?: number | null;
+  width?: number | null;
+  height?: number | null;
+  durationMs?: number | null;
+}
+
+export interface SaveMessageData {
+  companyId: string;
+  conversationId: string;
+  type: MessageType;
+  direction: MessageDirection;
+  senderType: MessageSenderType;
+  senderMemberId?: string | null;
+  senderCustomerId?: string | null;
+  body?: string | null;
+  externalId?: string | null;
+  clientMessageId?: string | null;
+  status: MessageStatus;
+  attachments?: SaveMessageAttachment[];
+}
 
 @Injectable()
 export class MessageRepository {
   constructor(
     @InjectRepository(Message)
-    private readonly repo: Repository<Message>,
+    private readonly messages: Repository<Message>,
+    @InjectRepository(MessageAttachment)
+    private readonly attachments: Repository<MessageAttachment>,
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(dto: CreateMessageDto, chatId: string) {
-    const message = this.repo.create({
-      ...dto,
-      chat: { id: chatId },
-    });
-
-    return this.repo.save(message);
-  }
-
-  async createFromChat(
-    chatId: string,
-    content: string,
-    senderId: string,
-    senderType: MessageSenderType,
-    type: MessageType,
-    mediaUrl?: string,
-  ) {
-    return this.dataSource.transaction((manager) => {
-      const message = this.repo.create({
-        chat: { id: chatId },
-        content,
-        senderId,
-        senderType,
-        type,
-        mediaUrl,
+  /**
+   * Inserts the message + its attachments and refreshes
+   * `conversations.last_message_id` / `last_message_at` in one transaction.
+   */
+  async create(data: SaveMessageData): Promise<Message> {
+    return this.dataSource.transaction(async (manager) => {
+      const message = manager.create(Message, {
+        companyId: data.companyId,
+        conversationId: data.conversationId,
+        direction: data.direction,
+        senderType: data.senderType,
+        senderMemberId: data.senderMemberId ?? null,
+        senderCustomerId: data.senderCustomerId ?? null,
+        body: data.body ?? null,
+        externalId: data.externalId ?? null,
+        clientMessageId: data.clientMessageId ?? null,
+        type: data.type,
+        status: data.status,
       });
 
-      return manager.save(message);
+      await manager.save(message);
+
+      if (data.attachments?.length) {
+        await manager.save(
+          data.attachments.map((attachment) =>
+            manager.create(MessageAttachment, {
+              messageId: message.id,
+              type: attachment.type,
+              // Column is NOT NULL; callers may omit the mime type.
+              mimeType: attachment.mimeType ?? 'application/octet-stream',
+              fileName: attachment.fileName,
+              storageUrl: attachment.storageUrl,
+              externalMediaId: attachment.externalMediaId,
+              sizeBytes: attachment.sizeBytes ?? null,
+              width: attachment.width ?? null,
+              height: attachment.height ?? null,
+              durationMs: attachment.durationMs ?? null,
+            }),
+          ),
+        );
+      }
+
+      await manager.update(
+        Conversation,
+        { id: data.conversationId },
+        {
+          lastMessageId: message.id,
+          // `createdAt` is a DB default, not hydrated after insert.
+          lastMessageAt: message.createdAt ?? new Date(),
+        },
+      );
+
+      return message;
     });
   }
 
-  async findChatMessages(chatId: string) {
-    return this.repo.find({
-      where: { chat: { id: chatId } },
+  findConversationMessages(conversationId: string): Promise<Message[]> {
+    return this.messages.find({
+      where: { conversationId },
       order: { createdAt: 'DESC' },
-      loadRelationIds: true,
+    });
+  }
+
+  findAttachmentsByMessageIds(
+    messageIds: string[],
+  ): Promise<MessageAttachment[]> {
+    if (!messageIds.length) return Promise.resolve([]);
+
+    return this.attachments.find({
+      where: { messageId: In(messageIds) },
+      order: { createdAt: 'ASC' },
     });
   }
 }

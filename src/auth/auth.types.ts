@@ -1,8 +1,7 @@
-import { User } from "../modules/users/entities/user.entity";
+import type { AuthUser as AuthUserContract } from '../contracts/index';
 
-type UserAuthOmittedKeys = 'createdAt' | 'updatedAt' | 'deletedAt' | 'chats' | 'notifications' | 'hashPassword';
-
-export type AuthUser = Omit<User, UserAuthOmittedKeys>
+/** `GET /auth/me` / `GET /users/me` shape (identity + memberships). */
+export type AuthUser = AuthUserContract;
 
 export type JwtPayload = {
   sub: string;
@@ -12,4 +11,4 @@ export type JwtPayload = {
 export type AuthResponse = {
   access_token: string;
   payload: JwtPayload;
-}
+};

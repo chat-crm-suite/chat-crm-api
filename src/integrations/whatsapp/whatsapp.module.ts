@@ -1,22 +1,18 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { WhatsAppService } from './whatsapp.service';
-import { WebhookController } from './controllers/index';
-import { WhatsAppConfig } from './entities/index';
-import { WhatsAppMessageFactory } from './factories/whatsapp-message.factory';
-import { WhatsAppConfigSubscriber } from './subscribers/whatsapp-config.subscriber';
-import { WhatsAppApiClient } from './whatsapp-api.client';
-import { WhatsappController } from './controllers/whatsapp.controller';
-import { WhatsAppMessageDetail } from './entities/whatsapp-message-detail.entity';
-import { ReceiveWhatsAppMessageHandler } from './commands/handlers/receive-whatsapp-message.handler';
-import { MessageContentHandlers } from './commands/handlers/message-content.handlers';
-import { WhatsAppClient } from './clients/whatsapp.client';
-import { SendWhatsAppMessageHandler } from './commands/handlers/send-whatsapp-message.handler';
 import { CqrsModule } from '@nestjs/cqrs';
-import { ChatsModule } from '@modules';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+import { ChannelsModule } from '../../modules/channels/channels.module';
+import { Channel } from '../../modules/channels/entities/channel.entity';
+import { ConversationsModule } from '../../modules/conversations/conversations.module';
+import { WhatsAppClient } from './clients/whatsapp.client';
+import { MessageContentHandlers } from './commands/handlers/message-content.handlers';
+import { ReceiveWhatsAppMessageHandler } from './commands/handlers/receive-whatsapp-message.handler';
+import { SendWhatsAppMessageHandler } from './commands/handlers/send-whatsapp-message.handler';
+import { WebhookController } from './controllers/index';
+import { WhatsAppService } from './whatsapp.service';
 
 @Module({
   imports: [
@@ -24,30 +20,19 @@ import { ChatsModule } from '@modules';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forFeature([
-      WhatsAppConfig,
-      WhatsAppMessageDetail,
-    ]),
+    TypeOrmModule.forFeature([Channel]),
     HttpModule,
-    ChatsModule
+    ChannelsModule,
+    ConversationsModule,
   ],
-  controllers: [
-    WebhookController,
-    WhatsappController,
-  ],
+  controllers: [WebhookController],
   providers: [
     WhatsAppService,
-    WhatsAppConfigSubscriber,
-    WhatsAppApiClient,
     WhatsAppClient,
-    WhatsAppMessageFactory,
     ReceiveWhatsAppMessageHandler,
     MessageContentHandlers,
     SendWhatsAppMessageHandler,
   ],
-  exports: [
-    WhatsAppService,
-    WhatsAppConfigSubscriber,
-    WhatsAppApiClient,
-  ],
-}) export class WhatsappModule { }
+  exports: [WhatsAppService],
+})
+export class WhatsappModule {}

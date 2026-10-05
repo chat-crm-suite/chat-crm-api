@@ -1,0 +1,284 @@
+import { INestApplication } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { Test, TestingModule } from '@nestjs/testing';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import cookieParser from 'cookie-parser';
+import { ClsModule } from 'nestjs-cls';
+import { I18nModule, I18nService } from 'nestjs-i18n';
+import { LoggerModule } from 'nestjs-pino';
+import { ZodValidationPipe } from 'nestjs-zod';
+import { join } from 'path';
+import request from 'supertest';
+import type { App } from 'supertest/types';
+import { EntityTarget } from 'typeorm';
+
+import { AuthModule } from '../src/auth/auth.module';
+import { ZodValidationExceptionFilter } from '../src/common/filters/zod-validation.filter';
+import { loggerConfig } from '../src/config/logger.config';
+import { i18nConfig } from '../src/config/i18n.config';
+import { clsConfig } from '../src/config/cls.config';
+import * as Entities from '../src/entities/index';
+import { SetupModule } from '../src/modules/setup/setup.module';
+import { getTestConfig } from './helpers/test-database.helper';
+
+interface SetupStatusBody {
+  initialized: boolean;
+  hasAdmin: boolean;
+  hasCompany: boolean;
+  hasWhatsapp: boolean;
+  hasUsers: boolean;
+  requiresSetupToken: boolean;
+}
+
+interface SetupResultBody {
+  user: { id: string; username: string };
+  company: { id: string; name: string };
+  channel: { id: string; webhookVerifyToken: string | null } | null;
+}
+
+const entities = Object.values(Entities) as EntityTarget<unknown>[];
+
+jest.setTimeout(180_000);
+
+// Flujo de primer arranque sobre MySQL `_test` (dropSchema + synchronize).
+// Cubre el contrato de `setup` y que la sesión creada sirve para autenticar.
+const createApp = async (setupToken?: string): Promise<INestApplication> => {
+  if (setupToken === undefined) {
+    delete process.env.SETUP_TOKEN;
+  } else {
+    process.env.SETUP_TOKEN = setupToken;
+  }
+
+  const moduleFixture: TestingModule = await Test.createTestingModule({
+    imports: [
+      ConfigModule.forRoot({ isGlobal: true }),
+      LoggerModule.forRoot(loggerConfig),
+      ClsModule.forRoot(clsConfig),
+      // Real i18n module (locales resolved from src/, unlike the app build).
+      I18nModule.forRoot({
+        ...i18nConfig,
+        loaderOptions: {
+          path: join(__dirname, '../src/locales/'),
+          watch: false,
+        },
+      }),
+      TypeOrmModule.forRoot(getTestConfig(entities)),
+      SetupModule,
+      AuthModule,
+    ],
+  }).compile();
+
+  // El bootstrap por env no debe contaminar una BD "recién instalada".
+  process.env.BOOTSTRAP_ADMIN_USERNAME = '';
+  process.env.BOOTSTRAP_ADMIN_PASSWORD = '';
+  process.env.BOOTSTRAP_COMPANY_NAME = '';
+
+  const app = moduleFixture.createNestApplication();
+  app.useLogger(false);
+  app.use(cookieParser());
+  // Same validation pipeline the HTTP bootstrap registers for Zod DTOs.
+  app.useGlobalPipes(new ZodValidationPipe());
+  app.useGlobalFilters(
+    new ZodValidationExceptionFilter(app.get(I18nService)),
+  );
+  await app.init();
+
+  return app;
+};
+
+const validSetup = {
+  admin: { username: 'admin', password: 'secreta-123' },
+  company: { name: 'J&P Perifericos' },
+};
+
+describe('Setup first-run flow (e2e)', () => {
+  describe('fresh workspace without whatsapp', () => {
+    let app: INestApplication;
+    let server: App;
+    let companyId: string;
+
+    beforeAll(async () => {
+      app = await createApp();
+      server = app.getHttpServer() as App;
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('reports a fresh database as not initialized', async () => {
+      const res = await request(server).get('/setup/status').expect(200);
+      const body = res.body as SetupStatusBody;
+
+      expect(body).toEqual({
+        initialized: false,
+        hasAdmin: false,
+        hasCompany: false,
+        hasWhatsapp: false,
+        hasUsers: false,
+        requiresSetupToken: false,
+      });
+    });
+
+    it('creates admin, company and membership in a single call', async () => {
+      const res = await request(server)
+        .post('/setup')
+        .send(validSetup)
+        .expect(201);
+      const body = res.body as SetupResultBody;
+
+      expect(body.company.name).toBe('J&P Perifericos');
+      expect(body.channel).toBeNull();
+      companyId = body.company.id;
+    });
+
+    it('reports the workspace as initialized and without whatsapp', async () => {
+      const res = await request(server).get('/setup/status').expect(200);
+      const body = res.body as SetupStatusBody;
+
+      expect(body).toEqual({
+        initialized: true,
+        hasAdmin: true,
+        hasCompany: true,
+        hasWhatsapp: false,
+        hasUsers: true,
+        requiresSetupToken: false,
+      });
+    });
+
+    it('blocks a second setup with 409', async () => {
+      await request(server).post('/setup').send(validSetup).expect(409);
+    });
+
+    it('authenticates the created admin and serves its company', async () => {
+      const agent = request.agent(server);
+
+      await agent
+        .post('/auth/login')
+        .send({ username: 'admin', password: 'secreta-123' })
+        .expect(200);
+
+      // La sesión sirve para hidratar el front (user + empresa activa).
+      const me = await agent.get('/auth/me').expect(200);
+      const meBody = me.body as {
+        user: {
+          username: string;
+          memberships: Array<{ companyId: string; role: string }>;
+        } | null;
+        company: { id: string | null };
+      };
+
+      expect(meBody.user?.username).toBe('admin');
+      expect(meBody.user?.memberships).toEqual([
+        expect.objectContaining({ companyId, role: 'admin', status: 'active' }),
+      ]);
+      expect(meBody.company.id).toBe(companyId);
+
+      // La membresía admin creada por /setup pertenece a la empresa creada.
+      const res = await agent.get('/auth/me/companies').expect(200);
+      const body = res.body as string[];
+
+      expect(body).toEqual([companyId]);
+    });
+
+    it('rejects an empty login payload with the standard 400 envelope', async () => {
+      const res = await request(server)
+        .post('/auth/login')
+        .send({})
+        .expect(400);
+      const body = res.body as {
+        statusCode: number;
+        error: string;
+        message: string[];
+      };
+
+      expect(body).toMatchObject({
+        statusCode: 400,
+        error: 'Bad Request',
+      });
+      expect(body.message).toEqual([
+        'El campo username es obligatorio.',
+        'El campo password es obligatorio.',
+      ]);
+    });
+  });
+
+  describe('workspace with whatsapp configured', () => {
+    let app: INestApplication;
+    let server: App;
+
+    beforeAll(async () => {
+      app = await createApp();
+      server = app.getHttpServer() as App;
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('stores the whatsapp channel and flags it in the status', async () => {
+      const created = await request(server)
+        .post('/setup')
+        .send({
+          ...validSetup,
+          whatsapp: {
+            businessId: 'biz-1',
+            accessToken: 'token',
+            externalAccountId: 'phone-1',
+            webhookUrl: 'http://localhost:3000/integration/webhook/whatsapp',
+          },
+        })
+        .expect(201);
+      const createdBody = created.body as SetupResultBody;
+
+      expect(createdBody.channel?.id).toBeDefined();
+      expect(createdBody.channel?.webhookVerifyToken).toBeDefined();
+
+      const res = await request(server).get('/setup/status').expect(200);
+      const body = res.body as SetupStatusBody;
+
+      expect(body.initialized).toBe(true);
+      expect(body.hasWhatsapp).toBe(true);
+    });
+  });
+
+  describe('workspace protected by a setup token', () => {
+    let app: INestApplication;
+    let server: App;
+
+    beforeAll(async () => {
+      app = await createApp('token-de-prueba');
+      server = app.getHttpServer() as App;
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('flags that a token is required', async () => {
+      const res = await request(server).get('/setup/status').expect(200);
+      const body = res.body as SetupStatusBody;
+
+      expect(body.requiresSetupToken).toBe(true);
+      expect(body.initialized).toBe(false);
+    });
+
+    it('rejects a setup without the token', async () => {
+      await request(server).post('/setup').send(validSetup).expect(403);
+    });
+
+    it('rejects a setup with a wrong token', async () => {
+      await request(server)
+        .post('/setup')
+        .send({ ...validSetup, setupToken: 'incorrecto' })
+        .expect(403);
+    });
+
+    it('accepts a setup with the right token', async () => {
+      await request(server)
+        .post('/setup')
+        .send({ ...validSetup, setupToken: 'token-de-prueba' })
+        .expect(201);
+    });
+  });
+});

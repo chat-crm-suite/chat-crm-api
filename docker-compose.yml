@@ -1,38 +1,46 @@
+# USO INDIVIDUAL (solo API + MySQL/Redis/phpMyAdmin) - no es el stack del día a día.
+# El stack completo (API + front + IA + infra en una orden) vive en la raíz:
+#   ../../docker-compose.dev.yml   ->  docker compose -f ../../docker-compose.dev.yml up --build -d
+#
+# Arranque individual:
+#   docker compose up --build -d            # usa este .env del repo para interpolación
+#   docker compose down
+#   curl -s http://localhost:3000/health
+#
+# El env de la API sale de `env_file: .env` (TODAS las claves: DB_*, REDIS_*, JWT_SECRET,
+# CORS_ORIGIN, IA_URL, WHATSAPP_*, bootstrap). Sin env_file el contenedor no ve JWT_SECRET
+# ni CORS y el login/cookies fallan en silencio.
+# El frontend en este modo sigue siendo `npm run dev` local o el compose de chat-crm-app.
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: nestjs-app
+      target: dev
+    container_name: chat-crm-dev-api
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
-    environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - DB_HOST=${DB_HOST:-mysql}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_USERNAME=${DB_USERNAME:-root}
-      - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_DATABASE=${DB_DATABASE:-chat_crm_db}
-      - REDIS_HOST=${REDIS_HOST:-redis}
-      - REDIS_PORT=${REDIS_PORT:-6379}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     volumes:
-      - /app/node_modules
       - .:/app
+      # Volumen con nombre: sobrevive a `down` (con anónimo cada down = npm ci otra vez).
+      - api_node_modules:/app/node_modules
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - nestjs-network
+      - chat-crm-dev-net
     restart: unless-stopped
-    # command: npm run start:prod # produccion configuracion with NODE_ENV=production
-    command: ["bash", "-c", "npm run start:dev"] # desarrollo configuracion with NODE_ENV=development
+    command: ["npm", "run", "start:dev"]
 
   mysql:
     image: mysql:8.0
-    container_name: nestjs-mysql
+    container_name: chat-crm-dev-mysql
     ports:
       - "3306:3306"
     environment:
@@ -44,7 +52,7 @@ services:
       - mysql_data:/var/lib/mysql
       - ./database/init:/docker-entrypoint-initdb.d
     networks:
-      - nestjs-network
+      - chat-crm-dev-net
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD"]
@@ -55,7 +63,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: nestjs-redis
+    container_name: chat-crm-dev-redis
     ports:
       - "6379:6379"
     environment:
@@ -63,7 +71,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - nestjs-network
+      - chat-crm-dev-net
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "if [ -z \"$$REDIS_PASSWORD\" ]; then redis-cli ping | grep PONG; else redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG; fi"]
@@ -82,7 +90,7 @@ services:
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
-    container_name: nestjs-phpmyadmin
+    container_name: chat-crm-dev-phpmyadmin
     ports:
       - "8080:80"
     environment:
@@ -93,17 +101,20 @@ services:
     depends_on:
       - mysql
     networks:
-      - nestjs-network
+      - chat-crm-dev-net
     restart: unless-stopped
 
 # Volúmenes persistentes
 volumes:
+  api_node_modules:
+    driver: local
   mysql_data:
     driver: local
   redis_data:
     driver: local
 
-# Red personalizada
+# Red de este proyecto (el nombre final lo escapa compose con el nombre del proyecto,
+# por eso no colisiona con el stack global 'chat-crm-dev').
 networks:
-  nestjs-network:
+  chat-crm-dev-net:
     driver: bridge

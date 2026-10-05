@@ -1,7 +1,5 @@
-import type { CompareMetric } from "../../metrics.types";
-import { IsIn } from "class-validator";
+import { createZodDto } from 'nestjs-zod';
 
-export class CompareParams {
-  @IsIn(['agent', 'chat', 'message', 'transfer', 'client'])
-  metric: CompareMetric = 'agent';
-}
+import { CompareParamsSchema } from '../../../../contracts/index';
+
+export class CompareParams extends createZodDto(CompareParamsSchema) {}

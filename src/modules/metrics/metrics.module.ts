@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MetricsController } from './metrics.controller';
 import { MetricsService } from './metrics.service';
-import { Message } from '../message/message.entity';
+import { Message } from '../message/entities/message.entity';
 import { MetricsRepository } from './metrics.repository';
 import { SentimentRepository } from './repositories/sentiment.repository';
 

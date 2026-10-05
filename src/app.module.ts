@@ -10,9 +10,6 @@ import { AppConfigsModule } from './config/index';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
-// Utils
-import { IsUniqueConstraint } from './utils/validators';
-
 // Modules
 import { AuthModule } from './auth/auth.module';
 import { CoreModules } from '@modules';
@@ -34,7 +31,7 @@ import { join } from 'path';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService, IsUniqueConstraint,
+  providers: [AppService,
     {
       provide: APP_PIPE,
       useClass: ZodValidationPipe

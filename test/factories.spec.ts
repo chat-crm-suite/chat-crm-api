@@ -1,16 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getDataSourceToken, TypeOrmModule } from '@nestjs/typeorm';
-import { DataSource, QueryRunner } from 'typeorm';
+import { DataSource, EntityTarget, QueryRunner } from 'typeorm';
 
-import { getTestSQLiteConfig } from './helpers/test-database.helper';
-import { subYears } from 'date-fns';
-import { AnalysisFactory, ChatFactory, ContactFactory, MessageFactory, SentimentAnalysisFactory, UserFactory } from '@factories';
+import * as Entities from '@entities';
 import {
-  Analysis,
-  Chat, Company, Contact,
-  Message, SentimentAnalysis, User,
-  WhatsAppConfig, Notification
-} from '@entities';
+  AnalysisFactory,
+  ChannelFactory,
+  CompanyFactory,
+  CompanyMemberFactory,
+  ConversationFactory,
+  CustomerFactory,
+  MessageFactory,
+  SentimentResultFactory,
+  UserFactory,
+} from '@factories';
+import { getTestConfig } from './helpers/test-database.helper';
+
+const entities = Object.values(Entities) as EntityTarget<unknown>[];
+
+jest.setTimeout(120_000);
 
 describe('Entity Factories Integration Tests', () => {
   let module: TestingModule;
@@ -20,10 +28,9 @@ describe('Entity Factories Integration Tests', () => {
   beforeAll(async () => {
     module = await Test.createTestingModule({
       imports: [
-        TypeOrmModule.forRoot(getTestSQLiteConfig([
-          SentimentAnalysis, Analysis, Message, Chat, Contact,
-          User, Company, WhatsAppConfig, Notification
-        ], { logging: ['error'] })),
+        TypeOrmModule.forRoot(
+          getTestConfig(entities, { logging: ['error'] }),
+        ),
       ],
     }).compile();
 
@@ -34,7 +41,7 @@ describe('Entity Factories Integration Tests', () => {
     queryRunner = dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
-  })
+  });
 
   afterEach(async () => {
     await queryRunner.rollbackTransaction();
@@ -46,48 +53,142 @@ describe('Entity Factories Integration Tests', () => {
     if (module) await module.close();
   });
 
-  it('Chat Factory', async () => {
-    const chat = await ChatFactory.transient({ manager: queryRunner.manager }).create();
-
-    expect(chat.id).toBeDefined();
-  });
-
-  it('Client Factory', async () => {
-    const client = await ContactFactory.transient({ manager: queryRunner.manager }).create();
-
-    expect(client).toBeDefined();
-    expect(client.id).toBeDefined();
-  });
+  const manager = () => queryRunner.manager;
 
   it('User Factory', async () => {
-    const user = await UserFactory.transient({ manager: queryRunner.manager }).create();
+    const user = await UserFactory.transient({ manager: manager() }).create();
 
     expect(user).toBeDefined();
     expect(user.id).toBeDefined();
+    expect(user.username).toBeDefined();
+    expect(user.passwordHash).toBeDefined();
   });
 
-  it('Message Factory', async () => {
-    const message = await MessageFactory.transient({ manager: queryRunner.manager }).create();
+  it('Company Factory', async () => {
+    const company = await CompanyFactory.transient({ manager: manager() }).create();
+
+    expect(company.id).toBeDefined();
+    expect(company.name).toBeDefined();
+  });
+
+  it('Channel Factory (valid company FK)', async () => {
+    const channel = await ChannelFactory.transient({ manager: manager() }).create();
+
+    expect(channel.id).toBeDefined();
+    expect(channel.companyId).toBeDefined();
+  });
+
+  it('CompanyMember Factory (user + company FKs)', async () => {
+    const member = await CompanyMemberFactory.transient({
+      manager: manager(),
+    }).create();
+
+    expect(member.id).toBeDefined();
+    expect(member.userId).toBeDefined();
+    expect(member.companyId).toBeDefined();
+    expect(member.role).toBe('agent');
+    expect(member.status).toBe('active');
+  });
+
+  it('Customer Factory (was Contact)', async () => {
+    const customer = await CustomerFactory.transient({
+      manager: manager(),
+    }).create();
+
+    expect(customer).toBeDefined();
+    expect(customer.id).toBeDefined();
+    expect(customer.companyId).toBeDefined();
+    expect(customer.displayName).toBeDefined();
+  });
+
+  it('Conversation Factory (was Chat, with company/customer/channel)', async () => {
+    const conversation = await ConversationFactory.transient({
+      manager: manager(),
+    }).create();
+
+    expect(conversation.id).toBeDefined();
+    expect(conversation.companyId).toBeDefined();
+    expect(conversation.customerId).toBeDefined();
+    expect(conversation.channelId).toBeDefined();
+    expect(conversation.status).toBe('open');
+  });
+
+  it('Message Factory (conversation + company FKs)', async () => {
+    const message = await MessageFactory.transient({ manager: manager() }).create();
 
     expect(message).toBeDefined();
     expect(message.id).toBeDefined();
-    expect(message.agent?.id).toBeDefined();
-    expect(message.contact?.id).toBeDefined();
-  })
+    expect(message.conversationId).toBeDefined();
+    expect(message.companyId).toBeDefined();
+    expect(message.body).toBeDefined();
+    expect(message.senderType).toBe('customer');
+    expect(message.direction).toBe('inbound');
+  });
 
-  it('Analysis factory', async () => {
-    const analysis = await AnalysisFactory.params({ createdAt: subYears(new Date(), 2) })
-      .transient({ manager: queryRunner.manager }).create();
+  it('Message Factory with an explicit sender member', async () => {
+    const member = await CompanyMemberFactory.transient({
+      manager: manager(),
+    }).create();
+
+    const message = await MessageFactory.transient({ manager: manager() }).create({
+      senderType: 'member',
+      senderMemberId: member.id,
+      direction: 'outbound',
+    });
+
+    expect(message.senderMemberId).toBe(member.id);
+    expect(message.direction).toBe('outbound');
+  });
+
+  it('Analysis factory (v2 header linked to message + conversation)', async () => {
+    const analysis = await AnalysisFactory.transient({
+      manager: manager(),
+    }).create();
 
     expect(analysis.id).toBeDefined();
     expect(analysis.message).toBeDefined();
+    expect(analysis.messageId).toBeDefined();
+    expect(analysis.conversationId).toBeDefined();
+    expect(analysis.companyId).toBeDefined();
   });
 
-  it('Sentiment Analysis factory', async () => {
-    const sentiment = await SentimentAnalysisFactory.transient({ manager: queryRunner.manager }).create();
+  it('Analysis factory accepts a persisted message reference', async () => {
+    const message = await MessageFactory.transient({ manager: manager() }).create();
 
-    expect(sentiment.id).toBeDefined();
+    const analysis = await AnalysisFactory.transient({ manager: manager() }).create({
+      message: { id: message.id },
+    });
+
+    expect(analysis.messageId).toBe(message.id);
+    expect(analysis.conversationId).toBe(message.conversationId);
+    expect(analysis.companyId).toBe(message.companyId);
+  });
+
+  it('Sentiment Result factory (was SentimentAnalysis, 1:1 detail)', async () => {
+    const sentiment = await SentimentResultFactory.transient({
+      manager: manager(),
+    }).create();
+
+    expect(sentiment.analysis).toBeDefined();
     expect(sentiment.analysis.id).toBeDefined();
-    expect(sentiment.analysis.message.id).toBeDefined();
-  })
+    expect(sentiment.analysis.message?.id).toBeDefined();
+    expect(sentiment.label).toBeDefined();
+    expect(sentiment.scorePositive).toBeDefined();
+    expect(sentiment.scoreNeutral).toBeDefined();
+    expect(sentiment.scoreNegative).toBeDefined();
+  });
+
+  it('Sentiment Result factory accepts label + scores', async () => {
+    const sentiment = await SentimentResultFactory.transient({
+      manager: manager(),
+    }).create({
+      label: 'negative',
+      scorePositive: 0.1,
+      scoreNeutral: 0.2,
+      scoreNegative: 0.7,
+    });
+
+    expect(sentiment.label).toBe('negative');
+    expect(Number(sentiment.scoreNegative)).toBe(0.7);
+  });
 });

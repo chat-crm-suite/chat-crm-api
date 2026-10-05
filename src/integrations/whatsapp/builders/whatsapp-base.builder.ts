@@ -41,7 +41,7 @@ export abstract class WhatsAppBaseBuilder<TBuilder, TPayload extends WhatsAppPay
    * Establece el tipo de mensaje internamente
    */
   protected setType(type: WhatsAppMessageType): void {
-    this.payload.type = type as TPayload['type'];
+    this.payload.type = type;
   }
 
   /**

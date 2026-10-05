@@ -1,48 +1,45 @@
-import { IsOptional, IsPhoneNumber } from 'class-validator';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
   DeleteDateColumn,
-  OneToMany,
+  Entity,
+  UpdateDateColumn,
 } from 'typeorm';
-import { Contact } from '../../contacts/entities/contact.entity';
 
-export type CompanyStatus = 'active' | 'inactive' | 'suspended';
+import type { CompanyStatus } from '../../../contracts/index';
+import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
 
+/**
+ * Tenant root. The assignment settings that used to live here moved to
+ * `company_settings` (1:1).
+ */
 @Entity('companies')
-export class Company {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
+export class Company extends UuidV7Entity {
   @Column({ length: 255 })
   name: string;
 
-  @Column({ length: 255, unique: true, nullable: true })
+  @Column({ length: 255, nullable: true, unique: true })
   email?: string;
 
-  @Column({ length: 50, nullable: true })
-  @IsPhoneNumber()
-  @IsOptional()
+  @Column({ length: 20, nullable: true })
   phoneNumber?: string;
 
   @Column({ type: 'text', nullable: true })
   address?: string;
 
-  @Column({ default: 'active' })
+  @Column({ length: 64, default: 'America/Lima' })
+  timezone: string;
+
+  // Explicit type: contract union types cannot be inferred by decorator metadata.
+  @Column({ type: 'varchar', length: 50, default: 'active' })
   status: CompanyStatus;
-
-  @OneToMany(() => Contact, contact => contact.company)
-  contacts: Contact[];
-
-  @DeleteDateColumn({ nullable: true })
-  deletedAt?: Date;
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deletedAt?: Date;
 }

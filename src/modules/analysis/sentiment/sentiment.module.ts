@@ -1,22 +1,26 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { SentimentAnalysis } from './sentiment.entity';
-import { SentimentService } from './sentiment.service';
-import { SentimentClient } from './sentiment.client';
-import { BullModule } from '@nestjs/bullmq';
 import { HttpModule } from '@nestjs/axios';
-import { SentimentRepository } from './sentiment.repository';
-import { SentimentProcessor } from './sentiment.processor';
+import { BullModule } from '@nestjs/bullmq';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AnalyseMessageHandler } from './commands/handlers/analyse-message.handler';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
 import sentimentConfig from '../../../config/sentiment.config';
+import { Message } from '../../message/entities/message.entity';
+import { Analysis } from '../entities/analysis.entity';
+import { SentimentResult } from '../entities/sentiment-result.entity';
+import { AnalyseMessageHandler } from './commands/handlers/analyse-message.handler';
+import { SentimentClient } from './sentiment.client';
+import { SENTIMENT_QUEUE } from './sentiment.constants';
+import { SentimentProcessor } from './sentiment.processor';
+import { SentimentRepository } from './sentiment.repository';
+import { SentimentService } from './sentiment.service';
 
 @Module({
   imports: [
     ConfigModule.forFeature(sentimentConfig),
-    TypeOrmModule.forFeature([SentimentAnalysis]),
+    TypeOrmModule.forFeature([Analysis, SentimentResult, Message]),
     BullModule.registerQueue({
-      name: 'sentiment',
+      name: SENTIMENT_QUEUE,
     }),
     HttpModule,
   ],

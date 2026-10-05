@@ -42,9 +42,10 @@ export class MetricsService {
   }
 
   async getComparePeriod(metric: CompareMetric, period: PeriodTime) {
-    const { target, column, where } = COMPARE_PERIOD_CONFIG[metric];
+    const { target, column, where, timeColumn } =
+      COMPARE_PERIOD_CONFIG[metric];
     const { current, previous } = await this.repo.comparePeriod(
-      { target, column, period },
+      { target, column, period, timeColumn },
       where,
     );
 

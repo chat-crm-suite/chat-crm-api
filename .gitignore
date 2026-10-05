@@ -48,6 +48,9 @@ lerna-debug.log*
 .temp
 .tmp
 
+# Git worktrees (paired branch work, never committed)
+.worktrees/
+
 # Runtime data
 pids
 *.pid

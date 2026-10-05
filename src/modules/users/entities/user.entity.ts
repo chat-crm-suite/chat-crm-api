@@ -1,46 +1,46 @@
-import { Column, CreateDateColumn, DeleteDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { Notification } from '../../notifications/entities/notification.entity';
-import { Exclude } from "class-transformer";
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  UpdateDateColumn,
+} from 'typeorm';
 
-export type UserRole = 'admin' | 'supervisor' | 'support' | 'agent' | 'system';
-export type UserStatus = 'online' | 'offline' | 'busy';
+import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
 
+/**
+ * Identity/login only. No role (that lives in `company_members`) and no
+ * presence status (Redis).
+ */
 @Entity('users')
-export class User {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ length: 255, nullable: true })
-  firstName?: string;
-
-  @Column({ length: 255, nullable: true })
-  lastName?: string;
-
-  @Index({ unique: true })
-  @Column({ type: 'varchar', nullable: true })
-  phoneNumber?: string;
-
+export class User extends UuidV7Entity {
   @Column({ length: 255, unique: true, nullable: true })
-  email: string;
+  email?: string;
 
-  @Column({ unique: true })
+  @Column({ length: 100, unique: true })
   username: string;
 
-  @Column({ type: 'varchar', length: 512, nullable: true })
-  avatar?: string;
+  @Column({ name: 'password_hash', length: 255 })
+  passwordHash: string;
 
-  @Column()
-  @Exclude()
-  password: string;
+  @Column({ length: 100, nullable: true })
+  firstName?: string;
 
-  @Column({ default: 'offline' })
-  status: UserStatus;
+  @Column({ length: 100, nullable: true })
+  lastName?: string;
 
-  @Column({ type: 'varchar', default: 'agent' })
-  role: UserRole;
+  @Column({ length: 20, nullable: true, unique: true })
+  phoneNumber?: string;
 
-  @Column({ type: 'varchar', length: 512, nullable: true })
-  address?: string;
+  @Column({ name: 'avatar_url', length: 512, nullable: true })
+  avatarUrl?: string;
+
+  /** SaaS superadmin; business role lives in `company_members`. */
+  @Column({ name: 'is_platform_admin', default: false })
+  isPlatformAdmin: boolean;
+
+  @Column({ name: 'last_login_at', type: 'datetime', nullable: true })
+  lastLoginAt?: Date;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -48,9 +48,6 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ nullable: true })
   deletedAt?: Date;
-
-  @OneToMany(() => Notification, (notification) => notification.user)
-  notifications: Notification[]
 }

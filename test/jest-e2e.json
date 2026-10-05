@@ -3,7 +3,22 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "setupFiles": ["<rootDir>/setup-env.ts"],
+  "maxWorkers": 1,
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/../src/$1",
+    "^@lib/(.*)$": "<rootDir>/../src/lib/$1",
+    "^@utils/(.*)$": "<rootDir>/../src/utils/$1",
+    "^@auth$": "<rootDir>/../src/auth/index",
+    "^@auth/(.*)$": "<rootDir>/../src/auth/$1",
+    "^@entities$": "<rootDir>/../src/entities/index",
+    "^@modules$": "<rootDir>/../src/modules/index",
+    "^@modules/(.*)$": "<rootDir>/../src/modules/$1",
+    "^@factories$": "<rootDir>/../test/factories/index",
+    "^@integrations/(.*)$": "<rootDir>/../src/integrations/$1",
+    "^@core/(.*)$": "<rootDir>/../src/core/$1"
   }
 }

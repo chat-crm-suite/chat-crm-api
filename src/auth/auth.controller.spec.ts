@@ -5,12 +5,30 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthUser } from '@auth';
 import { IdentifyGuard } from './guards/identify.guard';
-import { MemberService } from '@modules/member/member.service';
-import { UserFactory } from '@factories';
+import { CompanyMemberService } from '../modules/company-members/company-member.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
   let res: jest.Mocked<Response>;
+
+  const mockUser: AuthUser = {
+    id: 'user-1',
+    username: 'jeremi',
+    firstName: 'Jeremi',
+    lastName: null,
+    avatarUrl: null,
+    email: null,
+    phoneNumber: null,
+    isPlatformAdmin: false,
+    memberships: [
+      {
+        companyId: 'company-1',
+        companyName: 'J&P Perifericos',
+        role: 'admin',
+        status: 'active',
+      },
+    ],
+  };
 
   const mocks = {
     authService: {
@@ -19,12 +37,12 @@ describe('AuthController', () => {
     identityGuard: {
       canActivate: jest.fn(),
     },
-    memberService: {
-      getCompanies: jest.fn()
+    companyMembers: {
+      getCompanies: jest.fn(),
     },
     cookie: jest.fn().mockReturnThis(),
-    clearCookie: jest.fn().mockReturnThis()
-  }
+    clearCookie: jest.fn().mockReturnThis(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -35,8 +53,8 @@ describe('AuthController', () => {
           useValue: mocks.authService,
         },
         {
-          provide: MemberService,
-          useValue: mocks.memberService,
+          provide: CompanyMemberService,
+          useValue: mocks.companyMembers,
         },
       ],
     })
@@ -87,8 +105,7 @@ describe('AuthController', () => {
 
   describe('getProfile', () => {
     it('should return the user and the first company id', async () => {
-      const mockUser = UserFactory.build() as AuthUser;
-      mocks.memberService.getCompanies.mockResolvedValue([
+      mocks.companyMembers.getCompanies.mockResolvedValue([
         'company-1',
         'company-2',
       ]);
@@ -102,8 +119,7 @@ describe('AuthController', () => {
     });
 
     it('should return null company when the user has none', async () => {
-      const mockUser = UserFactory.build() as AuthUser;
-      mocks.memberService.getCompanies.mockResolvedValue([]);
+      mocks.companyMembers.getCompanies.mockResolvedValue([]);
 
       const result = await controller.getProfile(mockUser);
 

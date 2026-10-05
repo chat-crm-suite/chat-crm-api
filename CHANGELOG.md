@@ -1,3 +1,22 @@
+## 1.0.0 (2026-10-04)
+
+### Refactor
+
+- :card_file_box: Database schema v2: `customers`, `conversations`, `company_members`, `channels`, `analyses`, `customer_identities` (single `BaselineV2`, legacy migrations squashed)
+- :recycle: Runtime rewired to v2 (assignment engine on `company_members`; the "company not resolved" path is gone; `customer_identities` is the resolution canon)
+
+### Feat
+
+- :sparkles: Channel credentials encrypted at rest (AES-256-GCM, `CREDENTIALS_ENCRYPTION_KEY`)
+- :sparkles: UUIDv7 app-side ids and contract-owned domain values (varchar + zod, shared with the frontend)
+- :sparkles: Explicit production migration runner (`dist/scripts/run-migrations.js`)
+- :sparkles: Schema v2 implementation plan, contract map and cutover runbook (`docs/database/`)
+
+### Fix
+
+- :bug: Metrics raw SQL rewritten for v2 (removes the `m.contact_id` reference to a non-existent column)
+- :bug: Inbound WhatsApp `wamid` persisted in `messages.external_id`
+
 ## 1.0.0-b1 (2025-11-16)
 
 ## 1.0.0-beta.0 (2025-11-16)

@@ -1,50 +1,45 @@
-import {
+import { WhatsAppImageBuilder } from '../../../integrations/whatsapp/builders/whatsapp-image.builder';
+import type {
   WhatsAppMediaContent,
   WhatsAppPayload,
 } from '../../../integrations/whatsapp/interfaces/whatsapp-message.interface';
-import { MessageStrategy } from './message.strategy';
-import { Message } from '../../../entities/index';
-import { WhatsAppImageBuilder } from '../../../integrations/whatsapp/builders/whatsapp-image.builder';
-import { WhatsAppImageContent } from '../../../integrations/whatsapp/interfaces/messages/image';
-import { BroadcastDto } from '../../chats/dto/broadcast.dto';
-import { MessageType } from '../domain/message.types';
+import type { MessageAttachment } from '../entities/message-attachment.entity';
+import type { Message } from '../entities/message.entity';
+import { getConversationMessageBase } from '../mappers/conversation-message.mapper';
+import type { ConversationMessagePayload } from '../message.types';
+import type { MessageStrategy } from './message.strategy';
 
 export class ImageMessageStrategy implements MessageStrategy {
   toWhatsAppPayload(
     to: string,
     content: WhatsAppMediaContent,
   ): WhatsAppPayload {
-    return new WhatsAppImageBuilder()
+    const payload = new WhatsAppImageBuilder()
       .to(to)
       .link(content.link)
-      .caption(content.caption)
       .build();
+
+    // The builder setters replace `image`, so the optional caption is merged
+    // after building.
+    if (payload.type === 'image' && content.caption) {
+      payload.image.caption = content.caption;
+    }
+
+    return payload;
   }
 
-  toEntityFields(content: WhatsAppImageContent): Partial<Message> {
-    return {
-      type: MessageType.IMAGE,
-      mediaUrl: content.link,
-      content: content.caption,
-    };
-  }
+  toBroadcastFields(
+    message: Message,
+    attachments: MessageAttachment[] = [],
+  ): ConversationMessagePayload {
+    const [attachment] = attachments;
 
-  toBroadcastFields(message: Message): BroadcastDto {
     return {
-      id: message.id,
-      chatId: message.chat?.id,
-      timestamp: message.updatedAt,
-      status: message.status,
+      ...getConversationMessageBase(message),
       msg: {
-        type: MessageType.IMAGE,
-        mediaUrl: message.mediaUrl,
-        content: {
-          caption: message.content,
-        },
-      },
-      sender: {
-        id: message.senderId,
-        type: message.senderType,
+        type: 'image',
+        mediaUrl: attachment?.storageUrl ?? null,
+        content: { caption: message.body ?? undefined },
       },
     };
   }

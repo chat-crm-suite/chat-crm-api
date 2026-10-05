@@ -1,12 +1,12 @@
-import { MessageStrategy } from './message.strategy';
-import { Message } from '../../../entities/index';
 import { WhatsAppTextBuilder } from '../../../integrations/whatsapp/builders/whatsapp-text.builder';
-import {
+import type {
   WhatsAppPayload,
   WhatsAppTextContent,
 } from '../../../integrations/whatsapp/interfaces/whatsapp-message.interface';
-import { BroadcastDto } from '../../chats/dto/broadcast.dto';
-import { MessageType } from '../domain/message.types';
+import type { Message } from '../entities/message.entity';
+import { getConversationMessageBase } from '../mappers/conversation-message.mapper';
+import type { ConversationMessagePayload } from '../message.types';
+import type { MessageStrategy } from './message.strategy';
 
 export class TextMessageStrategy implements MessageStrategy {
   toWhatsAppPayload(to: string, content: WhatsAppTextContent): WhatsAppPayload {
@@ -17,28 +17,13 @@ export class TextMessageStrategy implements MessageStrategy {
       .build();
   }
 
-  toEntityFields(content: WhatsAppTextContent): Partial<Message> {
+  toBroadcastFields(message: Message): ConversationMessagePayload {
     return {
-      type: MessageType.TEXT,
-      content: content.body,
-    };
-  }
-
-  toBroadcastFields(message: Message): BroadcastDto {
-    return {
-      id: message.id,
-      chatId: message.chat?.id,
-      timestamp: message.updatedAt,
-      status: message.status,
+      ...getConversationMessageBase(message),
       msg: {
-        type: MessageType.TEXT,
-        content: {
-          body: message.content,
-        },
-      },
-      sender: {
-        id: message.senderId,
-        type: message.senderType,
+        type: 'text',
+        mediaUrl: null,
+        content: { body: message.body ?? undefined },
       },
     };
   }

@@ -1,5 +1,1 @@
-import { WebhookController } from "./webhook.controller";
-
-export {
-  WebhookController,
-};
+export { WebhookController } from './webhook.controller';

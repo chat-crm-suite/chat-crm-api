@@ -1,11 +1,11 @@
-import { Command, ICommand } from "@nestjs/cqrs";
-
-export class AnalyzeMessageCommand extends Command<{
-  jobId?: string
-}> implements ICommand {
+/**
+ * Requests a sentiment analysis for a message. `content` is the text to
+ * analyze; when it is empty the processor falls back to `messages.body`.
+ */
+export class AnalyzeMessageCommand {
   constructor(
     public readonly messageId: string,
-    public readonly text: string,
-    public readonly chatId?: string,
-  ) { super() }
+    public readonly content: string | null | undefined,
+    public readonly conversationId?: string,
+  ) {}
 }

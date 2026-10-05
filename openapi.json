@@ -1,0 +1,1891 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "HealthController_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/me/companies": {
+      "get": {
+        "operationId": "AuthController_getCompanies",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "operationId": "AuthController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/users/me": {
+      "get": {
+        "operationId": "UsersController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/import": {
+      "post": {
+        "operationId": "UsersController_uploadFile",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users": {
+      "post": {
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      },
+      "get": {
+        "operationId": "UsersController_all",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/table": {
+      "post": {
+        "operationId": "UsersController_getTable",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserTableQueryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/search": {
+      "get": {
+        "operationId": "UsersController_search",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 10,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/{username}": {
+      "get": {
+        "operationId": "UsersController_find",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/{id}": {
+      "patch": {
+        "operationId": "UsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/company-members/current": {
+      "get": {
+        "operationId": "CompanyMemberController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CompanyMember"
+        ]
+      }
+    },
+    "/company-members/companies": {
+      "get": {
+        "operationId": "CompanyMemberController_companies",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "CompanyMember"
+        ]
+      }
+    },
+    "/setup/status": {
+      "get": {
+        "operationId": "SetupController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Setup"
+        ]
+      }
+    },
+    "/setup": {
+      "post": {
+        "operationId": "SetupController_run",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSetupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Setup"
+        ]
+      }
+    },
+    "/channels": {
+      "get": {
+        "operationId": "ChannelsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List the channels of the active company",
+        "tags": [
+          "Channels"
+        ]
+      },
+      "post": {
+        "operationId": "ChannelsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChannelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create a channel",
+        "tags": [
+          "Channels"
+        ]
+      }
+    },
+    "/channels/whatsapp/config": {
+      "get": {
+        "operationId": "ChannelsController_getWhatsAppConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get the WhatsApp channel of the active company",
+        "tags": [
+          "Channels"
+        ]
+      },
+      "patch": {
+        "operationId": "ChannelsController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateChannelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Update the WhatsApp channel",
+        "tags": [
+          "Channels"
+        ]
+      }
+    },
+    "/channels/whatsapp/config/validate": {
+      "get": {
+        "operationId": "ChannelsController_validateConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Validate the WhatsApp channel of the active company",
+        "tags": [
+          "Channels"
+        ]
+      }
+    },
+    "/company": {
+      "post": {
+        "operationId": "CompanyController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCompanyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      },
+      "get": {
+        "operationId": "CompanyController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      }
+    },
+    "/company/me": {
+      "get": {
+        "operationId": "CompanyController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      }
+    },
+    "/company/me/assignment-settings": {
+      "get": {
+        "operationId": "CompanyController_assignmentSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      },
+      "patch": {
+        "operationId": "CompanyController_updateAssignmentSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAssignmentSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      }
+    },
+    "/company/{id}": {
+      "get": {
+        "operationId": "CompanyController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      },
+      "delete": {
+        "operationId": "CompanyController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      }
+    },
+    "/conversations/upload": {
+      "post": {
+        "operationId": "ConversationsController_uploadFile",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Conversations"
+        ]
+      }
+    },
+    "/conversations/assignments/{conversationId}": {
+      "get": {
+        "operationId": "ConversationsController_assignments",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Conversations"
+        ]
+      }
+    },
+    "/conversations/assign": {
+      "post": {
+        "operationId": "ConversationsController_assign",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignConversationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Conversations"
+        ]
+      }
+    },
+    "/conversations/list": {
+      "get": {
+        "operationId": "ConversationsController_list",
+        "parameters": [
+          {
+            "name": "agentId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Conversations"
+        ]
+      }
+    },
+    "/conversations/unassigned": {
+      "get": {
+        "operationId": "ConversationsController_unassigned",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Conversations"
+        ]
+      }
+    },
+    "/conversations/needs-response": {
+      "get": {
+        "operationId": "ConversationsController_needsResponse",
+        "parameters": [
+          {
+            "name": "minutes",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Conversations"
+        ]
+      }
+    },
+    "/conversations/{id}/claim": {
+      "post": {
+        "operationId": "ConversationsController_claim",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Conversations"
+        ]
+      }
+    },
+    "/conversations/{id}/messages": {
+      "get": {
+        "operationId": "ConversationsController_findMessages",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Conversations"
+        ]
+      }
+    },
+    "/notifications": {
+      "get": {
+        "operationId": "NotificationController_getLatest",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notification"
+        ]
+      }
+    },
+    "/notifications/read": {
+      "post": {
+        "operationId": "NotificationController_markAllAsRead",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Notification"
+        ]
+      }
+    },
+    "/customers": {
+      "post": {
+        "operationId": "CustomersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customers"
+        ]
+      },
+      "get": {
+        "operationId": "CustomersController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customers"
+        ]
+      }
+    },
+    "/customers/import": {
+      "post": {
+        "operationId": "CustomersController_uploadFile",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customers"
+        ]
+      }
+    },
+    "/customers/table": {
+      "post": {
+        "operationId": "CustomersController_getTable",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerTableQueryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customers"
+        ]
+      }
+    },
+    "/customers/search": {
+      "get": {
+        "operationId": "CustomersController_search",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customers"
+        ]
+      }
+    },
+    "/customers/{phone}": {
+      "get": {
+        "operationId": "CustomersController_findByPhone",
+        "parameters": [
+          {
+            "name": "phone",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customers"
+        ]
+      }
+    },
+    "/customers/{id}": {
+      "patch": {
+        "operationId": "CustomersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customers"
+        ]
+      },
+      "delete": {
+        "operationId": "CustomersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Customers"
+        ]
+      }
+    },
+    "/metrics/sentiment/top": {
+      "get": {
+        "operationId": "MetricsController_sentimentTop",
+        "parameters": [
+          {
+            "name": "actor",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "agent",
+                "client"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "POS",
+                "NEU",
+                "NEG"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 5,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/metrics/{metric}/compare": {
+      "get": {
+        "operationId": "MetricsController_metricCompare",
+        "parameters": [
+          {
+            "name": "metric",
+            "required": false,
+            "in": "path",
+            "schema": {
+              "default": "agent",
+              "type": "string",
+              "enum": [
+                "agent",
+                "chat",
+                "message",
+                "transfer",
+                "client"
+              ]
+            }
+          },
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/metrics/sentiment/trend": {
+      "get": {
+        "operationId": "MetricsController_getSentimentTrend",
+        "parameters": [
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/metrics/top-contacts": {
+      "get": {
+        "operationId": "MetricsController_getTopContacts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/metrics/best-agents": {
+      "get": {
+        "operationId": "MetricsController_getBestAgents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/metrics/bad-agents": {
+      "get": {
+        "operationId": "MetricsController_getBadAgents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/metrics/best-clients": {
+      "get": {
+        "operationId": "MetricsController_getBestClients",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/integration/webhook/whatsapp": {
+      "get": {
+        "operationId": "WebhookController_verifyWebhook",
+        "parameters": [
+          {
+            "name": "hub.mode",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.challenge",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.verify_token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhook"
+        ]
+      },
+      "post": {
+        "operationId": "WebhookController_receiveMessage",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhook"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "chat-crm API",
+    "description": "REST API for chat-crm. Generated from the code: Zod DTOs are the single source of truth for validation, types and this documentation.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "access_token": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "access_token"
+      }
+    },
+    "schemas": {
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
+      },
+      "UserTableQueryDto": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "perPage": {
+            "default": 10,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "sort": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "desc": {
+                  "default": false,
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id"
+              ]
+            }
+          },
+          "username": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      },
+      "CreateSetupDto": {
+        "type": "object",
+        "properties": {
+          "setupToken": {
+            "type": "string"
+          },
+          "admin": {
+            "type": "object",
+            "properties": {
+              "username": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 255
+              },
+              "password": {
+                "type": "string",
+                "minLength": 8
+              },
+              "firstName": {
+                "type": "string",
+                "maxLength": 255
+              },
+              "lastName": {
+                "type": "string",
+                "maxLength": 255
+              },
+              "email": {
+                "type": "string",
+                "maxLength": 255,
+                "format": "email",
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              },
+              "phoneNumber": {
+                "type": "string",
+                "maxLength": 50
+              }
+            },
+            "required": [
+              "username",
+              "password"
+            ]
+          },
+          "company": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 255
+              },
+              "email": {
+                "type": "string",
+                "maxLength": 255,
+                "format": "email",
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              },
+              "phoneNumber": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "address": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          "whatsapp": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "externalAccountId": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "displayAddress": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "businessId": {
+                "type": "string"
+              },
+              "accessToken": {
+                "type": "string"
+              },
+              "webhookUrl": {
+                "type": "string"
+              },
+              "apiVersion": {
+                "type": "string",
+                "enum": [
+                  "v18.0",
+                  "v19.0",
+                  "v20.0",
+                  "v21.0",
+                  "v22.0",
+                  "v23.0"
+                ]
+              },
+              "apiBaseUrl": {
+                "type": "string"
+              },
+              "webhookVerifyToken": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "externalAccountId",
+              "accessToken"
+            ]
+          }
+        },
+        "required": [
+          "admin",
+          "company"
+        ]
+      },
+      "CreateChannelDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "default": "whatsapp",
+            "type": "string",
+            "enum": [
+              "whatsapp",
+              "telegram",
+              "messenger",
+              "instagram",
+              "email",
+              "sms",
+              "webchat"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "externalAccountId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "displayAddress": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "webhookUrl": {
+            "type": "string"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v18.0",
+              "v19.0",
+              "v20.0",
+              "v21.0",
+              "v22.0",
+              "v23.0"
+            ]
+          },
+          "apiBaseUrl": {
+            "type": "string"
+          },
+          "webhookVerifyToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "externalAccountId",
+          "accessToken"
+        ]
+      },
+      "UpdateChannelDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "default": "whatsapp",
+            "type": "string",
+            "enum": [
+              "whatsapp",
+              "telegram",
+              "messenger",
+              "instagram",
+              "email",
+              "sms",
+              "webchat"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "externalAccountId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "displayAddress": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "webhookUrl": {
+            "type": "string"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v18.0",
+              "v19.0",
+              "v20.0",
+              "v21.0",
+              "v22.0",
+              "v23.0"
+            ]
+          },
+          "apiBaseUrl": {
+            "type": "string"
+          },
+          "webhookVerifyToken": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "error"
+            ]
+          }
+        }
+      },
+      "CreateCompanyDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "address": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "suspended"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateAssignmentSettingsDto": {
+        "type": "object",
+        "properties": {
+          "autoAssignEnabled": {
+            "type": "boolean"
+          },
+          "autoAssignMaxOpen": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "autoAssignSticky": {
+            "type": "boolean"
+          },
+          "autoAssignNotifySupervisors": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AssignConversationDto": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversationId",
+          "memberId"
+        ]
+      },
+      "CreateCustomerDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "phoneNumber": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "whatsapp",
+              "manual",
+              "import",
+              "api"
+            ]
+          },
+          "pipelineStageId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ownerMemberId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        }
+      },
+      "CustomerTableQueryDto": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "perPage": {
+            "default": 10,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "sort": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "desc": {
+                  "default": false,
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id"
+              ]
+            }
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "pipelineStageId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateCustomerDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "phoneNumber": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "whatsapp",
+              "manual",
+              "import",
+              "api"
+            ]
+          },
+          "pipelineStageId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ownerMemberId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        }
+      }
+    }
+  }
+}

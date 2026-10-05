@@ -1,4 +1,5 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateCompanyDto } from './create-company.dto';
+import { createZodDto } from 'nestjs-zod';
 
-export class UpdateCompanyDto extends PartialType(CreateCompanyDto) {}
+import { UpdateCompanySchema } from '../../../contracts/index';
+
+export class UpdateCompanyDto extends createZodDto(UpdateCompanySchema) {}

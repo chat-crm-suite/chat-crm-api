@@ -1,11 +1,14 @@
-import { Module } from "@nestjs/common";
-import { TypeOrmModule } from "@nestjs/typeorm";
-import { Analysis } from "./analysis.entity";
-import { SentimentModule } from "./sentiment/sentiment.module";
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+import { Analysis } from './entities/analysis.entity';
+import { SentimentResult } from './entities/sentiment-result.entity';
+import { SentimentModule } from './sentiment/sentiment.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Analysis]),
+    TypeOrmModule.forFeature([Analysis, SentimentResult]),
     SentimentModule,
-  ]
-}) export class AnalysisModule { }
+  ],
+})
+export class AnalysisModule {}

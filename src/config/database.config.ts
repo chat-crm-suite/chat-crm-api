@@ -1,7 +1,20 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
-export const databaseConfig: TypeOrmModuleOptions = {
+import * as entityExports from '../entities/index';
+
+/**
+ * sqlite cannot AUTOINCREMENT a bigint PK, so `message_status_events` (the
+ * append-only ticks table, MySQL-only) is excluded from the sqlite schema.
+ * Everything else is shared.
+ */
+const sqliteEntities = Object.values(entityExports).filter(
+  (candidate) =>
+    typeof candidate === 'function' &&
+    candidate.name !== 'MessageStatusEvent',
+) as unknown as Function[];
+
+export const mysqlDatabaseConfig: TypeOrmModuleOptions = {
   type: 'mysql',
   host: process.env.DB_HOST,
   port: parseInt(process.env.DB_PORT || '3306', 10),
@@ -13,7 +26,9 @@ export const databaseConfig: TypeOrmModuleOptions = {
     __dirname + '/../integrations/**/*.entity{.ts,.js}'
   ],
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
-  synchronize: process.env.NODE_ENV !== 'production',
+  // Schema comes from migrations in every environment (dev and prod); the
+  // `synchronize` shortcut is deliberately left to test configurations only.
+  synchronize: false,
   migrationsRun: process.env.NODE_ENV === 'production',
   namingStrategy: new SnakeNamingStrategy(),
   // logging: ['query'],
@@ -29,7 +44,7 @@ export const databaseConfig: TypeOrmModuleOptions = {
 };
 
 export const testDatabaseConfig: TypeOrmModuleOptions = {
-  ...databaseConfig,
+  ...mysqlDatabaseConfig,
   database: process.env.DB_DATABASE + '_test',
   synchronize: true,
   dropSchema: true,
@@ -41,11 +56,21 @@ export const testDatabaseSQLiteConfig: TypeOrmModuleOptions = {
   database: ':memory:',
   synchronize: true,
   dropSchema: true,
-  entities: [
-    __dirname + '/../modules/**/*.entity{.ts,.js}',
-    __dirname + '/../integrations/**/*.entity{.ts,.js}'
-  ],
+  entities: sqliteEntities,
   migrations: [__dirname + '/../migrations/*.ts'],
   namingStrategy: new SnakeNamingStrategy(),
   logger: 'formatted-console'
 }
+
+/**
+ * Runtime configuration used by the application.
+ *
+ * `DB_DRIVER=sqlite` swaps MySQL for in-memory SQLite so tooling (OpenAPI
+ * generation: `pnpm run docs:gen|docs:check`) can boot the whole app without
+ * infrastructure. Never use it in production: the Docker env files do not
+ * define it.
+ */
+export const databaseConfig: TypeOrmModuleOptions =
+  process.env.DB_DRIVER === 'sqlite'
+    ? { ...testDatabaseSQLiteConfig, logger: undefined }
+    : mysqlDatabaseConfig;

@@ -1,14 +1,5 @@
-import { IsNumber, IsOptional, IsString, Min } from "class-validator";
-import { Type } from 'class-transformer';
+import { createZodDto } from 'nestjs-zod';
 
-export class UserSearchDto {
-  @IsString()
-  @IsOptional()
-  q?: string;
+import { UserSearchQuerySchema } from '../../../contracts/index';
 
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  limit: number = 10;
-}
+export class UserSearchDto extends createZodDto(UserSearchQuerySchema) {}

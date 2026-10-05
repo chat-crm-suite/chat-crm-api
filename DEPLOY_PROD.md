@@ -2,6 +2,41 @@
 
 > Tú ejecutas los comandos. Aquí solo están los archivos y el paso a paso.
 
+## 0. Cutover schema v2 (release 1.0.0)
+
+La base es desechable mientras producción se termina de configurar: el corte es **recrear + migración baseline**, sin backfill. En el servidor, con el repo en `main` (release `1.0.0`):
+
+1. Añadir a `.env.prod` (variables nuevas):
+   - `CREDENTIALS_ENCRYPTION_KEY=$(openssl rand -hex 32)` — **obligatoria**: sin ella el setup de canales falla al cifrar credenciales.
+   - `BOOTSTRAP_COMPANY_NAME=<nombre de la empresa>` — necesaria para que el bootstrap headless cree empresa + member admin + canal (con las `WHATSAPP_*` ya existentes).
+2. Backup de MySQL (sección 3 de este documento).
+3. Parar la app:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod stop app
+   ```
+4. Recrear la base (exporta antes `MYSQL_ROOT_PASSWORD` desde `.env.prod`):
+   ```bash
+   docker exec nestjs-mysql mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e \
+     "DROP DATABASE IF EXISTS chat_crm_db; CREATE DATABASE chat_crm_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+   ```
+5. Migración explícita (no confiar en `migrationsRun` del arranque; un fallo en boot-loop no diagnostica nada):
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod \
+     run --rm app node dist/scripts/run-migrations.js
+   ```
+6. Arrancar:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up --build -d
+   ```
+7. Verificar:
+   ```bash
+   curl -s http://localhost:3000/health
+   curl -s http://localhost:3000/setup/status   # initialized=true tras el bootstrap
+   docker logs nestjs-app --tail 50             # "bootstrap: first admin user created" / "first company created"
+   ```
+8. Smoke: enviar un webhook simulado (mismo payload de la sección de pruebas) al `WHATSAPP_PHONE_NUMBER_ID` y comprobar en MySQL `customers`, `customer_identities`, `conversations`, `messages`, `conversation_assignments`.
+9. Rollback: restaurar el dump (paso 2) + `git reset --hard <commit anterior>` + rebuild (sección 5).
+
 ## 1. Qué se corrigió para prod
 
 - `src/app.controller.ts`: agregado `GET /health` → `{status:'ok'}` (lo usa el `HEALTHCHECK` del `Dockerfile`).

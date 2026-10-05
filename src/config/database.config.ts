@@ -28,8 +28,9 @@ export const mysqlDatabaseConfig: TypeOrmModuleOptions = {
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
   // Schema comes from migrations in every environment (dev and prod); the
   // `synchronize` shortcut is deliberately left to test configurations only.
+  // Pending migrations are applied on every boot so the database is never empty.
   synchronize: false,
-  migrationsRun: process.env.NODE_ENV === 'production',
+  migrationsRun: true,
   namingStrategy: new SnakeNamingStrategy(),
   // logging: ['query'],
   cache: {
@@ -47,6 +48,7 @@ export const testDatabaseConfig: TypeOrmModuleOptions = {
   ...mysqlDatabaseConfig,
   database: process.env.DB_DATABASE + '_test',
   synchronize: true,
+  migrationsRun: false,
   dropSchema: true,
   logger: 'formatted-console',
 }

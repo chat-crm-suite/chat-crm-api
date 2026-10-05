@@ -1,13 +1,22 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ZodSerializerDto } from 'nestjs-zod';
 
+import { CompanyMemberResponseSchema } from '../../contracts/index';
 import { JwtAuthGuard } from '../../auth/guards';
 import { CompanyGuard } from '../company/company.guard';
 import { CompanyMemberService } from './company-member.service';
+import { CompanyMemberListQueryDto } from './dto/company-member-list-query.dto';
 
 @Controller('company-members')
 @UseGuards(JwtAuthGuard, CompanyGuard)
 export class CompanyMemberController {
   constructor(private readonly service: CompanyMemberService) {}
+
+  @Get()
+  @ZodSerializerDto(CompanyMemberResponseSchema.array())
+  list(@Query() query: CompanyMemberListQueryDto) {
+    return this.service.list(query);
+  }
 
   @Get('current')
   me() {

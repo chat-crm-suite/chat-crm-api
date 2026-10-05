@@ -22,6 +22,7 @@ describe('AuthController', () => {
     isPlatformAdmin: false,
     memberships: [
       {
+        id: 'member-1',
         companyId: 'company-1',
         companyName: 'J&P Perifericos',
         role: 'admin',

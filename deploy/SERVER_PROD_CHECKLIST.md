@@ -1,11 +1,11 @@
-# Servidor jypsac (Tailscale 100.77.254.40) — Checklist global
+# Servidor prod (Tailscale) — Checklist global
 # Archivo de referencia, NO se usa directo. Cada servicio tiene su propio compose prod.
-# Lo ejecutas tú por SSH.
+# Lo ejecutas tú por SSH. `<SERVER_IP>` = IP del servidor en tu tailnet.
 
 ## 0. Conexión
 ```bash
-ssh jypsac@100.77.254.40
-ls -la /home/jypsac/Proyectos/CRM/
+ssh <USUARIO>@<SERVER_IP>
+ls -la ~/Proyectos/CRM/
 # esperado: chat-crm-api/ chat-crm-app/ chat-crm-ia/ (o solo chat-crm-app si aún no clonaste los otros)
 ```
 
@@ -20,7 +20,7 @@ docker network ls | grep crm-network || docker network create crm-network
 3. `chat-crm-app` (nginx :8081)
 
 ```bash
-cd /home/jypsac/Proyectos/CRM/chat-crm-api
+cd ~/Proyectos/CRM/chat-crm-api
 git pull
 cp -n .env.prod.example .env.prod  # solo primera vez
 nano .env.prod
@@ -57,4 +57,4 @@ docker logs chat-crm-app-prod --tail 20
 ## 5. Seguridad pendiente
 - `chat-crm-api/.env` local tiene tokens reales y puede estar en historial git → rota `WHATSAPP_ACCESS_TOKEN` y `JWT_SECRET`, verifica `git ls-files | grep env`, y agrega `.env.prod` a `.gitignore` (línea `.env.prod`).
 - Genera secretos: `openssl rand -hex 32`
-- `CORS_ORIGIN=http://100.77.254.40:8081`, `COOKIE_SECURE=0` (solo 1 si hay HTTPS).
+- `CORS_ORIGIN=http://<SERVER_IP>:8081`, `COOKIE_SECURE=0` (solo 1 si hay HTTPS).

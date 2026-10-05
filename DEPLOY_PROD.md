@@ -63,8 +63,8 @@ git push codecta main
 En el servidor (SSH por Tailscale):
 
 ```bash
-ssh jypsac@100.77.254.40
-cd /home/jypsac/Proyectos/CRM/chat-crm-api
+ssh <USUARIO>@<SERVER_IP>
+cd ~/Proyectos/CRM/chat-crm-api
 # primera vez:
 cp .env.prod.example .env.prod
 nano .env.prod   # rellena DB_PASSWORD, DB_ROOT_PASSWORD, REDIS_PASSWORD, JWT_SECRET, CORS_ORIGIN, WHATSAPP_*
@@ -101,5 +101,5 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.
 ## 6. Notas red
 
 - `IA_URL=http://chat-crm-ia:8000` resuelve porque `app` e `ia` comparten `crm-network` (nombre fijo `crm-network`).
-- `CORS_ORIGIN` debe ser el origen del front, ej. `http://100.77.254.40:8081`.
+- `CORS_ORIGIN` debe ser el origen del front, ej. `http://<SERVER_IP>:8081`.
 - Si usas HTTPS con reverse proxy: `COOKIE_SECURE=1`.

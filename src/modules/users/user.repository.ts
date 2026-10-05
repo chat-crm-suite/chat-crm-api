@@ -45,6 +45,7 @@ export class UserRepository {
     return {
       ...user,
       memberships: memberships.map((member) => ({
+        id: member.id,
         companyId: member.companyId,
         companyName: member.company.name,
         role: member.role,

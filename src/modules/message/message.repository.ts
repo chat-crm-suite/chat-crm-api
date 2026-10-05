@@ -106,6 +106,10 @@ export class MessageRepository {
     });
   }
 
+  findById(messageId: string): Promise<Message | null> {
+    return this.messages.findOne({ where: { id: messageId } });
+  }
+
   findConversationMessages(conversationId: string): Promise<Message[]> {
     return this.messages.find({
       where: { conversationId },

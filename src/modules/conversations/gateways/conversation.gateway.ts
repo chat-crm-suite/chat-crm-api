@@ -12,7 +12,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { CommandBus } from '@nestjs/cqrs';
 import { ForbiddenException } from '@nestjs/common';
 
-import { ConversationSocketEvent } from '../../../contracts/index';
+import { ConversationSocketEvent, SOCKET_NAMESPACES } from '../../../contracts/index';
 import { SendConversationMessageDto } from '../dto/send-conversation-message.dto';
 import { SendConversationMessageCommand } from '../commands/send-conversation-message.command';
 
@@ -26,7 +26,7 @@ interface CustomSocket extends Socket {
 }
 
 @WebSocketGateway({
-  namespace: 'conversation',
+  namespace: SOCKET_NAMESPACES.conversation,
   cors: { origin: '*', credentials: true },
 })
 export class ConversationGateway

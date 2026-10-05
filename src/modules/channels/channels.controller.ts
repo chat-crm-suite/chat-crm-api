@@ -9,7 +9,10 @@ import {
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
 
-import { ChannelResponseSchema } from '../../contracts/index';
+import {
+  ChannelResponseSchema,
+  WhatsAppConfigResponseSchema,
+} from '../../contracts/index';
 import { JwtAuthGuard } from '../../auth/guards/index';
 import { CompanyGuard } from '../company/company.guard';
 import { ChannelsService } from './channels.service';
@@ -32,9 +35,9 @@ export class ChannelsController {
   @ApiOperation({
     summary: 'Get the WhatsApp channel of the active company',
   })
-  @ZodSerializerDto(ChannelResponseSchema.nullable())
+  @ZodSerializerDto(WhatsAppConfigResponseSchema.nullable())
   getWhatsAppConfig() {
-    return this.service.getWhatsAppConfig();
+    return this.service.getWhatsAppConfigWithToken();
   }
 
   @Get('whatsapp/config/validate')

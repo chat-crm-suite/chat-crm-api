@@ -21,3 +21,4 @@ export { MessageAttachment } from '../modules/message/entities/message-attachmen
 export { MessageStatusEvent } from '../modules/message/entities/message-status-event.entity';
 export { Notification } from '../modules/notifications/entities/notification.entity';
 export { User } from '../modules/users/entities/user.entity';
+export { WhatsappInboundEvent } from '../integrations/whatsapp/entities/whatsapp-inbound-event.entity';

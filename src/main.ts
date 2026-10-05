@@ -1,4 +1,3 @@
-import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { I18nService } from 'nestjs-i18n';
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
@@ -6,6 +5,7 @@ import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { ZodValidationExceptionFilter } from './common/filters/zod-validation.filter';
 import { setupSwagger } from './docs/openapi';
+import { createNestApp } from './nest-app.factory';
 
 async function bootstrap() {
   // Red de seguridad: un rechazo async no manejado (ej. jobs post-webhook)
@@ -17,7 +17,7 @@ async function bootstrap() {
     console.error('[uncaughtException]', error);
   });
 
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await createNestApp(AppModule);
 
   // Logger nest-pino
   app.useLogger(app.get(Logger));

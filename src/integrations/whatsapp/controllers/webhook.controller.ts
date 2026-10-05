@@ -1,4 +1,4 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { PinoLogger } from 'nestjs-pino';
 import { CommandBus } from '@nestjs/cqrs';
 import {
@@ -8,8 +8,11 @@ import {
   Get,
   Post,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { type WhatsappNotification } from '@daweto/whatsapp-api-types';
 
 import { WebhookQuery } from '../dto/webhook.query.dto';
@@ -17,6 +20,8 @@ import { WhatsAppService } from '../whatsapp.service';
 import { mapWebhookToMessages } from '../mappers/whatsapp-message.mapper';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
 import { FailWhatsAppMessageCommand } from '../../../modules/conversations/commands/fail-whatsapp-message.command';
+import { WhatsAppIntakeService } from '../intake/whatsapp-intake.service';
+import { verifyWhatsAppSignature } from '../security/whatsapp-signature';
 
 export const enum WhatsappNotificationStatusStatus {
   Sent = 'sent',
@@ -32,6 +37,8 @@ export class WebhookController {
     private readonly service: WhatsAppService,
     private readonly commandBus: CommandBus,
     private readonly logger: PinoLogger,
+    private readonly config: ConfigService,
+    private readonly intake: WhatsAppIntakeService,
   ) {
     this.logger.setContext(WebhookController.name);
   }
@@ -57,17 +64,107 @@ export class WebhookController {
   }
 
   @Post()
-  receiveMessage(@Body() payload: WhatsappNotification, @Res() res: Response) {
+  async receiveMessage(
+    @Body() payload: WhatsappNotification,
+    @Req() req: RawBodyRequest<Request>,
+    @Res() res: Response,
+  ) {
     this.logger.debug(payload, 'Webhook object');
 
-    // IMPORTANT: Always respond with 200 OK first,
-    // otherwise WhatsApp will keep retrying the webhook endlessly.
-    res.sendStatus(HttpStatus.OK);
+    // T1: forged posts are rejected before anything is stored or queued.
+    if (!this.hasValidSignature(req)) {
+      res.sendStatus(HttpStatus.FORBIDDEN);
+      return;
+    }
 
     const change = payload?.entry?.[0]?.changes?.[0]?.value;
-    if (!change) return;
+    if (!change) {
+      res.sendStatus(HttpStatus.OK);
+      return;
+    }
 
-    const { messages, statuses } = mapWebhookToMessages(payload);
+    // Durable intake: every inbound `wamid` is persisted before the 200, so
+    // a crash from here on loses nothing (the row is the recovery point).
+    // Retried `wamid`s come back as duplicates and create no work.
+    const freshWamids = await this.persistInboundEvents(payload);
+    res.sendStatus(HttpStatus.OK);
+
+    this.dispatchNewMessages(payload, freshWamids);
+    this.dispatchStatuses(payload);
+  }
+
+  /**
+   * Meta signs the raw bytes (`X-Hub-Signature-256`) with the single app
+   * secret. Fail closed: no secret, no raw body, or a bad signature all
+   * reject the post.
+   */
+  private hasValidSignature(req: RawBodyRequest<Request>): boolean {
+    const appSecret = this.config.get<string>('WHATSAPP_APP_SECRET') ?? '';
+    if (!appSecret) {
+      this.logger.error(
+        'WHATSAPP_APP_SECRET is not configured; rejecting webhook',
+      );
+      return false;
+    }
+
+    const header = req.headers['x-hub-signature-256'];
+    const signature = Array.isArray(header) ? header[0] : header;
+    if (!req.rawBody) {
+      this.logger.error('Webhook arrived without rawBody; rejecting');
+      return false;
+    }
+
+    const valid = verifyWhatsAppSignature(req.rawBody, signature, appSecret);
+    if (!valid) this.logger.warn('Invalid WhatsApp webhook signature');
+    return valid;
+  }
+
+  /**
+   * Persists one event per raw inbound message (every type, so T2 can replay
+   * even the ones this stage still drops) and returns the newly-seen wamids.
+   */
+  private async persistInboundEvents(
+    payload: WhatsappNotification,
+  ): Promise<Set<string>> {
+    const fresh = new Set<string>();
+    if (payload?.object !== 'whatsapp_business_account') return fresh;
+
+    for (const entry of payload.entry ?? []) {
+      for (const { field, value } of entry.changes ?? []) {
+        if (field !== 'messages') continue;
+        for (const message of value.messages ?? []) {
+          if (!message?.id) continue;
+          const outcome = await this.intake.persistIfNew({
+            wamid: message.id,
+            phoneNumberId: value.metadata?.phone_number_id,
+            messageType: message.type,
+            payload: message,
+          });
+          if (outcome === 'stored') fresh.add(message.id);
+        }
+      }
+    }
+
+    return fresh;
+  }
+
+  private dispatchNewMessages(
+    payload: WhatsappNotification,
+    freshWamids: Set<string>,
+  ): void {
+    const { messages } = mapWebhookToMessages(payload);
+
+    for (const msg of messages) {
+      if (!freshWamids.has(msg.context.messageId)) continue;
+      this.executeSafely(
+        new ReceiveWhatsAppMessageCommand(msg),
+        `ReceiveWhatsAppMessage(${msg.context.messageId})`,
+      );
+    }
+  }
+
+  private dispatchStatuses(payload: WhatsappNotification): void {
+    const { statuses } = mapWebhookToMessages(payload);
 
     for (const status of statuses) {
       switch (status.status as unknown as WhatsappNotificationStatusStatus) {
@@ -93,13 +190,6 @@ export class WebhookController {
           });
           break;
       }
-    }
-
-    for (const msg of messages) {
-      this.executeSafely(
-        new ReceiveWhatsAppMessageCommand(msg),
-        `ReceiveWhatsAppMessage(${msg.context.messageId})`,
-      );
     }
   }
 

@@ -2,15 +2,20 @@
 # Fills the random secrets of an API env file (.env.prod, or .env in development).
 #
 # Usage:
-#   ./deploy/gen-secrets.sh [--env FILE] [--prune]
+#   ./deploy/gen-secrets.sh [--env FILE] [--prune] [--show-setup-token]
 #
 #   --env FILE   env file to fill (default: <api repo>/.env.prod; created from
 #                .env.prod.example when missing)
 #   --prune      also delete variables nothing reads any more (see DEAD_KEYS)
+#   --show-setup-token
+#                print SETUP_TOKEN once at the end (the only value this script
+#                ever prints): the first-run setup screen asks for it
 #
 # Secrets generated (hex, from openssl):
 #   MYSQL_ROOT_PASSWORD, DB_PASSWORD, REDIS_PASSWORD, JWT_SECRET,
-#   CREDENTIALS_ENCRYPTION_KEY (64 hex chars = AES-256 key)
+#   CREDENTIALS_ENCRYPTION_KEY (64 hex chars = AES-256 key),
+#   SETUP_TOKEN (asked by the first-run setup; without it production generates a
+#   random one and logs it once)
 # Mirrors kept in sync (the mysql image reads MYSQL_*, the API reads DB_*):
 #   MYSQL_DATABASE <- DB_DATABASE, MYSQL_USER <- DB_USERNAME, MYSQL_PASSWORD <- DB_PASSWORD
 #
@@ -25,7 +30,7 @@
 #       JWT_SECRET                   every session is closed.
 #   - The mysql image refuses MYSQL_USER=root, so a root DB user drops the
 #     MYSQL_USER/MYSQL_PASSWORD mirrors (the API then uses the root password).
-#   - No value is ever printed. The file ends up chmod 600 and a timestamped copy
+#   - No value is printed (only SETUP_TOKEN, and only with --show-setup-token). The file ends up chmod 600 and a timestamped copy
 #     is kept outside the repo (BACKUP_DIR, default ~/.chat-crm-env-backups).
 set -euo pipefail
 
@@ -33,6 +38,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API_DIR="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="$API_DIR/.env.prod"
 PRUNE=0
+SHOW_SETUP=0
 BACKUP_DIR="${BACKUP_DIR:-$HOME/.chat-crm-env-backups}"
 
 # Never read by the code, set by the compose files, or only used by the
@@ -48,7 +54,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --env) ENV_FILE="${2:?--env needs a file}"; shift 2 ;;
     --prune) PRUNE=1; shift ;;
-    -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
+    --show-setup-token) SHOW_SETUP=1; shift ;;
+    -h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d'; exit 0 ;;
     *) echo "unknown option: $1 (see --help)" >&2; exit 1 ;;
   esac
 done
@@ -157,6 +164,7 @@ fi
 ensure REDIS_PASSWORD 16
 ensure JWT_SECRET 32
 ensure CREDENTIALS_ENCRYPTION_KEY 32
+ensure SETUP_TOKEN 16
 
 chmod 600 "$ENV_FILE"
 
@@ -172,4 +180,9 @@ if printf '%s\n' "${CHANGED[@]:-}" | grep -qE '^(MYSQL_ROOT_PASSWORD|DB_PASSWORD
   echo
   echo "WARNING: new DB passwords only work on an EMPTY mysql volume. If the volume"
   echo "already holds data, restore the previous values from the backup above."
+fi
+
+if [ "$SHOW_SETUP" = "1" ]; then
+  echo
+  echo "SETUP_TOKEN=$(get_kv SETUP_TOKEN)"
 fi

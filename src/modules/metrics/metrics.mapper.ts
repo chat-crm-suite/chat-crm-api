@@ -31,7 +31,7 @@ export class MetricMapper {
   static sentimentTop(tops: SentimentTopQuery[], actor?: SentimentActor): SentimentTop[] {
     return tops.map(element => {
       return new ScoreBuilder<SentimentTop>(element)
-        .onwer('onwer', ['id', 'username'], actor)
+        .owner('owner', ['id', 'username'], actor)
         .metrics('sentiment', { pos: 'avgPos', neu: 'avgNeu', neg: 'avgNeg' })
         .label()
         .stat('total')

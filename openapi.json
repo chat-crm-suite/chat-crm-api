@@ -1158,7 +1158,8 @@
                 "hour",
                 "day",
                 "week",
-                "month"
+                "month",
+                "year"
               ]
             }
           }
@@ -1187,7 +1188,8 @@
                 "hour",
                 "day",
                 "week",
-                "month"
+                "month",
+                "year"
               ]
             }
           }

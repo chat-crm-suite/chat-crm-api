@@ -23,7 +23,7 @@ export class ScoreBuilder<T> {
     return result;
   }
 
-  onwer<K extends keyof T>(key: K, pick: (keyof T[K])[], newKey?: string) {
+  owner<K extends keyof T>(key: K, pick: (keyof T[K])[], newKey?: string) {
     type SubObj = T[K] extends object ? T[K] : never;
     const finalKey = newKey ?? key;
 

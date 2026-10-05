@@ -43,7 +43,7 @@ export interface SentimentTopQuery extends SentimentUser {
 }
 
 export interface SentimentTop {
-  onwer: SentimentUser | SentimentContact;
+  owner: SentimentUser | SentimentContact;
   agent?: SentimentUser;
   contact?: SentimentContact;
   label: string;

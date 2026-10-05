@@ -81,4 +81,25 @@ export class MessageService {
         : toConversationMessagePayload(message, rows);
     });
   }
+
+  /**
+   * Single-message broadcast payload. The saga uses it so live broadcasts
+   * carry the same `mediaUrl` as the REST history (the saved entity alone
+   * has no attachments loaded).
+   */
+  async getMessagePayload(
+    messageId: string,
+  ): Promise<ConversationMessagePayload | null> {
+    const message = await this.repo.findById(messageId);
+    if (!message) return null;
+
+    const attachments = await this.repo.findAttachmentsByMessageIds([
+      message.id,
+    ]);
+    const strategy = MESSAGE_STRATEGY_REGISTRY[message.type];
+
+    return strategy
+      ? strategy.toBroadcastFields(message, attachments)
+      : toConversationMessagePayload(message, attachments);
+  }
 }

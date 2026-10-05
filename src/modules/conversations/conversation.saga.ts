@@ -4,7 +4,8 @@ import { filter, map, mergeMap, Observable } from 'rxjs';
 
 import { AnalyzeMessageCommand } from '../analysis/sentiment/commands/analyze-message.command';
 import { MessageAnalyzedEvent } from '../analysis/events/message-analyzed.event';
-import { getMessageStrategy } from '../message/strategies/strategy.registry';
+import { MessageService } from '../message/message.service';
+import { toConversationMessagePayload } from '../message/mappers/conversation-message.mapper';
 import {
   BroadcastConversationMessageCommand,
   ClaimConversationCommand,
@@ -17,6 +18,8 @@ import { MessageSavedEvent } from './events/message-saved.event';
 
 @Injectable()
 export class ConversationSaga {
+  constructor(private readonly messages: MessageService) {}
+
   @Saga()
   savedMessage = (event$: Observable<any>): Observable<ICommand> => {
     return event$.pipe(
@@ -29,7 +32,9 @@ export class ConversationSaga {
   analyzeMessage = (events$: Observable<any>): Observable<ICommand> => {
     return events$.pipe(
       ofType(MessageSavedEvent),
-      mergeMap(({ message }) => [
+      // The saved entity has no attachments loaded: reload the payload so
+      // live broadcasts carry the same `mediaUrl` as the REST history.
+      mergeMap(async ({ message }) => [
         new AnalyzeMessageCommand(
           message.id,
           message.body,
@@ -37,7 +42,8 @@ export class ConversationSaga {
         ),
         new BroadcastConversationMessageCommand(
           message.id,
-          getMessageStrategy(message.type).toBroadcastFields(message),
+          (await this.messages.getMessagePayload(message.id)) ??
+            toConversationMessagePayload(message, []),
           message.conversationId,
         ),
       ]),

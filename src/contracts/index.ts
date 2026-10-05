@@ -22,6 +22,7 @@ export * from './message.contract';
 export * from './metrics.contract';
 export * from './pagination.contract';
 export * from './setup.contract';
+export * from './socket.contract';
 export * from './template.contract';
 export * from './user.contract';
 export * from './whatsapp-webhook.contract';

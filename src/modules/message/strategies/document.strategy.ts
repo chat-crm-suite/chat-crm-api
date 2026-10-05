@@ -1,51 +1,49 @@
-import {
+import { WhatsAppDocumentBuilder } from '../../../integrations/whatsapp/builders/whatsapp-document.builder';
+import type {
   WhatsAppDocumentContent,
   WhatsAppPayload,
 } from '../../../integrations/whatsapp/interfaces/whatsapp-message.interface';
-import { MessageStrategy } from './message.strategy';
-import { Message } from '../../../entities/index';
-import { WhatsAppDocumentBuilder } from '../../../integrations/whatsapp/builders/whatsapp-document.builder';
-import { BroadcastDto } from '../../chats/dto/broadcast.dto';
-import { MessageType } from '../domain/message.types';
+import type { MessageAttachment } from '../entities/message-attachment.entity';
+import type { Message } from '../entities/message.entity';
+import { getConversationMessageBase } from '../mappers/conversation-message.mapper';
+import type { ConversationMessagePayload } from '../message.types';
+import type { MessageStrategy } from './message.strategy';
 
 export class DocumentMessageStrategy implements MessageStrategy {
   toWhatsAppPayload(
     to: string,
     content: WhatsAppDocumentContent,
   ): WhatsAppPayload {
-    return new WhatsAppDocumentBuilder()
+    const payload = new WhatsAppDocumentBuilder()
       .to(to)
       .link(content.link)
-      .filaname(content.filename)
       .build();
+
+    // The builder setters replace `document`, so the optional fields are
+    // merged after building.
+    if (payload.type === 'document' && payload.document) {
+      if (content.caption) payload.document.caption = content.caption;
+      if (content.filename) payload.document.filename = content.filename;
+    }
+
+    return payload;
   }
 
-  toEntityFields(
-    content: WhatsAppDocumentContent & { mediaUrl?: string },
-  ): Partial<Message> {
-    return {
-      type: MessageType.DOCUMENT,
-      mediaUrl: content.link,
-      content: content.filename,
-    };
-  }
+  toBroadcastFields(
+    message: Message,
+    attachments: MessageAttachment[] = [],
+  ): ConversationMessagePayload {
+    const [attachment] = attachments;
 
-  toBroadcastFields(message: Message): BroadcastDto {
     return {
-      id: message.id,
-      chatId: message.chat?.id,
-      timestamp: message.updatedAt,
-      status: message.status,
+      ...getConversationMessageBase(message),
       msg: {
-        type: MessageType.DOCUMENT,
-        mediaUrl: message.mediaUrl,
+        type: 'document',
+        mediaUrl: attachment?.storageUrl ?? null,
         content: {
-          filename: message.content,
+          caption: message.body ?? undefined,
+          filename: attachment?.fileName,
         },
-      },
-      sender: {
-        id: message.senderId,
-        type: message.senderType,
       },
     };
   }

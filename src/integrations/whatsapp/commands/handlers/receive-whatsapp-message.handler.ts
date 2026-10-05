@@ -1,6 +1,7 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { ReceiveWhatsAppMessageCommand } from '../receive-whatsapp-message.command';
 import { PinoLogger } from 'nestjs-pino';
+
+import { ReceiveWhatsAppMessageCommand } from '../receive-whatsapp-message.command';
 import { WhatsAppService } from '../../whatsapp.service';
 import { MessageContentHandlers } from './message-content.handlers';
 
@@ -19,18 +20,24 @@ export class ReceiveWhatsAppMessageHandler
   async execute({ message }: ReceiveWhatsAppMessageCommand) {
     const { context, content } = message;
 
-    const config = await this.service.getConfigByPhoneNumberId(
+    const transmission = await this.service.getTransmissionByPhoneNumberId(
       context.phoneNumberId,
     );
 
-    if (!config) {
-      this.logger.debug('No found config');
+    if (!transmission) {
+      this.logger.debug(
+        { phoneNumberId: context.phoneNumberId },
+        'No active channel found for webhook',
+      );
       return;
     }
 
-    this.logger.debug(config, 'Load whatsapp config');
+    this.logger.debug(
+      { channelId: transmission.channel.id },
+      'Load WhatsApp channel',
+    );
     await this.contentHandlers
       .getHandler(content.type)
-      ?.handle(content, context, config);
+      ?.handle(content, context, transmission);
   }
 }

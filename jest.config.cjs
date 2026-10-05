@@ -16,6 +16,10 @@ module.exports = {
     '\\.pnp\\.[^\\/]+$',
   ],
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/test/setup-env.ts'],
+  // DB-backed suites share the single MySQL `_test` database
+  // (dropSchema + synchronize), so they must not run concurrently.
+  maxWorkers: 1,
 
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/src/$1',

@@ -43,8 +43,7 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
             'BOOTSTRAP_ADMIN_PASSWORD must be at least 8 characters - skipping admin bootstrap',
           );
         } else {
-          const user = await this.users.create({ username, password });
-          await this.users.update(user.id, { role: 'admin' });
+          await this.users.create({ username, password });
           this.logger.info({ username }, 'bootstrap: first admin user created');
         }
       }
@@ -90,12 +89,12 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
     const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
     const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL;
 
-    if (!phoneNumberId || !accessToken || !webhookUrl) return undefined;
+    if (!phoneNumberId || !accessToken) return undefined;
 
     return {
       businessId: process.env.WHATSAPP_BUSINESS_ID,
       accessToken,
-      phoneNumberId,
+      externalAccountId: phoneNumberId,
       webhookUrl,
       // Invalid/unknown versions are dropped so the entity default applies.
       apiVersion: WhatsAppApiVersionSchema.safeParse(

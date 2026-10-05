@@ -1,68 +1,45 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
   DeleteDateColumn,
-  OneToMany,
+  Entity,
+  UpdateDateColumn,
 } from 'typeorm';
-import { Contact } from '../../contacts/entities/contact.entity';
 
-// Single source of truth for the allowed statuses lives in the contracts.
 import type { CompanyStatus } from '../../../contracts/index';
-export type { CompanyStatus };
+import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
 
+/**
+ * Tenant root. The assignment settings that used to live here moved to
+ * `company_settings` (1:1).
+ */
 @Entity('companies')
-export class Company {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
+export class Company extends UuidV7Entity {
   @Column({ length: 255 })
   name: string;
 
-  @Column({ length: 255, unique: true, nullable: true })
+  @Column({ length: 255, nullable: true, unique: true })
   email?: string;
 
-  @Column({ length: 50, nullable: true })
+  @Column({ length: 20, nullable: true })
   phoneNumber?: string;
 
   @Column({ type: 'text', nullable: true })
   address?: string;
 
-  // Explicit type: the contract type is a re-export, so decorator metadata
-  // cannot infer the column type (matches the varchar(255) column).
-  @Column({ type: 'varchar', default: 'active' })
+  @Column({ length: 64, default: 'America/Lima' })
+  timezone: string;
+
+  // Explicit type: contract union types cannot be inferred by decorator metadata.
+  @Column({ type: 'varchar', length: 50, default: 'active' })
   status: CompanyStatus;
-
-  /**
-   * Configuración de asignación automática de chats (Q18/Q19/Q20).
-   * `autoAssignEnabled` es el kill-switch; el resto son reglas del motor.
-   */
-  @Column({ default: true })
-  autoAssignEnabled: boolean;
-
-  /** Tope de chats abiertos activamente asignados por agente. <= 0 = sin tope. */
-  @Column({ type: 'int', default: 10 })
-  autoAssignMaxChats: number;
-
-  /** Preferir al agente anterior si sigue elegible (sticky, Q5). */
-  @Column({ default: true })
-  autoAssignSticky: boolean;
-
-  /** Avisar a supervisores cuando un chat queda en la cola sin asignar (Q6/Q12). */
-  @Column({ default: true })
-  autoAssignNotifySupervisors: boolean;
-
-  @OneToMany(() => Contact, contact => contact.company)
-  contacts: Contact[];
-
-  @DeleteDateColumn({ nullable: true })
-  deletedAt?: Date;
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deletedAt?: Date;
 }

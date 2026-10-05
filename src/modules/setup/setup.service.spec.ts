@@ -5,9 +5,10 @@ import * as bcrypt from 'bcrypt';
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource } from 'typeorm';
 
-import { Company, User, WhatsAppConfig } from '../../entities/index';
-import { Member } from '../member/member.entity';
-import { MemberRole, MemberStatus } from '../member/member.types';
+import { Company, User, Channel } from '../../entities/index';
+import { CompanyMember } from '../company-members/entities/company-member.entity';
+import { CompanySettings } from '../company/entities/company-settings.entity';
+import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
 import { CreateSetupDto } from './dto/create-setup.dto';
 import { SetupService } from './setup.service';
 
@@ -22,11 +23,12 @@ const createMockRepo = (): MockRepo => ({
   count: jest.fn(),
   findOne: jest.fn(),
   create: jest.fn((entity: unknown) => entity),
-  save: jest.fn((entity: Record<string, unknown>) =>
-    Promise.resolve({
-      ...entity,
-      id: 'saved-id',
-    })
+  save: jest.fn((entity: unknown) =>
+    Promise.resolve(
+      Array.isArray(entity)
+        ? entity
+        : { ...(entity as Record<string, unknown>), id: 'saved-id' },
+    ),
   ),
 });
 
@@ -34,7 +36,9 @@ describe('SetupService', () => {
   let usersRepo: MockRepo;
   let companiesRepo: MockRepo;
   let membersRepo: MockRepo;
-  let whatsappRepo: MockRepo;
+  let channelsRepo: MockRepo;
+  let settingsRepo: MockRepo;
+  let stagesRepo: MockRepo;
   let transaction: jest.Mock;
 
   const logger = {
@@ -47,41 +51,54 @@ describe('SetupService', () => {
 
   const originalSetupToken = process.env.SETUP_TOKEN;
   const originalNodeEnv = process.env.NODE_ENV;
+  const originalEncryptionKey = process.env.CREDENTIALS_ENCRYPTION_KEY;
 
   const dto = (): CreateSetupDto => ({
     admin: { username: 'admin', password: 'secreta-123' },
     company: { name: 'J&P Perifericos' },
   });
 
+  const whatsappDto = () => ({
+    accessToken: 'token',
+    businessId: 'biz-1',
+    externalAccountId: 'phone-1',
+    webhookUrl: 'http://localhost:3000/integration/webhook/whatsapp',
+  });
+
   const mockStatusCounts = (
     companies: number,
     admins: number,
     whatsapp: number,
-    users = 0
+    users = 0,
   ) => {
     companiesRepo.count.mockResolvedValue(companies);
     membersRepo.count.mockResolvedValue(admins);
-    whatsappRepo.count.mockResolvedValue(whatsapp);
+    channelsRepo.count.mockResolvedValue(whatsapp);
     usersRepo.count.mockResolvedValue(users);
   };
 
-  const build = async (env: {
-    SETUP_TOKEN?: string;
-    NODE_ENV?: string;
-  } = {}): Promise<SetupService> => {
+  const build = async (
+    env: {
+      SETUP_TOKEN?: string;
+      NODE_ENV?: string;
+    } = {},
+  ): Promise<SetupService> => {
     if (env.SETUP_TOKEN === undefined) {
       delete process.env.SETUP_TOKEN;
     } else {
       process.env.SETUP_TOKEN = env.SETUP_TOKEN;
     }
     process.env.NODE_ENV = env.NODE_ENV ?? 'test';
+    process.env.CREDENTIALS_ENCRYPTION_KEY = '00'.repeat(32);
 
     const manager = {
       getRepository: jest.fn((entity: unknown) => {
         if (entity === User) return usersRepo;
         if (entity === Company) return companiesRepo;
-        if (entity === Member) return membersRepo;
-        if (entity === WhatsAppConfig) return whatsappRepo;
+        if (entity === CompanyMember) return membersRepo;
+        if (entity === Channel) return channelsRepo;
+        if (entity === CompanySettings) return settingsRepo;
+        if (entity === PipelineStage) return stagesRepo;
         throw new Error('unexpected entity');
       }),
     };
@@ -93,8 +110,13 @@ describe('SetupService', () => {
         SetupService,
         { provide: getRepositoryToken(User), useValue: usersRepo },
         { provide: getRepositoryToken(Company), useValue: companiesRepo },
-        { provide: getRepositoryToken(Member), useValue: membersRepo },
-        { provide: getRepositoryToken(WhatsAppConfig), useValue: whatsappRepo },
+        { provide: getRepositoryToken(CompanyMember), useValue: membersRepo },
+        { provide: getRepositoryToken(Channel), useValue: channelsRepo },
+        {
+          provide: getRepositoryToken(CompanySettings),
+          useValue: settingsRepo,
+        },
+        { provide: getRepositoryToken(PipelineStage), useValue: stagesRepo },
         { provide: DataSource, useValue: { transaction } },
         { provide: PinoLogger, useValue: logger },
       ],
@@ -108,13 +130,20 @@ describe('SetupService', () => {
     usersRepo = createMockRepo();
     companiesRepo = createMockRepo();
     membersRepo = createMockRepo();
-    whatsappRepo = createMockRepo();
+    channelsRepo = createMockRepo();
+    settingsRepo = createMockRepo();
+    stagesRepo = createMockRepo();
   });
 
   afterAll(() => {
     if (originalSetupToken === undefined) delete process.env.SETUP_TOKEN;
     else process.env.SETUP_TOKEN = originalSetupToken;
     process.env.NODE_ENV = originalNodeEnv;
+    if (originalEncryptionKey === undefined) {
+      delete process.env.CREDENTIALS_ENCRYPTION_KEY;
+    } else {
+      process.env.CREDENTIALS_ENCRYPTION_KEY = originalEncryptionKey;
+    }
   });
 
   describe('status', () => {
@@ -157,7 +186,19 @@ describe('SetupService', () => {
         hasWhatsapp: false,
       });
       expect(membersRepo.count).toHaveBeenCalledWith({
-        where: { role: MemberRole.ADMIN, status: MemberStatus.ACTIVE },
+        where: { role: 'admin', status: 'active' },
+      });
+    });
+
+    it('counts only active whatsapp channels as configured', async () => {
+      mockStatusCounts(1, 1, 1, 1);
+      const service = await build();
+
+      const status = await service.status();
+
+      expect(status.hasWhatsapp).toBe(true);
+      expect(channelsRepo.count).toHaveBeenCalledWith({
+        where: { type: 'whatsapp', status: 'active' },
       });
     });
 
@@ -180,7 +221,7 @@ describe('SetupService', () => {
       expect(logger.info).toHaveBeenCalledWith(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         expect.objectContaining({ setupToken: expect.any(String) }),
-        expect.stringContaining('setup token')
+        expect.stringContaining('setup token'),
       );
     });
 
@@ -200,7 +241,7 @@ describe('SetupService', () => {
       const service = await build({ SETUP_TOKEN: 'super-secreto' });
 
       await expect(service.run(dto())).rejects.toBeInstanceOf(
-        ForbiddenException
+        ForbiddenException,
       );
       expect(transaction).not.toHaveBeenCalled();
     });
@@ -210,7 +251,7 @@ describe('SetupService', () => {
       const service = await build({ SETUP_TOKEN: 'super-secreto' });
 
       await expect(
-        service.run({ ...dto(), setupToken: 'otro' })
+        service.run({ ...dto(), setupToken: 'otro' }),
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(transaction).not.toHaveBeenCalled();
     });
@@ -229,45 +270,53 @@ describe('SetupService', () => {
   });
 
   describe('provision', () => {
-    it('creates user, company, admin membership and whatsapp config atomically', async () => {
+    it('creates user, company, settings, stages, admin membership and channel atomically', async () => {
       mockStatusCounts(0, 0, 0, 0);
       companiesRepo.findOne.mockResolvedValue(null);
       usersRepo.findOne.mockResolvedValue(null);
       membersRepo.findOne.mockResolvedValue(null);
       const service = await build();
 
-      await service.provision({
-        ...dto(),
-        whatsapp: {
-          businessId: 'biz-1',
-          accessToken: 'token',
-          phoneNumberId: 'phone-1',
-          webhookUrl: 'http://localhost:3000/integration/webhook/whatsapp',
-        },
-      });
+      await service.provision({ ...dto(), whatsapp: whatsappDto() });
 
       expect(transaction).toHaveBeenCalledTimes(1);
       expect(companiesRepo.save).toHaveBeenCalledTimes(1);
       expect(usersRepo.save).toHaveBeenCalledTimes(1);
+      expect(settingsRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ companyId: 'saved-id' }),
+      );
+      expect(stagesRepo.save).toHaveBeenCalledTimes(1);
       expect(membersRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          role: MemberRole.ADMIN,
-          status: MemberStatus.ACTIVE,
-        })
+          userId: 'saved-id',
+          companyId: 'saved-id',
+          role: 'admin',
+          status: 'active',
+        }),
       );
-      expect(whatsappRepo.save).toHaveBeenCalledTimes(1);
+      expect(channelsRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          companyId: 'saved-id',
+          type: 'whatsapp',
+          externalAccountId: 'phone-1',
+          credentials: expect.any(String),
+          webhookVerifyToken: expect.any(String),
+          status: 'active',
+        }),
+      );
     });
 
-    it('skips the whatsapp config when the step is omitted', async () => {
+    it('skips the whatsapp channel when the step is omitted', async () => {
       mockStatusCounts(0, 0, 0, 0);
       companiesRepo.findOne.mockResolvedValue(null);
       usersRepo.findOne.mockResolvedValue(null);
       membersRepo.findOne.mockResolvedValue(null);
       const service = await build();
 
-      await service.provision(dto());
+      const result = await service.provision(dto());
 
-      expect(whatsappRepo.save).not.toHaveBeenCalled();
+      expect(channelsRepo.save).not.toHaveBeenCalled();
+      expect(result.channel).toBeNull();
     });
 
     it('checks initialization inside the transaction (race fix)', async () => {
@@ -275,7 +324,7 @@ describe('SetupService', () => {
       const service = await build();
 
       await expect(service.provision(dto())).rejects.toBeInstanceOf(
-        ConflictException
+        ConflictException,
       );
       expect(transaction).toHaveBeenCalledTimes(1);
     });
@@ -298,14 +347,16 @@ describe('SetupService', () => {
             getRepository: (entity: unknown) => {
               if (entity === User) return usersRepo;
               if (entity === Company) return companiesRepo;
-              if (entity === Member) return membersRepo;
-              if (entity === WhatsAppConfig) return whatsappRepo;
+              if (entity === CompanyMember) return membersRepo;
+              if (entity === Channel) return channelsRepo;
+              if (entity === CompanySettings) return settingsRepo;
+              if (entity === PipelineStage) return stagesRepo;
               throw new Error('unexpected entity');
             },
           });
           running -= 1;
           return result;
-        }
+        },
       );
 
       await Promise.all([service.provision(dto()), service.provision(dto())]);
@@ -323,8 +374,9 @@ describe('SetupService', () => {
       await service.provision(dto());
 
       expect(companiesRepo.save).not.toHaveBeenCalled();
+      expect(settingsRepo.save).not.toHaveBeenCalled();
       expect(membersRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ company: { id: 'c1', name: 'Existing' } })
+        expect.objectContaining({ companyId: 'c1' }),
       );
     });
 
@@ -334,7 +386,7 @@ describe('SetupService', () => {
       usersRepo.findOne.mockResolvedValue({
         id: 'u1',
         username: 'admin',
-        password: bcrypt.hashSync('secreta-123', 4),
+        passwordHash: bcrypt.hashSync('secreta-123', 4),
       });
       membersRepo.findOne.mockResolvedValue(null);
       const service = await build();
@@ -351,12 +403,12 @@ describe('SetupService', () => {
       usersRepo.findOne.mockResolvedValue({
         id: 'u1',
         username: 'admin',
-        password: bcrypt.hashSync('otra-clave-123', 4),
+        passwordHash: bcrypt.hashSync('otra-clave-123', 4),
       });
       const service = await build();
 
       await expect(service.provision(dto())).rejects.toBeInstanceOf(
-        ConflictException
+        ConflictException,
       );
       expect(membersRepo.save).not.toHaveBeenCalled();
     });

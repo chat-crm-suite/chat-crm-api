@@ -1,46 +1,65 @@
-import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
-import { Job } from "bullmq";
-import { PinoLogger } from "nestjs-pino";
-import { SentimentService } from "./sentiment.service";
-import { EventBus } from "@nestjs/cqrs";
-import { SentimentAnalysis } from "../../../entities/index";
-import { MessageAnalyzedEvent } from "../../chats/events/message-analyzed.event";
-import { SentimentPayload } from "./sentiment.type";
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { EventBus } from '@nestjs/cqrs';
+import { Job } from 'bullmq';
+import { PinoLogger } from 'nestjs-pino';
 
-type SentimentJob = Job<SentimentPayload & { chatId?: string }>
+import { MessageAnalyzedEvent } from '../events/message-analyzed.event';
+import { SENTIMENT_QUEUE } from './sentiment.constants';
+import { SentimentService } from './sentiment.service';
+import type { SentimentAnalysisResult, SentimentPayload } from './sentiment.type';
 
-@Processor('sentiment')
+type SentimentJob = Job<SentimentPayload>;
+
+@Processor(SENTIMENT_QUEUE)
 export class SentimentProcessor extends WorkerHost {
   constructor(
     private readonly service: SentimentService,
     private readonly logger: PinoLogger,
-    private readonly event: EventBus
-  ) { super(); this.logger.setContext(SentimentProcessor.name) }
+    private readonly event: EventBus,
+  ) {
+    super();
+    this.logger.setContext(SentimentProcessor.name);
+  }
 
-  async process(job: SentimentJob) {
-    return this.service.saveAnalysis(job.data);
+  process(job: SentimentJob) {
+    return this.service.analyzeMessage(job.data);
   }
 
   @OnWorkerEvent('completed')
-  onCompleted(job: SentimentJob, res: SentimentAnalysis) {
-    if (job.data.chatId) {
-      this.event.publish(new MessageAnalyzedEvent(job.data.messageId, res.id, {
-        pos: res.scorePos,
-        neu: res.scoreNeu,
-        neg: res.scoreNeg,
-      }, res.label, job.data.chatId));
+  onCompleted(job: SentimentJob, result: SentimentAnalysisResult | null) {
+    if (!result) {
+      this.logger.warn(
+        { jobId: job.id, messageId: job.data.messageId },
+        'Sentiment analysis produced no result',
+      );
+      return;
     }
 
-    this.logger.debug({
-      id: res.id,
-      chatId: job.data.chatId,
-      analysisId: res.analysis.id,
-      messageId: res.analysis.message.id
-    }, 'Calculated Sentiment in message')
+    this.event.publish(
+      new MessageAnalyzedEvent(
+        result.messageId,
+        result.analysisId,
+        result.probabilities,
+        result.label,
+        result.conversationId,
+      ),
+    );
+
+    this.logger.debug(
+      {
+        analysisId: result.analysisId,
+        messageId: result.messageId,
+        conversationId: result.conversationId,
+      },
+      'Calculated Sentiment in message',
+    );
   }
 
   @OnWorkerEvent('failed')
-  onFailed(job: Job, error: Error) {
-    this.logger.error(error, `Job ${job.id} failed: ${error.message}`)
+  onFailed(job: SentimentJob, error: Error) {
+    this.logger.error(
+      { err: error, jobId: job.id },
+      `Job ${job.id} failed: ${error.message}`,
+    );
   }
 }

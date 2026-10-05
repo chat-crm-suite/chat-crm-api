@@ -15,13 +15,13 @@ import { LoginDto } from './dto/login.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthUser } from './auth.types';
 import { IdentifyGuard, JwtAuthGuard } from './guards/index';
-import { MemberService } from '../modules/member/member.service';
+import { CompanyMemberService } from '../modules/company-members/company-member.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly service: AuthService,
-    private readonly member: MemberService,
+    private readonly companyMembers: CompanyMemberService,
   ) {}
 
   @Post('login')
@@ -50,13 +50,13 @@ export class AuthController {
   @Get('me/companies')
   @UseGuards(JwtAuthGuard)
   getCompanies() {
-    return this.member.getCompanies();
+    return this.companyMembers.getCompanies();
   }
 
   @Get('me')
   @UseGuards(JwtAuthGuard, IdentifyGuard)
   async getProfile(@CurrentUser() user: AuthUser) {
-    const companies = await this.member.getCompanies();
+    const companies = await this.companyMembers.getCompanies();
 
     return {
       user,

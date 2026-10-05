@@ -85,9 +85,8 @@ describe('AdminBootstrapService', () => {
       username: 'admin',
       password: 'secreta-123',
     });
-    expect(mockUsersService.update).toHaveBeenCalledWith('new-admin-id', {
-      role: 'admin',
-    });
+    // v2: the business role lives in company_members, never in users.
+    expect(mockUsersService.update).not.toHaveBeenCalled();
   });
 
   it('rejects a shorter than 8 chars password', async () => {
@@ -187,7 +186,7 @@ describe('AdminBootstrapService', () => {
           whatsapp: expect.objectContaining({
             businessId: 'biz-1',
             accessToken: 'token',
-            phoneNumberId: 'phone-1',
+            externalAccountId: 'phone-1',
             webhookUrl: 'http://localhost:3000/integration/webhook/whatsapp',
           }),
         }),

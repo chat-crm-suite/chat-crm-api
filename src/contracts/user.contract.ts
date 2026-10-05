@@ -1,22 +1,16 @@
 import { z } from 'zod';
 
+import { MemberSummarySchema } from './member.contract';
+
 /**
- * User contracts (CRUD payloads + search).
+ * User contracts (v2).
+ *
+ * `users` is identity/login only: no role and no presence status. The role a
+ * user has in each company comes from `company_members` (member.contract);
+ * realtime presence lives in Redis.
  */
-export const USER_ROLES = [
-  'admin',
-  'supervisor',
-  'support',
-  'agent',
-  'system',
-] as const;
 
-export const UserRoleSchema = z.enum(USER_ROLES);
-
-export const USER_STATUSES = ['online', 'offline', 'busy'] as const;
-
-export const UserStatusSchema = z.enum(USER_STATUSES);
-
+/** `role` is managed through company memberships, never at sign-up. */
 export const CreateUserSchema = z.object({
   username: z
     .string()
@@ -27,17 +21,11 @@ export const CreateUserSchema = z.object({
   lastName: z.string().optional(),
   phoneNumber: z.string().optional(),
   email: z.email().optional(),
-  avatar: z.string().optional(),
-  address: z.string().optional(),
+  avatarUrl: z.string().optional(),
   password: z.string().min(8),
 });
 
-/**
- * `role` is only accepted on update (no self-escalation at sign-up).
- */
-export const UpdateUserSchema = CreateUserSchema.partial().extend({
-  role: UserRoleSchema.optional(),
-});
+export const UpdateUserSchema = CreateUserSchema.partial();
 
 export const UserSearchQuerySchema = z.object({
   q: z.string().optional(),
@@ -47,7 +35,6 @@ export const UserSearchQuerySchema = z.object({
 /**
  * Entity shape returned by the users endpoints (never includes `password`).
  * Used by `@ZodSerializerDto` on the API and by the frontend (dev-only parse).
- * `coerce.date` accepts both the entity `Date` and the ISO string over HTTP.
  */
 export const UserResponseSchema = z.object({
   id: z.string(),
@@ -56,30 +43,26 @@ export const UserResponseSchema = z.object({
   phoneNumber: z.string().nullish(),
   email: z.string().nullish(),
   username: z.string(),
-  avatar: z.string().nullish(),
-  address: z.string().nullish(),
-  status: UserStatusSchema,
-  role: UserRoleSchema,
+  avatarUrl: z.string().nullish(),
+  isPlatformAdmin: z.boolean(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
 
-/** Subset returned by `GET /auth/me` (`UserRepository.findUserById`). */
+/** Subset returned by `GET /auth/me`, plus the company memberships. */
 export const AuthUserSchema = UserResponseSchema.pick({
   id: true,
   username: true,
   firstName: true,
   lastName: true,
-  address: true,
-  avatar: true,
+  avatarUrl: true,
   email: true,
   phoneNumber: true,
-  status: true,
-  role: true,
+  isPlatformAdmin: true,
+}).extend({
+  memberships: z.array(MemberSummarySchema),
 });
 
-export type UserRole = z.infer<typeof UserRoleSchema>;
-export type UserStatus = z.infer<typeof UserStatusSchema>;
 export type CreateUserInput = z.infer<typeof CreateUserSchema>;
 export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;
 export type UserSearchQueryInput = z.infer<typeof UserSearchQuerySchema>;

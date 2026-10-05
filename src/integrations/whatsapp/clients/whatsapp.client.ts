@@ -1,16 +1,18 @@
-import { WhatsAppConfig } from '../../../entities/index';
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { firstValueFrom, map, retry, switchMap, throwError, timer } from 'rxjs';
 import { Response } from 'express';
-import { WhatsAppPayload } from '../interfaces/whatsapp-message.interface';
 import { PinoLogger } from 'nestjs-pino';
 import { AxiosError } from 'axios';
-import { WhatsAppErrorResponse } from '../interfaces/whatsapp.interface';
 import { join } from 'path';
 import { writeFileSync } from 'fs';
 import { CommandBus } from '@nestjs/cqrs';
-import { FailWhatsAppMessageCommand } from '../../../modules/chats/commands/index';
+
+import type { WhatsAppCredentials } from '../../../contracts/index';
+import { Channel } from '../../../modules/channels/entities/channel.entity';
+import { FailWhatsAppMessageCommand } from '../../../modules/conversations/commands/fail-whatsapp-message.command';
+import { WhatsAppPayload } from '../interfaces/whatsapp-message.interface';
+import { WhatsAppErrorResponse } from '../interfaces/whatsapp.interface';
 
 @Injectable()
 export class WhatsAppClient {
@@ -24,11 +26,16 @@ export class WhatsAppClient {
     this.logger.setContext(WhatsAppClient.name);
   }
 
-  setConfig(config: WhatsAppConfig) {
-    this.phoneNumberId = config.phoneNumberId;
-    this.http.axiosRef.defaults.baseURL = `${config.apiBaseUrl}/${config.apiVersion}`;
+  setChannel(channel: Channel, credentials: WhatsAppCredentials) {
+    const settings = (channel.settings ?? {}) as Record<string, unknown>;
+    const apiVersion = (settings.apiVersion as string) ?? 'v22.0';
+    const apiBaseUrl =
+      (settings.apiBaseUrl as string) ?? 'https://graph.facebook.com';
+
+    this.phoneNumberId = channel.externalAccountId;
+    this.http.axiosRef.defaults.baseURL = `${apiBaseUrl}/${apiVersion}`;
     this.http.axiosRef.defaults.headers.common['Authorization'] =
-      `Bearer ${config.accessToken}`;
+      `Bearer ${credentials.accessToken}`;
     this.http.axiosRef.defaults.headers.common['Content-Type'] =
       'application/json';
 
@@ -41,17 +48,12 @@ export class WhatsAppClient {
     if (!this.phoneNumberId || !baseUrl) {
       this.logger.error(
         { phone: this.phoneNumberId, baseUrl },
-        'WhatsAppClient no configurado. Llama a setConfig() antes de usar.',
+        'WhatsAppClient no configurado. Llama a setChannel() antes de usar.',
       );
       throw new Error(
-        'WhatsAppClient not configured. Call setConfig() before using.',
+        'WhatsAppClient not configured. Call setChannel() before using.',
       );
     }
-
-    this.logger.debug(
-      { phone: this.phoneNumberId, baseUrl },
-      'WhatsAppClient configurado correctamente',
-    );
   }
 
   upload(mediaId: string, token: string, ext?: string) {
@@ -121,7 +123,7 @@ export class WhatsAppClient {
                 code: errorData.error.code,
                 error_data: errorData.error.error_data ?? {
                   details:
-                    'Requeste whatsapp client error for ' +
+                    'Request whatsapp client error for ' +
                     payload.type +
                     ' message',
                 },

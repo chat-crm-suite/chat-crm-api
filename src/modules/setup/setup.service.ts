@@ -9,9 +9,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, Repository } from 'typeorm';
 
-import { Company, User, WhatsAppConfig } from '../../entities/index';
-import { Member } from '../member/member.entity';
-import { MemberRole, MemberStatus } from '../member/member.types';
+import { Channel } from '../channels/entities/channel.entity';
+import { CompanyMember } from '../company-members/entities/company-member.entity';
+import { CompanySettings } from '../company/entities/company-settings.entity';
+import { Company } from '../company/entities/company.entity';
+import { DEFAULT_PIPELINE_STAGES } from '../customers/pipeline-stages.defaults';
+import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
+import { User } from '../users/entities/user.entity';
+import { encryptCredentials } from '../../lib/helpers/credentials.helper';
 import { CreateSetupDto } from './dto/create-setup.dto';
 import { SetupResult, SetupStatus } from './setup.types';
 
@@ -20,14 +25,12 @@ import { SetupResult, SetupStatus } from './setup.types';
  *
  * - `status()` es la única fuente de verdad para decidir si la app está
  *   inicializada (empresa + member admin activo).
- * - `provision()` crea lo que falte en una transacción: usuario admin, empresa,
- *   membresía admin y, opcionalmente, la config de WhatsApp. Es la vía interna
- *   (bootstrap headless), sin token.
+ * - `provision()` crea lo que falte en una transacción: usuario admin, empresa
+ *   (+ settings y pipeline por defecto), membresía admin y, opcionalmente, el
+ *   canal de WhatsApp con credenciales cifradas. Es la vía interna (bootstrap
+ *   headless), sin token.
  * - `run()` es la vía HTTP pública: exige el token de setup y delega en
  *   `provision()`. Si la app ya está inicializada responde 409.
- *
- * Usa el esquema existente (users/companies/members/whatsapp_configs): no
- * requiere migraciones.
  */
 @Injectable()
 export class SetupService {
@@ -42,10 +45,10 @@ export class SetupService {
     private readonly users: Repository<User>,
     @InjectRepository(Company)
     private readonly companies: Repository<Company>,
-    @InjectRepository(Member)
-    private readonly members: Repository<Member>,
-    @InjectRepository(WhatsAppConfig)
-    private readonly whatsapp: Repository<WhatsAppConfig>,
+    @InjectRepository(CompanyMember)
+    private readonly members: Repository<CompanyMember>,
+    @InjectRepository(Channel)
+    private readonly channels: Repository<Channel>,
     private readonly dataSource: DataSource,
     private readonly logger: PinoLogger,
   ) {
@@ -74,12 +77,10 @@ export class SetupService {
   }
 
   async status(): Promise<SetupStatus> {
-    const [companies, admins, whatsapp, users] = await Promise.all([
+    const [companies, admins, channels, users] = await Promise.all([
       this.companies.count(),
-      this.members.count({
-        where: { role: MemberRole.ADMIN, status: MemberStatus.ACTIVE },
-      }),
-      this.whatsapp.count({ where: { isActive: true } }),
+      this.members.count({ where: { role: 'admin', status: 'active' } }),
+      this.channels.count({ where: { type: 'whatsapp', status: 'active' } }),
       this.users.count(),
     ]);
 
@@ -90,7 +91,7 @@ export class SetupService {
       initialized: hasCompany && hasAdmin,
       hasAdmin,
       hasCompany,
-      hasWhatsapp: whatsapp > 0,
+      hasWhatsapp: channels > 0,
       hasUsers: users > 0,
       requiresSetupToken: this.requiresSetupToken,
     };
@@ -111,28 +112,46 @@ export class SetupService {
     return this.dataSource.transaction(async (manager) => {
       const users = manager.getRepository(User);
       const companies = manager.getRepository(Company);
-      const members = manager.getRepository(Member);
-      const whatsapp = manager.getRepository(WhatsAppConfig);
+      const members = manager.getRepository(CompanyMember);
+      const channels = manager.getRepository(Channel);
+      const settings = manager.getRepository(CompanySettings);
+      const stages = manager.getRepository(PipelineStage);
 
       // Re-comprobación DENTRO de la transacción: evita que dos peticiones
       // simultáneas inicialicen la app dos veces.
       const [companyCount, adminCount] = await Promise.all([
         companies.count(),
-        members.count({
-          where: { role: MemberRole.ADMIN, status: MemberStatus.ACTIVE },
-        }),
+        members.count({ where: { role: 'admin', status: 'active' } }),
       ]);
       if (companyCount > 0 && adminCount > 0) {
         throw new ConflictException('Application is already initialized');
       }
 
       // Reutiliza la primera empresa si ya existe (estado parcial).
-      let company = await companies.findOne({
+      const existingCompany = await companies.findOne({
         where: {},
         order: { createdAt: 'ASC' },
       });
-      if (!company) {
-        company = await companies.save(companies.create({ ...dto.company }));
+
+      let company: Company;
+      if (existingCompany) {
+        company = existingCompany;
+      } else {
+        company = await companies.save(
+          companies.create({
+            name: dto.company.name,
+            email: dto.company.email,
+            phoneNumber: dto.company.phoneNumber,
+            address: dto.company.address,
+          }),
+        );
+
+        await settings.save(settings.create({ companyId: company.id }));
+        await stages.save(
+          DEFAULT_PIPELINE_STAGES.map((stage) =>
+            stages.create({ ...stage, companyId: company.id }),
+          ),
+        );
       }
 
       // Reutiliza el admin si ya existe (bootstrap previo), verificando la
@@ -141,42 +160,75 @@ export class SetupService {
         where: { username: dto.admin.username },
       });
       if (user) {
-        const valid = await bcrypt.compare(dto.admin.password, user.password);
+        const valid = await bcrypt.compare(dto.admin.password, user.passwordHash);
         if (!valid) {
           throw new ConflictException(
             'Ya existe un usuario con ese nombre. Usa la contraseña de ese usuario o elige otro nombre de usuario.',
           );
         }
       } else {
-        user = await users.save(users.create({ ...dto.admin }));
-      }
-
-      const existingMember = await members.findOne({
-        where: { user: { id: user.id }, company: { id: company.id } },
-      });
-      if (!existingMember) {
-        await members.save(
-          members.create({
-            user,
-            company,
-            role: MemberRole.ADMIN,
-            status: MemberStatus.ACTIVE,
+        user = await users.save(
+          users.create({
+            username: dto.admin.username,
+            passwordHash: await bcrypt.hash(dto.admin.password, 10),
+            firstName: dto.admin.firstName,
+            lastName: dto.admin.lastName,
+            email: dto.admin.email,
+            phoneNumber: dto.admin.phoneNumber,
           }),
         );
       }
 
-      let config: WhatsAppConfig | null = null;
+      const existingMember = await members.findOne({
+        where: { userId: user.id, companyId: company.id },
+      });
+      if (!existingMember) {
+        await members.save(
+          members.create({
+            userId: user.id,
+            companyId: company.id,
+            role: 'admin',
+            status: 'active',
+          }),
+        );
+      }
+
+      let channel: Channel | null = null;
       if (dto.whatsapp) {
-        config = await whatsapp.save(
-          whatsapp.create({ ...dto.whatsapp, company }),
+        channel = await channels.save(
+          channels.create({
+            companyId: company.id,
+            type: 'whatsapp',
+            name:
+              dto.whatsapp.name ?? dto.whatsapp.displayAddress ?? 'WhatsApp',
+            externalAccountId: dto.whatsapp.externalAccountId,
+            displayAddress: dto.whatsapp.displayAddress,
+            credentials: encryptCredentials({
+              accessToken: dto.whatsapp.accessToken,
+              businessId: dto.whatsapp.businessId,
+            }),
+            settings: {
+              apiVersion: dto.whatsapp.apiVersion ?? 'v22.0',
+              apiBaseUrl:
+                dto.whatsapp.apiBaseUrl ?? 'https://graph.facebook.com',
+              webhookUrl: dto.whatsapp.webhookUrl,
+            },
+            webhookVerifyToken:
+              dto.whatsapp.webhookVerifyToken ??
+              randomBytes(32).toString('hex'),
+            status: 'active',
+          }),
         );
       }
 
       return {
         user: { id: user.id, username: user.username },
         company: { id: company.id, name: company.name },
-        whatsapp: config
-          ? { id: config.id, webhookVerifyToken: config.webhookVerifyToken }
+        channel: channel
+          ? {
+              id: channel.id,
+              webhookVerifyToken: channel.webhookVerifyToken ?? null,
+            }
           : null,
       };
     });

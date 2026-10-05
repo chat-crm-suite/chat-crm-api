@@ -7,8 +7,8 @@ import { z } from 'zod';
 export const METRICS_PERIODS = ['hour', 'day', 'week', 'month'] as const;
 export const MetricsPeriodSchema = z.enum(METRICS_PERIODS);
 
-export const SENTIMENT_LABELS = ['POS', 'NEU', 'NEG'] as const;
-export const SentimentLabelSchema = z.enum(SENTIMENT_LABELS);
+export const METRIC_SENTIMENT_LABELS = ['POS', 'NEU', 'NEG'] as const;
+export const MetricSentimentLabelSchema = z.enum(METRIC_SENTIMENT_LABELS);
 
 /** Accepts both the short labels (`POS`) and the long names (`positive`). */
 const NormalizedSentimentLabelSchema = z.preprocess((value) => {
@@ -24,7 +24,7 @@ const NormalizedSentimentLabelSchema = z.preprocess((value) => {
     default:
       return normalized;
   }
-}, SentimentLabelSchema);
+}, MetricSentimentLabelSchema);
 
 export const SentimentTopQuerySchema = z.object({
   actor: z.enum(['agent', 'client']),
@@ -47,7 +47,7 @@ export const CompareParamsSchema = z.object({
 });
 
 export type MetricsPeriod = z.infer<typeof MetricsPeriodSchema>;
-export type SentimentLabel = z.infer<typeof SentimentLabelSchema>;
+export type MetricSentimentLabel = z.infer<typeof MetricSentimentLabelSchema>;
 export type SentimentTopQueryInput = z.infer<typeof SentimentTopQuerySchema>;
 export type SentimentTrendQueryInput = z.infer<typeof SentimentTrendQuerySchema>;
 export type CompareQueryInput = z.infer<typeof CompareQuerySchema>;

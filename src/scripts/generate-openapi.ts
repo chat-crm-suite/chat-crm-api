@@ -23,7 +23,8 @@ async function main(): Promise<void> {
   // Dynamic import: the env above must be set before the config modules load.
   const { AppModule } = await import('../app.module.js');
 
-  const app = await NestFactory.create(AppModule, { logger: false });
+  // `logger: ['error']`: silent boot, but bootstrap failures stay visible.
+  const app = await NestFactory.create(AppModule, { logger: ['error'] });
   const document = buildOpenApiDocument(app);
   await app.close();
 

@@ -1,9 +1,10 @@
 /**
  * Seed de demo para la asignación automática (SOLO DESARROLLO).
  *
- * Crea (idempotente): 1 empresa demo, 3 agentes, 6 chats que se reparten por
- * carga y 1 chat que queda en la cola de sin asignar. Los chats llevan un
- * mensaje entrante simulado para que se vean en el front.
+ * Crea (idempotente): 1 empresa demo con `company_settings`, 3 agentes, 6
+ * conversaciones que se reparten por carga y 1 conversación que queda en la
+ * cola de sin asignar. Cada conversación lleva un mensaje entrante simulado
+ * para que se vea en el front.
  *
  * Uso (desde chat-crm-api/):
  *   npx ts-node --transpile-only scripts/seed-assignment.ts
@@ -17,17 +18,18 @@ import { DataSource, IsNull } from 'typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import type { PinoLogger } from 'nestjs-pino';
 
-import { Chat, Company, Contact, Message, User } from '../src/entities/index';
-import { ChatAssignmentService } from '../src/modules/chats/assignment/chat-assignment.service';
-import { ChatAssignments } from '../src/modules/chats/entities/index';
-import { Member } from '../src/modules/member/member.entity';
-import { MemberRole, MemberStatus } from '../src/modules/member/member.types';
 import {
-  MessageDirection,
-  MessageSenderType,
-  MessageStatus,
-  MessageType,
-} from '../src/modules/message/message.enum';
+  Channel,
+  Company,
+  CompanyMember,
+  CompanySettings,
+  Conversation,
+  ConversationAssignment,
+  Customer,
+  Message,
+  User,
+} from '../src/entities/index';
+import { ConversationAssignmentService } from '../src/modules/conversations/assignment/conversation-assignment.service';
 
 // Carga .env si existe (Node 22). Si no, usa las variables del entorno.
 try {
@@ -39,6 +41,7 @@ try {
 const DEMO_COMPANY_NAME = 'Demo Asignación';
 const AGENT_PASSWORD = 'demo1234';
 const AGENT_USERNAMES = ['seed-agent-1', 'seed-agent-2', 'seed-agent-3'];
+const CHANNEL_EXTERNAL_ACCOUNT_ID = 'seed-demo-wa-account';
 const ASSIGNED_PHONES = [1, 2, 3, 4, 5, 6].map(
   (n) => `+54911000000${n}`,
 );
@@ -68,107 +71,158 @@ async function main() {
 
   try {
     const companies = dataSource.getRepository(Company);
+    const settingsRepo = dataSource.getRepository(CompanySettings);
     const users = dataSource.getRepository(User);
-    const members = dataSource.getRepository(Member);
-    const contacts = dataSource.getRepository(Contact);
-    const chats = dataSource.getRepository(Chat);
+    const members = dataSource.getRepository(CompanyMember);
+    const channels = dataSource.getRepository(Channel);
+    const customers = dataSource.getRepository(Customer);
+    const conversations = dataSource.getRepository(Conversation);
     const messages = dataSource.getRepository(Message);
-    const assignments = dataSource.getRepository(ChatAssignments);
+    const assignments = dataSource.getRepository(ConversationAssignment);
 
     const company =
       (await companies.findOne({ where: { name: DEMO_COMPANY_NAME } })) ??
       (await companies.save(companies.create({ name: DEMO_COMPANY_NAME })));
 
+    // Settings 1:1: sin fila, el motor no asigna.
+    if (!(await settingsRepo.findOne({ where: { companyId: company.id } }))) {
+      await settingsRepo.save(settingsRepo.create({ companyId: company.id }));
+    }
+
     const password = await bcrypt.hash(AGENT_PASSWORD, 10);
-    const agents: User[] = [];
+    const memberRows: CompanyMember[] = [];
     for (const username of AGENT_USERNAMES) {
       let user = await users.findOne({ where: { username } });
       if (!user) {
         user = await users.save(
           users.create({
             username,
-            password,
+            passwordHash: password,
             email: `${username}@demo.local`,
-            role: 'agent',
+            isPlatformAdmin: false,
           }),
         );
       }
 
-      const membership = await members.findOne({
-        where: { user: { id: user.id }, company: { id: company.id } },
+      let membership = await members.findOne({
+        where: { userId: user.id, companyId: company.id },
       });
       if (!membership) {
-        await members.save(
+        membership = await members.save(
           members.create({
-            user,
-            company,
-            role: MemberRole.AGENT,
-            status: MemberStatus.ACTIVE,
+            userId: user.id,
+            companyId: company.id,
+            role: 'agent',
+            status: 'active',
           }),
         );
       }
-      agents.push(user);
+      memberRows.push(membership);
     }
 
-    const engine = new ChatAssignmentService(dataSource, logger);
+    const channel =
+      (await channels.findOne({
+        where: { companyId: company.id, type: 'whatsapp' },
+      })) ??
+      (await channels.save(
+        channels.create({
+          companyId: company.id,
+          type: 'whatsapp',
+          name: 'WhatsApp Demo',
+          externalAccountId: CHANNEL_EXTERNAL_ACCOUNT_ID,
+          credentials: 'seed-demo-not-a-real-envelope',
+          settings: { apiVersion: 'v22.0' },
+          webhookVerifyToken: 'seed-demo-verify-token',
+          status: 'active',
+        }),
+      ));
 
-    const ensureChat = async (phoneNumber: string) => {
-      let contact = await contacts.findOne({
-        where: { phoneNumber, company: { id: company.id } },
+    const engine = new ConversationAssignmentService(dataSource, logger);
+
+    const ensureConversation = async (phoneNumber: string) => {
+      let customer = await customers.findOne({
+        where: { companyId: company.id, phoneNumber },
       });
-      if (!contact) {
-        contact = await contacts.save(
-          contacts.create({
+      if (!customer) {
+        customer = await customers.save(
+          customers.create({
+            companyId: company.id,
             phoneNumber,
-            username: phoneNumber,
-            company,
+            displayName: phoneNumber,
+            source: 'whatsapp',
           }),
         );
       }
 
-      let chat = await chats.findOne({ where: { client: { id: contact.id } } });
-      if (!chat) {
-        chat = await chats.save(chats.create({ client: contact }));
+      let conversation = await conversations.findOne({
+        where: {
+          companyId: company.id,
+          customerId: customer.id,
+          channelId: channel.id,
+        },
+      });
+      if (!conversation) {
+        conversation = await conversations.save(
+          conversations.create({
+            companyId: company.id,
+            customerId: customer.id,
+            channelId: channel.id,
+            status: 'open',
+            priority: 'low',
+          }),
+        );
       }
 
-      const hasMessages = await messages.count({ where: { chat: { id: chat.id } } });
+      const hasMessages = await messages.count({
+        where: { conversationId: conversation.id },
+      });
       if (!hasMessages) {
+        const now = new Date();
         const message = await messages.save(
           messages.create({
-            chat: { id: chat.id },
-            senderType: MessageSenderType.CLIENT,
-            senderId: contact.id,
-            content: `Hola, consulta de prueba ${phoneNumber}`,
-            direction: MessageDirection.IN,
-            status: MessageStatus.SENT,
-            type: MessageType.TEXT,
+            companyId: company.id,
+            conversationId: conversation.id,
+            direction: 'inbound',
+            senderType: 'customer',
+            senderCustomerId: customer.id,
+            body: `Hola, consulta de prueba ${phoneNumber}`,
+            type: 'text',
+            status: 'delivered',
           }),
         );
-        await chats.update(
-          { id: chat.id },
-          { lastMessage: { id: message.id }, lastMessageAt: new Date() },
+        await conversations.update(
+          { id: conversation.id },
+          {
+            lastMessageId: message.id,
+            lastMessageAt: now,
+            lastInboundAt: now,
+            status: 'open',
+          },
         );
       }
 
-      return chat;
+      return conversation;
     };
 
-    // 6 chats se reparten entre 3 agentes (2 c/u por menor carga).
+    // 6 conversaciones se reparten entre 3 agentes (2 c/u por menor carga).
     for (const phone of ASSIGNED_PHONES) {
-      const chat = await ensureChat(phone);
-      await engine.ensureAssigned(chat.id, company.id);
+      const conversation = await ensureConversation(phone);
+      await engine.ensureAssigned(conversation.id, company.id);
     }
 
-    // 1 chat queda sin asignar para demo de la cola + claim.
-    await ensureChat(QUEUE_PHONE);
+    // 1 conversación queda sin asignar para demo de la cola + claim.
+    await ensureConversation(QUEUE_PHONE);
 
     const distribution = await Promise.all(
-      agents.map(async (agent) => ({
-        username: agent.username,
-        chats: await assignments.count({
-          where: { agent: { id: agent.id }, unassignedAt: IsNull() },
-        }),
-      })),
+      memberRows.map(async (member) => {
+        const user = await users.findOneByOrFail({ id: member.userId });
+        return {
+          username: user.username,
+          conversations: await assignments.count({
+            where: { memberId: member.id, unassignedAt: IsNull() },
+          }),
+        };
+      }),
     );
     const queue = await engine.listUnassigned(company.id);
 
@@ -176,9 +230,9 @@ async function main() {
     console.log(`Empresa: ${company.name} (${company.id})`);
     console.log(`Agentes (password: ${AGENT_PASSWORD}):`);
     for (const agent of distribution) {
-      console.log(`  - ${agent.username}: ${agent.chats} chats activos`);
+      console.log(`  - ${agent.username}: ${agent.conversations} conversaciones activas`);
     }
-    console.log(`Cola sin asignar: ${queue.length} chat(s) → ${QUEUE_PHONE}`);
+    console.log(`Cola sin asignar: ${queue.length} conversación(es) → ${QUEUE_PHONE}`);
     console.log('\nListo: entrá al front con cualquier seed-agent y mirá la lista y la cola.');
   } finally {
     await dataSource.destroy();

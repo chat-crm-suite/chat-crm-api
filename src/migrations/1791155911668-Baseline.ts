@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class V2Baseline1791155911668 implements MigrationInterface {
+export class Baseline1791155911668 implements MigrationInterface {
+    // Kept as the originally recorded name: databases that already ran this migration
+    // have it stored as 'V2Baseline1791155911668' in the `migrations` table.
     name = 'V2Baseline1791155911668'
 
     public async up(queryRunner: QueryRunner): Promise<void> {

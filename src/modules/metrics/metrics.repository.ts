@@ -3,6 +3,7 @@ import { startOfMonth, subMonths } from 'date-fns';
 import { DataSource } from 'typeorm';
 import { AgentQuery, ClientQuery, ContactQuery } from './metrics.interface';
 import { period, PeriodTime } from '../../lib/period';
+import { ANALYSIS_LABEL_BY_METRIC } from './repositories/sentiment.repository';
 import type { SentimentType, Table } from './metrics.types';
 
 export type { SentimentType } from './metrics.types';
@@ -107,6 +108,8 @@ export class MetricsRepository {
     label: SentimentType,
     limit: number = 5,
   ): Promise<AgentQuery[]> {
+    const storedLabel = ANALYSIS_LABEL_BY_METRIC[label];
+
     const qb: AgentQuery[] = await this.dataSource.sql`
       SELECT 
         u.id AS id,
@@ -123,7 +126,7 @@ export class MetricsRepository {
       INNER JOIN analyses a ON a.message_id = m.id
       INNER JOIN sentiment_results sr ON sr.analysis_id = a.id
       WHERE m.direction = 'outbound'
-        AND sr.label = ${label}
+        AND sr.label = ${storedLabel}
       GROUP BY u.id
       ORDER BY total DESC
       LIMIT ${limit}
@@ -137,6 +140,8 @@ export class MetricsRepository {
     label: SentimentType = 'POS',
     limit: number = 5,
   ): Promise<ClientQuery[]> {
+    const storedLabel = ANALYSIS_LABEL_BY_METRIC[label];
+
     const qb: ClientQuery[] = await this.dataSource.sql`
       SELECT 
         c.id AS contactId,
@@ -150,7 +155,7 @@ export class MetricsRepository {
       INNER JOIN company_members cm ON cm.id = conv.assigned_member_id
       INNER JOIN customers c ON c.id = m.sender_customer_id
       LEFT JOIN analyses a ON a.message_id = m.id AND a.type = 'sentiment'
-      LEFT JOIN sentiment_results sr ON sr.analysis_id = a.id AND sr.label = ${label}
+      LEFT JOIN sentiment_results sr ON sr.analysis_id = a.id AND sr.label = ${storedLabel}
       WHERE cm.user_id = ${userId}
         AND m.direction = 'inbound'
       GROUP BY c.id

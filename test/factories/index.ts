@@ -1,6 +1,9 @@
-export { UserFactory } from "./user.factory";
-export { AnalysisFactory } from "./analysis.factory";
-export { SentimentAnalysisFactory } from './sentiment-analysis.factory';
-export { ChatFactory } from './chat.factory';
-export { ContactFactory } from './contact.factory';
+export { AnalysisFactory } from './analysis.factory';
+export { ChannelFactory } from './channel.factory';
+export { CompanyFactory } from './company.factory';
+export { CompanyMemberFactory } from './company-member.factory';
+export { ConversationFactory } from './conversation.factory';
+export { CustomerFactory } from './customer.factory';
 export { MessageFactory } from './message.factory';
+export { SentimentResultFactory } from './sentiment-result.factory';
+export { FACTORY_USER_PASSWORD, UserFactory } from './user.factory';

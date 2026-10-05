@@ -2,9 +2,10 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClsService } from 'nestjs-cls';
 
-import { Member } from '../member/member.entity';
-import { MemberRole, MemberStatus } from '../member/member.types';
+import { CompanyMember } from '../company-members/entities/company-member.entity';
+import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
 import { CompanyService } from './company.service';
+import { CompanySettings } from './entities/company-settings.entity';
 import { Company } from './entities/company.entity';
 
 describe('CompanyService', () => {
@@ -16,7 +17,17 @@ describe('CompanyService', () => {
     findOneBy: jest.fn(),
   };
 
+  const settingsRepo = {
+    create: jest.fn((entity: unknown) => entity),
+    save: jest.fn(),
+  };
+
   const membersRepo = {
+    create: jest.fn((entity: unknown) => entity),
+    save: jest.fn(),
+  };
+
+  const stagesRepo = {
     create: jest.fn((entity: unknown) => entity),
     save: jest.fn(),
   };
@@ -33,15 +44,27 @@ describe('CompanyService', () => {
         id: 'company-1',
       }),
     );
+    settingsRepo.save.mockImplementation((entity: Record<string, unknown>) =>
+      Promise.resolve({ ...entity, id: 'settings-1' }),
+    );
     membersRepo.save.mockImplementation((entity: Record<string, unknown>) =>
       Promise.resolve({ ...entity, id: 'member-1' }),
+    );
+    stagesRepo.save.mockImplementation((entity: unknown) =>
+      Promise.resolve(
+        Array.isArray(entity)
+          ? entity
+          : { ...(entity as Record<string, unknown>), id: 'stage-1' },
+      ),
     );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CompanyService,
         { provide: getRepositoryToken(Company), useValue: companyRepo },
-        { provide: getRepositoryToken(Member), useValue: membersRepo },
+        { provide: getRepositoryToken(CompanySettings), useValue: settingsRepo },
+        { provide: getRepositoryToken(CompanyMember), useValue: membersRepo },
+        { provide: getRepositoryToken(PipelineStage), useValue: stagesRepo },
         { provide: ClsService, useValue: cls },
       ],
     }).compile();
@@ -49,17 +72,24 @@ describe('CompanyService', () => {
     service = module.get<CompanyService>(CompanyService);
   });
 
-  it('creates the company and links the creator as an active admin member', async () => {
+  it('creates company + settings + default stages and links the creator as an active admin member', async () => {
     cls.get.mockReturnValue('user-1');
 
     await service.create({ name: 'J&P Perifericos' });
 
+    expect(companyRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'J&P Perifericos' }),
+    );
+    expect(settingsRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: 'company-1' }),
+    );
+    expect(stagesRepo.save).toHaveBeenCalledTimes(1);
     expect(membersRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
-        user: { id: 'user-1' },
-        company: { id: 'company-1', name: 'J&P Perifericos' },
-        role: MemberRole.ADMIN,
-        status: MemberStatus.ACTIVE,
+        userId: 'user-1',
+        companyId: 'company-1',
+        role: 'admin',
+        status: 'active',
       }),
     );
   });
@@ -69,6 +99,7 @@ describe('CompanyService', () => {
 
     await service.create({ name: 'J&P Perifericos' });
 
+    expect(settingsRepo.save).toHaveBeenCalledTimes(1);
     expect(membersRepo.save).not.toHaveBeenCalled();
   });
 });

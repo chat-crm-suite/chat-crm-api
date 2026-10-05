@@ -1,51 +1,55 @@
-import { AnalysisFactory, MessageFactory, SentimentAnalysisFactory, UserFactory } from "@factories";
-import { MetricsService } from "@modules/metrics/metrics.service"
-import { Test, TestingModule } from "@nestjs/testing";
-import { getDataSourceToken, TypeOrmModule } from "@nestjs/typeorm";
-import { subDays, subMonths } from "date-fns";
-import { getTestSQLiteConfig } from "../helpers/test-database.helper";
-import { DataSource, QueryRunner } from "typeorm";
-import { MetricsRepository } from "@modules/metrics/metrics.repository";
-import { SentimentRepository } from "@modules/metrics/repositories/sentiment.repository";
-import { SentimentLabel } from "@modules/analysis/sentiment/sentiment.enum";
+import { Test, TestingModule } from '@nestjs/testing';
+import { getDataSourceToken, TypeOrmModule } from '@nestjs/typeorm';
+import { subDays, subMonths } from 'date-fns';
+import { DataSource, EntityTarget } from 'typeorm';
+
+import * as Entities from '@entities';
 import {
-  Analysis, Chat, Company, Contact, User,
-  SentimentAnalysis, WhatsAppConfig, Notification, Message
-} from "@entities";
-import { MessageSenderType } from "@modules/message/message.enum";
+  AnalysisFactory,
+  CompanyFactory,
+  CompanyMemberFactory,
+  MessageFactory,
+  SentimentResultFactory,
+} from '@factories';
+import { MetricsRepository } from '@modules/metrics/metrics.repository';
+import { MetricsService } from '@modules/metrics/metrics.service';
+import { SentimentRepository } from '@modules/metrics/repositories/sentiment.repository';
+import type { SentimentType } from '@modules/metrics/metrics.types';
+import { getTestConfig, truncateAllTables } from '../helpers/test-database.helper';
+
+const entities = Object.values(Entities) as EntityTarget<unknown>[];
+
+jest.setTimeout(120_000);
+
+/** `sentiment_results.label` stores the analysis contract label (long form). */
+const STORED_LABEL: Record<
+  SentimentType,
+  'positive' | 'neutral' | 'negative'
+> = {
+  POS: 'positive',
+  NEU: 'neutral',
+  NEG: 'negative',
+};
 
 describe('Metrics Service - integration', () => {
   let module: TestingModule;
   let service: MetricsService;
   let dataSource: DataSource;
-  let queryRunner: QueryRunner;
 
   beforeAll(async () => {
     module = await Test.createTestingModule({
-      imports: [
-        TypeOrmModule.forRoot(getTestSQLiteConfig([
-          SentimentAnalysis, Analysis, Message, Chat, Contact,
-          User, Company, Notification, WhatsAppConfig,
-        ])),
-        TypeOrmModule.forFeature([SentimentAnalysis])
-      ],
-      providers: [MetricsService, MetricsRepository, SentimentRepository]
+      imports: [TypeOrmModule.forRoot(getTestConfig(entities))],
+      providers: [MetricsService, MetricsRepository, SentimentRepository],
     }).compile();
 
     service = module.get<MetricsService>(MetricsService);
     dataSource = module.get<DataSource>(getDataSourceToken());
-
   }, 30000);
 
   beforeEach(async () => {
-    queryRunner = dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-  });
-
-  afterEach(async () => {
-    await queryRunner.rollbackTransaction();
-    await queryRunner.release();
+    // The raw-SQL repository runs on the pool, not on a test transaction, so
+    // each case starts from a clean schema.
+    await truncateAllTables(dataSource);
   });
 
   afterAll(async () => {
@@ -55,58 +59,81 @@ describe('Metrics Service - integration', () => {
 
   async function setupAgentsAndMessages(
     dates: Array<{ date: Date; agentNum: 1 | 2 }>,
-    label: SentimentLabel,
-    scorePos: number,
-    scoreNeu: number,
-    scoreNeg: number,
+    label: SentimentType,
+    scorePositive: number,
+    scoreNeutral: number,
+    scoreNegative: number,
   ) {
-    const userFactory = UserFactory.transient({ manager: queryRunner.manager });
+    const manager = dataSource.manager;
+    const company = await CompanyFactory.transient({ manager }).create();
 
     const [agent1, agent2] = await Promise.all([
-      userFactory.create({ username: 'agent1' }),
-      userFactory.create({ username: 'agent2' }),
+      CompanyMemberFactory.transient({ manager }).create({
+        companyId: company.id,
+      }),
+      CompanyMemberFactory.transient({ manager }).create({
+        companyId: company.id,
+      }),
     ]);
 
     await Promise.all(
       dates.map(async ({ date, agentNum }) => {
-        const message = await MessageFactory.transient({ manager: queryRunner.manager })
-          .associations({ senderId: agentNum === 1 ? agent1.id : agent2.id })
-          .create({ createdAt: date, senderType: MessageSenderType.AGENT });
+        const member = agentNum === 1 ? agent1 : agent2;
 
-        const analysis = await AnalysisFactory
-          .transient({ manager: queryRunner.manager })
-          .create({ message: { id: message.id } });
+        const message = await MessageFactory.transient({ manager }).create({
+          companyId: company.id,
+          senderType: 'member',
+          senderMemberId: member.id,
+          direction: 'outbound',
+          createdAt: date,
+        });
 
-        await SentimentAnalysisFactory
-          .transient({ manager: queryRunner.manager })
-          .create({ analysis, label, scorePos, scoreNeu, scoreNeg });
-      })
+        const analysis = await AnalysisFactory.transient({ manager }).create({
+          companyId: company.id,
+          conversationId: message.conversationId,
+          message: { id: message.id },
+          type: 'sentiment',
+          label: STORED_LABEL[label],
+        });
+
+        await SentimentResultFactory.transient({ manager }).create({
+          analysisId: analysis.id,
+          label: STORED_LABEL[label],
+          scorePositive,
+          scoreNeutral,
+          scoreNegative,
+        });
+      }),
     );
 
     return { agent1, agent2 };
   }
 
-  describe.each([
+  describe.each<{
+    label: SentimentType;
+    scorePositive: number;
+    scoreNeutral: number;
+    scoreNegative: number;
+  }>([
     {
-      label: SentimentLabel.POSITIVE,
-      scorePos: 0.9,
-      scoreNeu: 0.05,
-      scoreNeg: 0.05,
+      label: 'POS',
+      scorePositive: 0.9,
+      scoreNeutral: 0.05,
+      scoreNegative: 0.05,
     },
     {
-      label: SentimentLabel.NEUTRAL,
-      scorePos: 0.2,
-      scoreNeu: 0.7,
-      scoreNeg: 0.1,
+      label: 'NEU',
+      scorePositive: 0.2,
+      scoreNeutral: 0.7,
+      scoreNegative: 0.1,
     },
     {
-      label: SentimentLabel.NEGATIVE,
-      scorePos: 0.1,
-      scoreNeu: 0.2,
-      scoreNeg: 0.7,
+      label: 'NEG',
+      scorePositive: 0.1,
+      scoreNeutral: 0.2,
+      scoreNegative: 0.7,
     },
-  ])('with label $label', ({ label, scorePos, scoreNeu, scoreNeg }) => {
-
+  ])('with label $label', ({ label, scorePositive, scoreNeutral, scoreNegative }) => {
     it.each([
       {
         scenario: 'last 7 days',
@@ -152,22 +179,25 @@ describe('Metrics Service - integration', () => {
         expectedAgent: 1,
         expectedTotal: 3,
       },
-    ])('should return top agents for $scenario', async ({ dates, expectedAgent, expectedTotal }) => {
-      const { agent1, agent2 } = await setupAgentsAndMessages(
-        dates,
-        label,
-        scorePos,
-        scoreNeu,
-        scoreNeg
-      );
+    ])(
+      'should return top agents for $scenario',
+      async ({ dates, expectedAgent, expectedTotal }) => {
+        const { agent1, agent2 } = await setupAgentsAndMessages(
+          dates,
+          label,
+          scorePositive,
+          scoreNeutral,
+          scoreNegative,
+        );
 
-      const result = await service.getSentimentTop('agent', label);
-      const expected = expectedAgent === 1 ? agent1 : agent2;
+        const result = await service.getSentimentTop('agent', label);
+        const expected = expectedAgent === 1 ? agent1 : agent2;
 
-      expect(result.length).toBeGreaterThan(0);
-      expect(result[0].agent?.username).toBe(expected.username);
-      expect(result[0].total).toBe(expectedTotal);
-      expect(result[0].label).toBe(label);
-    });
+        expect(result.length).toBeGreaterThan(0);
+        expect(result[0].agent?.username).toBe(expected.user.username);
+        expect(result[0].total).toBe(expectedTotal);
+        expect(result[0].label).toBe(label);
+      },
+    );
   });
 });

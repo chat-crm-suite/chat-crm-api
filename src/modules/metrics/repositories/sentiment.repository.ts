@@ -11,7 +11,11 @@ import { DATE_FORMAT_SQL } from '../constants/metrics.constants';
  * `sentiment_results.label` stores the analysis contract labels (long form).
  * Bridge both directions at the repository boundary.
  */
-const ANALYSIS_LABEL_BY_METRIC: Record<SentimentType, SentimentLabel> = {
+/**
+ * `sentiment_results.label` stores the analysis contract labels (long form).
+ * Bridge both directions at the repository boundary.
+ */
+export const ANALYSIS_LABEL_BY_METRIC: Record<SentimentType, SentimentLabel> = {
   POS: 'positive',
   NEU: 'neutral',
   NEG: 'negative',

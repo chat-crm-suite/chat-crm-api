@@ -10,29 +10,16 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { join } from 'path';
 import request from 'supertest';
 import type { App } from 'supertest/types';
+import { EntityTarget } from 'typeorm';
 
 import { AuthModule } from '../src/auth/auth.module';
 import { ZodValidationExceptionFilter } from '../src/common/filters/zod-validation.filter';
 import { loggerConfig } from '../src/config/logger.config';
 import { i18nConfig } from '../src/config/i18n.config';
 import { clsConfig } from '../src/config/cls.config';
-import {
-  Analysis,
-  Chat,
-  Company,
-  Contact,
-  Message,
-  Notification,
-  SentimentAnalysis,
-  User,
-  WhatsAppConfig,
-} from '../src/entities/index';
-import { WhatsAppMessageDetail } from '../src/integrations/whatsapp/entities/index';
-import { WhatsAppConfigSubscriber } from '../src/integrations/whatsapp/subscribers/whatsapp-config.subscriber';
-import { ChatAssignments, Transfer } from '../src/modules/chats/entities/index';
-import { Member } from '../src/modules/member/member.entity';
+import * as Entities from '../src/entities/index';
 import { SetupModule } from '../src/modules/setup/setup.module';
-import { getTestSQLiteConfig } from './helpers/test-database.helper';
+import { getTestConfig } from './helpers/test-database.helper';
 
 interface SetupStatusBody {
   initialized: boolean;
@@ -46,26 +33,14 @@ interface SetupStatusBody {
 interface SetupResultBody {
   user: { id: string; username: string };
   company: { id: string; name: string };
-  whatsapp: { id: string; webhookVerifyToken: string } | null;
+  channel: { id: string; webhookVerifyToken: string | null } | null;
 }
 
-const entities = [
-  Analysis,
-  Chat,
-  ChatAssignments,
-  Company,
-  Contact,
-  Member,
-  Message,
-  Notification,
-  SentimentAnalysis,
-  Transfer,
-  User,
-  WhatsAppConfig,
-  WhatsAppMessageDetail,
-];
+const entities = Object.values(Entities) as EntityTarget<unknown>[];
 
-// Flujo de primer arranque sobre SQLite en memoria (sin MySQL/Redis).
+jest.setTimeout(180_000);
+
+// Flujo de primer arranque sobre MySQL `_test` (dropSchema + synchronize).
 // Cubre el contrato de `setup` y que la sesión creada sirve para autenticar.
 const createApp = async (setupToken?: string): Promise<INestApplication> => {
   if (setupToken === undefined) {
@@ -87,11 +62,10 @@ const createApp = async (setupToken?: string): Promise<INestApplication> => {
           watch: false,
         },
       }),
-      TypeOrmModule.forRoot(getTestSQLiteConfig(entities)),
+      TypeOrmModule.forRoot(getTestConfig(entities)),
       SetupModule,
       AuthModule,
     ],
-    providers: [WhatsAppConfigSubscriber],
   }).compile();
 
   // El bootstrap por env no debe contaminar una BD "recién instalada".
@@ -154,7 +128,7 @@ describe('Setup first-run flow (e2e)', () => {
       const body = res.body as SetupResultBody;
 
       expect(body.company.name).toBe('J&P Perifericos');
-      expect(body.whatsapp).toBeNull();
+      expect(body.channel).toBeNull();
       companyId = body.company.id;
     });
 
@@ -187,11 +161,17 @@ describe('Setup first-run flow (e2e)', () => {
       // La sesión sirve para hidratar el front (user + empresa activa).
       const me = await agent.get('/auth/me').expect(200);
       const meBody = me.body as {
-        user: { username: string } | null;
+        user: {
+          username: string;
+          memberships: Array<{ companyId: string; role: string }>;
+        } | null;
         company: { id: string | null };
       };
 
       expect(meBody.user?.username).toBe('admin');
+      expect(meBody.user?.memberships).toEqual([
+        expect.objectContaining({ companyId, role: 'admin', status: 'active' }),
+      ]);
       expect(meBody.company.id).toBe(companyId);
 
       // La membresía admin creada por /setup pertenece a la empresa creada.
@@ -236,7 +216,7 @@ describe('Setup first-run flow (e2e)', () => {
       await app.close();
     });
 
-    it('stores the whatsapp config and flags it in the status', async () => {
+    it('stores the whatsapp channel and flags it in the status', async () => {
       const created = await request(server)
         .post('/setup')
         .send({
@@ -244,15 +224,15 @@ describe('Setup first-run flow (e2e)', () => {
           whatsapp: {
             businessId: 'biz-1',
             accessToken: 'token',
-            phoneNumberId: 'phone-1',
+            externalAccountId: 'phone-1',
             webhookUrl: 'http://localhost:3000/integration/webhook/whatsapp',
           },
         })
         .expect(201);
       const createdBody = created.body as SetupResultBody;
 
-      expect(createdBody.whatsapp?.id).toBeDefined();
-      expect(createdBody.whatsapp?.webhookVerifyToken).toBeDefined();
+      expect(createdBody.channel?.id).toBeDefined();
+      expect(createdBody.channel?.webhookVerifyToken).toBeDefined();
 
       const res = await request(server).get('/setup/status').expect(200);
       const body = res.body as SetupStatusBody;

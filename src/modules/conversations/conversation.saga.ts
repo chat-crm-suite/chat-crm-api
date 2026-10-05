@@ -47,6 +47,9 @@ export class ConversationSaga {
           message.conversationId,
         ),
       ]),
+      // An async mapper emits ONE array; the saga stream must emit each
+      // command, otherwise `commandBus.execute([...])` finds no handler.
+      mergeMap((commands) => commands),
     );
   };
 

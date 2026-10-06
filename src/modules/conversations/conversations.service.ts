@@ -178,7 +178,12 @@ export class ConversationsService {
       if (active?.memberId) {
         await this.notifier.notifyAssigned(conversationId, active.memberId);
       }
-    } else if (outcome === AssignmentOutcome.NO_CANDIDATES) {
+    } else if (
+      // The conversation stays ownerless: notify supervisors live, both when
+      // nobody is available and when auto-assignment is off for the company.
+      outcome === AssignmentOutcome.NO_CANDIDATES ||
+      outcome === AssignmentOutcome.DISABLED
+    ) {
       await this.notifier.notifyUnassigned(conversationId, companyId);
     }
 

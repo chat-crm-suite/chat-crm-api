@@ -1,29 +1,23 @@
-import { ConversationSocketEvent } from '../../../../contracts/index';
 import type { Message } from '../../../message/entities/message.entity';
 import type { MessageService } from '../../../message/message.service';
-import type { ConversationAssignmentService } from '../../assignment/conversation-assignment.service';
-import type { ConversationGateway } from '../../gateways/conversation.gateway';
+import type { ConversationFanoutService } from '../../realtime/conversation-fanout.service';
 import { UpdateMessageStatusCommand } from '../update-message-status.command';
 import { UpdateMessageStatusHandler } from './update-message-status.handler';
 
 /**
- * T4 live patch: an applied delivery state reaches the open thread
- * (`conversation:{id}`) and the assignee (`user:{userId}`) so it is visible
- * without reloading and even without the chat open. Unknown wamids and
+ * T4 live patch, now through the T6 single fanout path: an applied delivery
+ * state reaches the open thread and the assignee (preview). Unknown wamids and
  * regressions (not applied by the message service) emit nothing.
  */
 describe('UpdateMessageStatusHandler', () => {
   const occurredAt = new Date('2026-10-05T12:00:00.000Z');
-  const emit = jest.fn();
-  const to = jest.fn().mockReturnValue({ emit });
   const applyDeliveryStatus = jest.fn();
-  const getActiveAssignment = jest.fn();
+  const emitStatusPatch = jest.fn().mockResolvedValue(undefined);
   const logger = { debug: jest.fn(), setContext: jest.fn() };
 
   const handler = new UpdateMessageStatusHandler(
     { applyDeliveryStatus } as unknown as MessageService,
-    { getActiveAssignment } as unknown as ConversationAssignmentService,
-    { server: { to } } as unknown as ConversationGateway,
+    { emitStatusPatch } as unknown as ConversationFanoutService,
     logger as never,
   );
 
@@ -43,12 +37,11 @@ describe('UpdateMessageStatusHandler', () => {
     jest.clearAllMocks();
   });
 
-  it('pushes the state patch to the conversation room and the assignee', async () => {
+  it('applies the state and pushes the patch through the fanout', async () => {
     applyDeliveryStatus.mockResolvedValue({
       applied: true,
       message: message(),
     });
-    getActiveAssignment.mockResolvedValue({ member: { userId: 'user-9' } });
 
     await handler.execute(
       new UpdateMessageStatusCommand('wamid-out-1', 'delivered', occurredAt),
@@ -61,10 +54,7 @@ describe('UpdateMessageStatusHandler', () => {
       errorCode: null,
       errorMessage: null,
     });
-    expect(to).toHaveBeenCalledWith('conversation:conv-1');
-    expect(to).toHaveBeenCalledWith('user:user-9');
-    expect(emit).toHaveBeenCalledTimes(2);
-    expect(emit).toHaveBeenCalledWith(ConversationSocketEvent.MessageStatus, {
+    expect(emitStatusPatch).toHaveBeenCalledWith({
       id: 'msg-1',
       conversationId: 'conv-1',
       clientMessageId: 'client-1',
@@ -84,7 +74,6 @@ describe('UpdateMessageStatusHandler', () => {
         errorMessage: 'Re-engagement message',
       }),
     });
-    getActiveAssignment.mockResolvedValue(null);
 
     await handler.execute(
       new UpdateMessageStatusCommand('wamid-out-1', 'failed', occurredAt, {
@@ -93,29 +82,13 @@ describe('UpdateMessageStatusHandler', () => {
       }),
     );
 
-    expect(emit).toHaveBeenCalledWith(
-      ConversationSocketEvent.MessageStatus,
+    expect(emitStatusPatch).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
         errorCode: '131047',
         errorMessage: 'Re-engagement message',
       }),
     );
-  });
-
-  it('emits only the thread patch when the conversation has no assignee', async () => {
-    applyDeliveryStatus.mockResolvedValue({
-      applied: true,
-      message: message(),
-    });
-    getActiveAssignment.mockResolvedValue(null);
-
-    await handler.execute(
-      new UpdateMessageStatusCommand('wamid-out-1', 'delivered', occurredAt),
-    );
-
-    expect(to).toHaveBeenCalledTimes(1);
-    expect(to).toHaveBeenCalledWith('conversation:conv-1');
   });
 
   it('emits nothing for an unmatched wamid or an ignored regression', async () => {
@@ -125,8 +98,6 @@ describe('UpdateMessageStatusHandler', () => {
       new UpdateMessageStatusCommand('wamid-ghost', 'delivered', occurredAt),
     );
 
-    expect(to).not.toHaveBeenCalled();
-    expect(emit).not.toHaveBeenCalled();
-    expect(getActiveAssignment).not.toHaveBeenCalled();
+    expect(emitStatusPatch).not.toHaveBeenCalled();
   });
 });

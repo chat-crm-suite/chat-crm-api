@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { CqrsModule } from '@nestjs/cqrs';
+import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { SentimentModule } from '../analysis/sentiment/sentiment.module';
@@ -28,6 +29,8 @@ import { ConversationsService } from './conversations.service';
 import { ConversationAssignment } from './entities/conversation-assignment.entity';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationGateway } from './gateways/conversation.gateway';
+import { ConversationAccessService } from './realtime/conversation-access.service';
+import { ConversationFanoutService } from './realtime/conversation-fanout.service';
 
 const commandHandlers = [
   BroadcastConversationMessageHandler,
@@ -49,6 +52,11 @@ const commandHandlers = [
       CompanyMember,
     ]),
     BullModule.registerQueue({ name: 'chat' }),
+    // Same secret as the HTTP auth layer: the socket verifies the existing
+    // `access_token` cookie during the handshake.
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'your_jwt_secret',
+    }),
     MessageModule,
     NotificationsModule,
     CustomersModule,
@@ -59,6 +67,8 @@ const commandHandlers = [
     ConversationsService,
     ConversationRepository,
     ConversationGateway,
+    ConversationAccessService,
+    ConversationFanoutService,
     ConversationAssignmentService,
     ConversationAssignmentNotifier,
     ConversationProcessor,

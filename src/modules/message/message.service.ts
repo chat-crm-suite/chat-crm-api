@@ -102,4 +102,9 @@ export class MessageService {
       ? strategy.toBroadcastFields(message, attachments)
       : toConversationMessagePayload(message, attachments);
   }
+
+  /** Replay idempotency: does this wamid already have a persisted row? */
+  findByExternalId(externalId: string): Promise<Message | null> {
+    return this.repo.findByExternalId(externalId);
+  }
 }

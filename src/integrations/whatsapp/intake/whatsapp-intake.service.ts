@@ -60,6 +60,20 @@ export class WhatsAppIntakeService {
       take: limit,
     });
   }
+
+  /**
+   * Consumes a pending event (T2): once its conversation row exists, it must
+   * never be replayed again. Idempotent: an already-consumed or unknown wamid
+   * is a noop.
+   */
+  async markReplayed(wamid: string): Promise<void> {
+    if (!wamid) return;
+
+    await this.events.update(
+      { wamid, status: 'pending' },
+      { status: 'replayed' },
+    );
+  }
 }
 
 /** MySQL 1062 / sqlite UNIQUE: an already-seen `wamid`, never a real error. */

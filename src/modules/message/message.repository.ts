@@ -110,6 +110,11 @@ export class MessageRepository {
     return this.messages.findOne({ where: { id: messageId } });
   }
 
+  /** Replay idempotency: the wamid already has a persisted row. */
+  findByExternalId(externalId: string): Promise<Message | null> {
+    return this.messages.findOne({ where: { externalId } });
+  }
+
   findConversationMessages(conversationId: string): Promise<Message[]> {
     return this.messages.find({
       where: { conversationId },

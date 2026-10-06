@@ -63,6 +63,8 @@ export class ConversationsService {
       content: MessageContentLike;
       mediaUrl?: string;
       externalId?: string;
+      externalMediaId?: string;
+      mimeType?: string;
     },
     sender: { id: string; type: MessageSenderType },
     companyId?: string,
@@ -97,13 +99,15 @@ export class ConversationsService {
       externalId: msg.externalId ?? null,
       status: inbound ? 'delivered' : 'sent',
       attachments:
-        attachmentType && link
+        attachmentType && (link || msg.externalMediaId)
           ? [
               {
                 type: attachmentType,
-                mimeType: guessMimeType(msg.content?.filename),
+                mimeType:
+                  msg.mimeType ?? guessMimeType(msg.content?.filename),
                 fileName: msg.content?.filename,
                 storageUrl: link,
+                externalMediaId: msg.externalMediaId,
               },
             ]
           : undefined,

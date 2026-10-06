@@ -31,7 +31,7 @@ const entities = Object.values(Entities).filter(
 /**
  * T4: `GET /conversations/:id/sentiment` reads its aggregate from the
  * persisted `analyses` + `sentiment_results` rows: averages over completed
- * sentiment analyses of that conversation only.
+ * sentiment analyses of that conversation, scoped to the caller's company.
  */
 describe('SentimentRepository conversation aggregate (T4)', () => {
   let module: TestingModule;
@@ -123,7 +123,10 @@ describe('SentimentRepository conversation aggregate (T4)', () => {
     });
 
     expectAggregate(
-      await repository.aggregateConversationSentiment(conversation.id),
+      await repository.aggregateConversationSentiment(
+        conversation.id,
+        companyId,
+      ),
       { avgPos: 0.6, avgNeu: 0.2667, avgNeg: 0.1333, totalMessages: 3 },
     );
   });
@@ -132,25 +135,58 @@ describe('SentimentRepository conversation aggregate (T4)', () => {
     const first = await seedConversation();
     const second = await seedConversation();
 
-    await seedAnalysis(first.conversation.id, first.conversation.companyId, first.message.id, {
-      pos: 1,
-      neu: 0,
-      neg: 0,
-    });
-    await seedAnalysis(first.conversation.id, first.conversation.companyId, first.message.id, {
-      pos: 0.5,
-      neu: 0.5,
-      neg: 0,
-    });
-    await seedAnalysis(second.conversation.id, second.conversation.companyId, second.message.id, {
-      pos: 0,
-      neu: 0,
-      neg: 1,
-    });
+    await seedAnalysis(
+      first.conversation.id,
+      first.conversation.companyId,
+      first.message.id,
+      { pos: 1, neu: 0, neg: 0 },
+    );
+    await seedAnalysis(
+      first.conversation.id,
+      first.conversation.companyId,
+      first.message.id,
+      { pos: 0.5, neu: 0.5, neg: 0 },
+    );
+    await seedAnalysis(
+      second.conversation.id,
+      second.conversation.companyId,
+      second.message.id,
+      { pos: 0, neu: 0, neg: 1 },
+    );
 
     expectAggregate(
-      await repository.aggregateConversationSentiment(first.conversation.id),
+      await repository.aggregateConversationSentiment(
+        first.conversation.id,
+        first.conversation.companyId,
+      ),
       { avgPos: 0.75, avgNeu: 0.25, avgNeg: 0, totalMessages: 2 },
+    );
+  });
+
+  it('scopes the aggregate to the company', async () => {
+    const first = await seedConversation();
+    const second = await seedConversation();
+
+    await seedAnalysis(
+      first.conversation.id,
+      first.conversation.companyId,
+      first.message.id,
+      { pos: 0.5, neu: 0.5, neg: 0 },
+    );
+    // Same conversation id, another company: tenant leakage, must be ignored.
+    await seedAnalysis(
+      first.conversation.id,
+      second.conversation.companyId,
+      first.message.id,
+      { pos: 0, neu: 0, neg: 1 },
+    );
+
+    expectAggregate(
+      await repository.aggregateConversationSentiment(
+        first.conversation.id,
+        first.conversation.companyId,
+      ),
+      { avgPos: 0.5, avgNeu: 0.5, avgNeg: 0, totalMessages: 1 },
     );
   });
 
@@ -172,7 +208,10 @@ describe('SentimentRepository conversation aggregate (T4)', () => {
     );
 
     expectAggregate(
-      await repository.aggregateConversationSentiment(conversation.id),
+      await repository.aggregateConversationSentiment(
+        conversation.id,
+        companyId,
+      ),
       { avgPos: 0.9, avgNeu: 0.05, avgNeg: 0.05, totalMessages: 1 },
     );
   });
@@ -181,8 +220,35 @@ describe('SentimentRepository conversation aggregate (T4)', () => {
     const { conversation } = await seedConversation();
 
     expectAggregate(
-      await repository.aggregateConversationSentiment(conversation.id),
+      await repository.aggregateConversationSentiment(
+        conversation.id,
+        conversation.companyId,
+      ),
       { avgPos: 0, avgNeu: 0, avgNeg: 0, totalMessages: 0 },
     );
+  });
+
+  it('detects whether the conversation belongs to the company', async () => {
+    const first = await seedConversation();
+    const second = await seedConversation();
+
+    await expect(
+      repository.conversationBelongsToCompany(
+        first.conversation.id,
+        first.conversation.companyId,
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      repository.conversationBelongsToCompany(
+        first.conversation.id,
+        second.conversation.companyId,
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      repository.conversationBelongsToCompany(
+        'unknown-conversation',
+        first.conversation.companyId,
+      ),
+    ).resolves.toBe(false);
   });
 });

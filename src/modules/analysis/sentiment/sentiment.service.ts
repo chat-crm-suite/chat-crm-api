@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
 import type {
@@ -121,14 +121,26 @@ export class SentimentService {
 
   /**
    * T4: per-conversation customer tone for `GET /conversations/:id/sentiment`,
-   * built from the persisted analyses. A conversation without analyses stays
-   * neutral with zero averages.
+   * built from the persisted analyses and scoped to the caller's company. An
+   * unknown id (or one owned by another company) is a 404; an existing
+   * conversation without analyses stays neutral with zero averages.
    */
   async getConversationSentiment(
     conversationId: string,
+    companyId: string,
   ): Promise<ConversationSentiment> {
-    const aggregate =
-      await this.repo.aggregateConversationSentiment(conversationId);
+    const belongs = await this.repo.conversationBelongsToCompany(
+      conversationId,
+      companyId,
+    );
+    if (!belongs) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    const aggregate = await this.repo.aggregateConversationSentiment(
+      conversationId,
+      companyId,
+    );
 
     return {
       ...aggregate,

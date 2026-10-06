@@ -151,13 +151,20 @@ export class ConversationsController {
   }
 
   /**
-   * Customer tone of one conversation: averages over its completed sentiment
-   * analyses (historical threads included). Empty conversations stay neutral.
+   * Customer tone of one conversation, scoped to the caller's company:
+   * averages over its completed sentiment analyses (historical threads
+   * included). Empty conversations stay neutral; unknown or foreign ids are
+   * a 404.
    */
   @Get(':id/sentiment')
   @ZodSerializerDto(ConversationSentimentDto)
   @ApiOkResponse({ type: ConversationSentimentDto })
   findSentiment(@Param('id') id: string) {
-    return this.sentiment.getConversationSentiment(id);
+    const companyId = this.cls.get<string>(CLS_COMPANY_ID);
+    if (!companyId) {
+      throw new BadRequestException('Company context required');
+    }
+
+    return this.sentiment.getConversationSentiment(id, companyId);
   }
 }

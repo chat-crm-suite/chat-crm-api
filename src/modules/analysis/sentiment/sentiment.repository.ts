@@ -30,6 +30,14 @@ export type CompleteAnalysisInput = {
   result: SentimentResultPayload;
 };
 
+/** Averages + analyzed count over the completed analyses of a conversation. */
+export type ConversationSentimentAggregate = {
+  avgPos: number;
+  avgNeu: number;
+  avgNeg: number;
+  totalMessages: number;
+};
+
 /**
  * Persistence for the v2 `analyses` header + its 1:1 `sentiment_results`
  * detail, plus message lookups needed by the processor.
@@ -101,4 +109,42 @@ export class SentimentRepository {
       error: message.slice(0, 500),
     });
   }
+
+  /**
+   * T4: `GET /conversations/:id/sentiment` source. Averages the probabilities
+   * of the conversation's completed sentiment analyses and counts them. MySQL
+   * returns AVG/COUNT as strings, so every value is normalized to a number;
+   * a conversation without analyses yields zeros.
+   */
+  async aggregateConversationSentiment(
+    conversationId: string,
+  ): Promise<ConversationSentimentAggregate> {
+    const row = await this.analyses
+      .createQueryBuilder('analysis')
+      .innerJoin(
+        SentimentResult,
+        'sentiment',
+        'sentiment.analysis_id = analysis.id',
+      )
+      .select('AVG(sentiment.score_positive)', 'avgPos')
+      .addSelect('AVG(sentiment.score_neutral)', 'avgNeu')
+      .addSelect('AVG(sentiment.score_negative)', 'avgNeg')
+      .addSelect('COUNT(sentiment.analysis_id)', 'totalMessages')
+      .where('analysis.conversation_id = :conversationId', { conversationId })
+      .andWhere('analysis.status = :status', { status: 'completed' })
+      .getRawOne<Record<string, unknown>>();
+
+    return {
+      avgPos: toNumber(row?.avgPos),
+      avgNeu: toNumber(row?.avgNeu),
+      avgNeg: toNumber(row?.avgNeg),
+      totalMessages: Math.trunc(toNumber(row?.totalMessages)),
+    };
+  }
+}
+
+function toNumber(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+
+  return Number.isFinite(parsed) ? parsed : 0;
 }

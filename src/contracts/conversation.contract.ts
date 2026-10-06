@@ -184,3 +184,22 @@ export const ConversationMessageAttachmentPatchSchema = z.object({
 export type ConversationMessageAttachmentPatch = z.infer<
   typeof ConversationMessageAttachmentPatchSchema
 >;
+
+/**
+ * Customer tone of one conversation: `GET /conversations/:id/sentiment`.
+ *
+ * `avgPos` / `avgNeu` / `avgNeg` are probabilities in [0, 1] averaged over the
+ * completed sentiment analyses of the conversation; `totalMessages` counts
+ * those analyzed messages. `dominant` is the highest average, with ties
+ * resolved POS > NEG > NEU, so the indicator is deterministic. A conversation
+ * without analyses stays neutral with zero averages.
+ */
+export const ConversationSentimentSchema = z.object({
+  avgPos: z.number(),
+  avgNeu: z.number(),
+  avgNeg: z.number(),
+  totalMessages: z.number().int().min(0),
+  dominant: z.enum(['POS', 'NEU', 'NEG']),
+});
+
+export type ConversationSentiment = z.infer<typeof ConversationSentimentSchema>;

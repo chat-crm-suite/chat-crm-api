@@ -17,6 +17,7 @@ import {
   FailWhatsAppMessageHandler,
   SaveConversationMessageHandler,
   SendConversationMessageHandler,
+  UpdateMessageStatusHandler,
   UpdateSentimentIndicatorHandler,
 } from './commands/handlers';
 import { ConversationProcessor } from './conversation.processor';
@@ -35,6 +36,7 @@ const commandHandlers = [
   FailWhatsAppMessageHandler,
   SaveConversationMessageHandler,
   SendConversationMessageHandler,
+  UpdateMessageStatusHandler,
   UpdateSentimentIndicatorHandler,
 ];
 

@@ -4,4 +4,5 @@ export { EnsureConversationAssignedCommand } from './ensure-conversation-assigne
 export { FailWhatsAppMessageCommand } from './fail-whatsapp-message.command';
 export { SaveConversationMessageCommand } from './save-conversation-message.command';
 export { SendConversationMessageCommand } from './send-conversation-message.command';
+export { UpdateMessageStatusCommand } from './update-message-status.command';
 export { UpdateSentimentIndicatorCommand } from './update-sentiment-indicator.command';

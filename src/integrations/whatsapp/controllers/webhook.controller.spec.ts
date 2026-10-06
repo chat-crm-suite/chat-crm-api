@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import type { WhatsappNotification } from '@daweto/whatsapp-api-types';
 
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
+import { UpdateMessageStatusCommand } from '../../../modules/conversations/commands/update-message-status.command';
 import { WebhookController } from './webhook.controller';
 
 /**
@@ -25,6 +26,11 @@ describe('WebhookController (T1 durable intake)', () => {
   const STATUS_SIGNATURE =
     'sha256=6f09d7513d630d2bf32d834fa29a1e87727ff696c0785394d1a7040a8436323e';
 
+  const FAILED_STATUS_PAYLOAD =
+    '{"object":"whatsapp_business_account","entry":[{"id":"123","changes":[{"field":"messages","value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"15550001111","phone_number_id":"phone-1"},"statuses":[{"id":"wamid-out-1","status":"failed","timestamp":"1760000002","recipient_id":"15551234567","errors":[{"code":131047,"title":"Re-engagement message","message":"Message failed to send because more than 24 hours have passed since the customer last replied","error_data":{"details":"Message failed to send"}}]}]}}]}]}';
+  const FAILED_STATUS_SIGNATURE =
+    'sha256=81ab5fb413a8d464c8b79b4e58f369f055d331a81ff0bab1a360f396a8a413ac';
+
   let service: { verifyToken: jest.Mock };
   let commandExecute: jest.Mock<Promise<unknown>, [unknown]>;
   let configGet: jest.Mock;
@@ -37,10 +43,18 @@ describe('WebhookController (T1 durable intake)', () => {
   };
   let controller: WebhookController;
 
-  const textPayload = () =>
-    JSON.parse(TEXT_PAYLOAD) as WhatsappNotification;
+  const textPayload = () => JSON.parse(TEXT_PAYLOAD) as WhatsappNotification;
   const statusPayload = () =>
     JSON.parse(STATUS_PAYLOAD) as WhatsappNotification;
+  const failedStatusPayload = () =>
+    JSON.parse(FAILED_STATUS_PAYLOAD) as WhatsappNotification;
+  const statusCommand = () =>
+    commandExecute.mock.calls
+      .map(([command]) => command)
+      .find(
+        (command): command is UpdateMessageStatusCommand =>
+          command instanceof UpdateMessageStatusCommand,
+      );
   const request = (rawBody: string, signature: string | undefined) => ({
     headers: { 'x-hub-signature-256': signature },
     rawBody: Buffer.from(rawBody, 'utf8'),
@@ -86,7 +100,8 @@ describe('WebhookController (T1 durable intake)', () => {
     expect(commandExecute).toHaveBeenCalledWith(
       expect.any(ReceiveWhatsAppMessageCommand),
     );
-    const dispatched = commandExecute.mock.calls[0][0] as ReceiveWhatsAppMessageCommand;
+    const dispatched = commandExecute.mock
+      .calls[0][0] as ReceiveWhatsAppMessageCommand;
     expect(dispatched.message.context.messageId).toBe('wamid-test-1');
   });
 
@@ -180,5 +195,44 @@ describe('WebhookController (T1 durable intake)', () => {
 
     expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
     expect(persistIfNew).not.toHaveBeenCalled();
+  });
+
+  it('dispatches a delivered state keyed by wamid with Meta time', async () => {
+    const res = response();
+
+    await controller.receiveMessage(
+      statusPayload(),
+      request(STATUS_PAYLOAD, STATUS_SIGNATURE) as never,
+      res as never,
+    );
+
+    expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
+    expect(statusCommand()).toMatchObject({
+      wamid: 'wamid-out-1',
+      status: 'delivered',
+    });
+    expect(statusCommand()?.occurredAt).toEqual(new Date(1_760_000_001_000));
+  });
+
+  it('dispatches a failed state with its error code and message', async () => {
+    const res = response();
+
+    await controller.receiveMessage(
+      failedStatusPayload(),
+      request(FAILED_STATUS_PAYLOAD, FAILED_STATUS_SIGNATURE) as never,
+      res as never,
+    );
+
+    expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
+    expect(statusCommand()).toMatchObject({
+      wamid: 'wamid-out-1',
+      status: 'failed',
+      error: {
+        code: '131047',
+        message:
+          'Message failed to send because more than 24 hours have passed since the customer last replied',
+      },
+    });
+    expect(statusCommand()?.occurredAt).toEqual(new Date(1_760_000_002_000));
   });
 });

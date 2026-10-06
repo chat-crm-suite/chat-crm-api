@@ -11,6 +11,7 @@ import type {
 } from '../../contracts/index';
 import { Conversation } from '../conversations/entities/conversation.entity';
 import { MessageAttachment } from './entities/message-attachment.entity';
+import { MessageStatusEvent } from './entities/message-status-event.entity';
 import { Message } from './entities/message.entity';
 
 export interface SaveMessageAttachment {
@@ -108,6 +109,54 @@ export class MessageRepository {
 
   findById(messageId: string): Promise<Message | null> {
     return this.messages.findOne({ where: { id: messageId } });
+  }
+
+  /** The message a Meta status refers to: `external_id` is the Graph `wamid`. */
+  findByExternalId(externalId: string): Promise<Message | null> {
+    return this.messages.findOne({
+      where: { externalId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Applies one Meta delivery state to the message row and appends the
+   * transition to the append-only history, in a single transaction. The
+   * caller owns the transition policy (`MessageService`).
+   */
+  async applyStatus(
+    messageId: string,
+    update: {
+      status: MessageStatus;
+      occurredAt: Date;
+      errorCode?: string | null;
+      errorMessage?: string | null;
+    },
+  ): Promise<Message> {
+    return this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        Message,
+        { id: messageId },
+        {
+          status: update.status,
+          statusUpdatedAt: update.occurredAt,
+          // Column limits guard against oversized Meta errors.
+          errorCode: update.errorCode?.slice(0, 50) ?? null,
+          errorMessage: update.errorMessage?.slice(0, 500) ?? null,
+        },
+      );
+
+      await manager.save(
+        manager.create(MessageStatusEvent, {
+          messageId,
+          status: update.status,
+          occurredAt: update.occurredAt,
+          errorCode: update.errorCode?.slice(0, 50) ?? null,
+        }),
+      );
+
+      return manager.findOneByOrFail(Message, { id: messageId });
+    });
   }
 
   findConversationMessages(conversationId: string): Promise<Message[]> {

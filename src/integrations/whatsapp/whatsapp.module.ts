@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChannelsModule } from '../../modules/channels/channels.module';
 import { Channel } from '../../modules/channels/entities/channel.entity';
 import { ConversationsModule } from '../../modules/conversations/conversations.module';
+import { MessageModule } from '../../modules/message/message.module';
 import { WhatsAppClient } from './clients/whatsapp.client';
 import { MessageContentHandlers } from './commands/handlers/message-content.handlers';
 import { ReceiveWhatsAppMessageHandler } from './commands/handlers/receive-whatsapp-message.handler';
@@ -28,6 +29,7 @@ import { WhatsAppService } from './whatsapp.service';
     HttpModule,
     ChannelsModule,
     ConversationsModule,
+    MessageModule,
   ],
   controllers: [WebhookController],
   providers: [

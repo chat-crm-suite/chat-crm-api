@@ -215,4 +215,57 @@ describe('MessageService delivery states (integration)', () => {
     expect(reloaded.errorCode).toBe('131026');
     expect(reloaded.errorMessage).toBe('Message undeliverable');
   });
+
+  it('resets a failed row to pending for a user retry (#8)', async () => {
+    const message = await seedOutbound({
+      status: 'failed',
+      errorCode: '131047',
+      errorMessage: 'Re-engagement message',
+    });
+    const resetAt = new Date('2026-10-05T12:30:00.000Z');
+
+    const reset = await service.resetFailedForRetry(message.id, resetAt);
+
+    expect(reset?.status).toBe('pending');
+    expect(reset?.statusUpdatedAt).toEqual(resetAt);
+    expect(reset?.errorCode).toBeNull();
+    expect(reset?.errorMessage).toBeNull();
+
+    const reloaded = await reload(message.id);
+    expect(reloaded.status).toBe('pending');
+    expect(reloaded.errorCode).toBeNull();
+    expect(reloaded.errorMessage).toBeNull();
+
+    const history = await events.find({
+      where: { messageId: message.id },
+      order: { id: 'ASC' },
+    });
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({ status: 'pending', errorCode: null });
+  });
+
+  it('refuses to reset a row that is not failed (#8)', async () => {
+    const message = await seedOutbound({ status: 'sent' });
+
+    await expect(service.resetFailedForRetry(message.id)).resolves.toBeNull();
+
+    expect((await reload(message.id)).status).toBe('sent');
+    expect(await events.count({ where: { messageId: message.id } })).toBe(0);
+  });
+
+  it('lets exactly one of two concurrent retries win the reset (#8)', async () => {
+    const message = await seedOutbound({
+      status: 'failed',
+      errorCode: '131047',
+    });
+
+    const [first, second] = await Promise.all([
+      service.resetFailedForRetry(message.id),
+      service.resetFailedForRetry(message.id),
+    ]);
+
+    expect([first, second].filter((row) => row !== null)).toHaveLength(1);
+    expect((await reload(message.id)).status).toBe('pending');
+    expect(await events.count({ where: { messageId: message.id } })).toBe(1);
+  });
 });

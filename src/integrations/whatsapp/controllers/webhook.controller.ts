@@ -22,6 +22,7 @@ import {
 } from '@daweto/whatsapp-api-types';
 
 import { WebhookQuery } from '../dto/webhook.query.dto';
+import { withReEngagementAction } from '../legacy-error';
 import { WhatsAppService } from '../whatsapp.service';
 import { mapWebhookToMessages } from '../mappers/whatsapp-message.mapper';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
@@ -232,10 +233,14 @@ export class WebhookController {
             break;
           }
           // Existing transient flash for open chats; the persisted state above
-          // is what keeps the failure visible without reloads.
+          // is what keeps the failure visible without reloads. A 24h-window
+          // error keeps its raw shape plus the template-action flag (#9).
           status.errors?.map((err) => {
             this.executeSafely(
-              new FailWhatsAppMessageCommand(status.recipient_id, err),
+              new FailWhatsAppMessageCommand(
+                status.recipient_id,
+                withReEngagementAction(err, status.recipient_id),
+              ),
               `FailWhatsAppMessage(${status.id})`,
             );
 

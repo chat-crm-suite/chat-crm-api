@@ -241,6 +241,19 @@ export class MessageService {
     return this.repo.markSendFailed(messageId, error, at);
   }
 
+  /**
+   * #8: user-initiated retry of a failed outbound row. Compare-and-set on
+   * `failed`: the caller that wins gets the reset row (back to `pending`, with
+   * the provider error cleared) and owns the new Graph call; a loser gets
+   * `null` and must not send.
+   */
+  resetFailedForRetry(
+    messageId: string,
+    at: Date = new Date(),
+  ): Promise<Message | null> {
+    return this.repo.resetFailedForRetry(messageId, at);
+  }
+
   /** T3: attachments of a saved row still waiting for their media file. */
   findPendingMediaAttachments(messageId: string): Promise<MessageAttachment[]> {
     return this.repo.findPendingMediaAttachments(messageId);

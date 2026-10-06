@@ -23,6 +23,10 @@ import { WhatsAppService } from '../whatsapp.service';
  * (idempotent by `client_message_id`) and broadcast immediately; only Graph's
  * answer carries the wamid that moves the row to `sent`, and the T4 delivery
  * states move it from there. Failures persist on the row instead of vanishing.
+ *
+ * #8: a user retry of a `failed` row resets it to `pending` through an atomic
+ * compare-and-set before Graph is called again; concurrent retries cannot
+ * double-send.
  */
 @Injectable()
 export class AgentMessageSender {
@@ -42,34 +46,65 @@ export class AgentMessageSender {
     options?: { attemptsMade?: number },
   ): Promise<Message | null> {
     const attemptsMade = options?.attemptsMade ?? 0;
-    const { message, created } = await this.conversations.saveOutbound(
+    const { message: saved, created } = await this.conversations.saveOutbound(
       data.room,
       { ...data.msg, clientMessageId: data.clientMessageId ?? null },
       data.sender,
       data.companyId,
     );
+    let message = saved;
 
-    // A double submit (same client id) returns the existing row: the first
-    // submit already broadcast it and owns the Graph send.
     if (!created) {
-      // A stalled BullMQ retry is not a duplicate: the original attempt died
-      // before Graph answered, so a still-pending row is ours to send.
-      if (attemptsMade === 0 || message.status !== 'pending') {
+      if (message.status === 'failed') {
+        // #8 user-initiated retry: only the atomic winner flips the row back
+        // to pending and owns the new Graph call; a concurrent retry loses the
+        // compare-and-set and falls into the duplicate guard.
+        const reset = await this.messages.resetFailedForRetry(message.id);
+        if (!reset) {
+          this.logger.debug(
+            {
+              messageId: message.id,
+              clientMessageId: message.clientMessageId,
+            },
+            'Duplicate client message id ignored',
+          );
+          return message;
+        }
+
+        message = reset;
+        this.logger.warn(
+          {
+            messageId: message.id,
+            clientMessageId: message.clientMessageId,
+          },
+          'Retrying a failed outbound send',
+        );
+        // The row goes back to pending before Graph is called, so every open
+        // thread sees the retry, not just the client that triggered it.
+        await this.fanout.emitStatusPatch(toMessageStatusPatch(message));
+      } else if (attemptsMade === 0 || message.status !== 'pending') {
+        // A double submit (same client id) returns the existing row: the first
+        // submit already broadcast it and owns the Graph send.
         this.logger.debug(
-          { messageId: message.id, clientMessageId: message.clientMessageId },
+          {
+            messageId: message.id,
+            clientMessageId: message.clientMessageId,
+          },
           'Duplicate client message id ignored',
         );
         return message;
+      } else {
+        // A stalled BullMQ retry is not a duplicate: the original attempt died
+        // before Graph answered, so a still-pending row is ours to send.
+        this.logger.warn(
+          {
+            messageId: message.id,
+            clientMessageId: message.clientMessageId,
+            attemptsMade,
+          },
+          'Retrying a stalled outbound send over the pending row',
+        );
       }
-
-      this.logger.warn(
-        {
-          messageId: message.id,
-          clientMessageId: message.clientMessageId,
-          attemptsMade,
-        },
-        'Retrying a stalled outbound send over the pending row',
-      );
     } else {
       // Same live path as any saved message: the pending row reaches the
       // thread before Graph is even called.
@@ -95,13 +130,14 @@ export class AgentMessageSender {
           message: error instanceof Error ? error.message : String(error),
         },
         data.msg.type,
+        data.to,
       );
     }
 
     const outcome = await this.whatsapp.deliverMessage(payload, data.companyId);
 
     if (!outcome.ok) {
-      return this.failSend(message, outcome.error, data.msg.type);
+      return this.failSend(message, outcome.error, data.msg.type, data.to);
     }
 
     const wamid = outcome.response?.messages?.[0]?.id;
@@ -114,6 +150,7 @@ export class AgentMessageSender {
           message: 'WhatsApp send answered without a wamid',
         },
         data.msg.type,
+        data.to,
       );
     }
 
@@ -127,12 +164,15 @@ export class AgentMessageSender {
 
   /**
    * The row stays in the thread as `failed` with the provider error; the live
-   * patch and the legacy error event carry the same failure.
+   * patch and the legacy error event carry the same failure. The recipient is
+   * the send destination, so a 24h-window failure can offer the template
+   * action with the phone to reuse (#9).
    */
   private async failSend(
     message: Message,
     error: WhatsAppErrorInfo,
     messageType: string,
+    recipient?: string,
   ): Promise<Message> {
     this.logger.error({ error, messageId: message.id }, 'WhatsApp send failed');
 
@@ -145,7 +185,7 @@ export class AgentMessageSender {
       await this.fanout.emitStatusPatch(toMessageStatusPatch(failed));
       await this.fanout.emitError(
         failed.conversationId,
-        toLegacyWhatsAppError(error, messageType),
+        toLegacyWhatsAppError(error, messageType, recipient),
       );
     }
 

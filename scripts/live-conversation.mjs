@@ -573,27 +573,40 @@ async function repliesPhase(records) {
 
   const ids = new Set(records.map((record) => record.id));
   for (const record of records) {
-    const delivered = await waitFor(
-      () =>
-        transcript.events.find(
-          (entry) =>
-            entry.event === 'status' &&
-            entry.payload?.id === record.id &&
-            entry.payload.status === 'delivered',
-        ),
-      30000,
-    );
-    if (!delivered) {
+    // Meta can send `read` before `delivered` (or skip the delivered webhook
+    // when the chat is opened quickly); the API then ignores a late delivered
+    // as a regression by design, so either receipt proves the phone got it.
+    const receipt = await waitFor(() => {
+      const delivered = transcript.events.find(
+        (entry) =>
+          entry.event === 'status' &&
+          entry.payload?.id === record.id &&
+          entry.payload.status === 'delivered',
+      );
+      if (delivered) return { kind: 'delivered', entry: delivered };
+      const read = transcript.events.find(
+        (entry) =>
+          entry.event === 'status' &&
+          entry.payload?.id === record.id &&
+          entry.payload.status === 'read',
+      );
+      return read ? { kind: 'read', entry: read } : null;
+    }, 30000);
+
+    if (!receipt) {
       bad(
-        `${record.item.type}: Meta accepted it but the phone receipt (delivered) did not arrive within 30s.`,
+        `${record.item.type}: Meta accepted it but neither the delivered nor the read receipt arrived within 30s.`,
       );
       throw new RunError('⑥');
     }
+
     record.deliveredAt = Date.now();
+    const sentTime = seconds(record.sentAt - record.emittedAt);
+    const receiptTime = seconds(record.deliveredAt - record.sentAt);
     ok(
-      `${record.item.type.padEnd(8)} accepted by Meta → reached the phone (sent ${seconds(
-        record.sentAt - record.emittedAt,
-      )} · delivered ${seconds(record.deliveredAt - record.sentAt)})`,
+      receipt.kind === 'delivered'
+        ? `${record.item.type.padEnd(8)} accepted by Meta → reached the phone (sent ${sentTime} · delivered ${receiptTime})`
+        : `${record.item.type.padEnd(8)} accepted by Meta → read by the phone (sent ${sentTime} · read ${receiptTime}; delivered implied)`,
     );
   }
 

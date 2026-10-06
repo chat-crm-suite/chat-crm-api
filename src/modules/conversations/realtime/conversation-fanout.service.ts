@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import type { WhatsappNotificationError } from '@daweto/whatsapp-api-types';
 
 import {
   ConversationSocketEvent,
@@ -46,6 +47,22 @@ export class ConversationFanoutService {
       patch.conversationId,
       ConversationSocketEvent.MessageStatus,
       patch,
+    );
+  }
+
+  /**
+   * T5 legacy failure notice: the existing `conversation:message:error` event
+   * still reaches the open thread and the assignee, now through the same
+   * membership-safe path as every other body.
+   */
+  emitError(
+    conversationId: string,
+    error: WhatsappNotificationError,
+  ): Promise<void> {
+    return this.emitToThreadAndAssignee(
+      conversationId,
+      ConversationSocketEvent.ErrorMessage,
+      error,
     );
   }
 

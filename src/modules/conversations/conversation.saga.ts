@@ -10,23 +10,13 @@ import {
   BroadcastConversationMessageCommand,
   ClaimConversationCommand,
   EnsureConversationAssignedCommand,
-  SaveConversationMessageCommand,
   UpdateSentimentIndicatorCommand,
 } from './commands/index';
-import { ConversationMessageSentEvent } from './events/conversation-message-sent.event';
 import { MessageSavedEvent } from './events/message-saved.event';
 
 @Injectable()
 export class ConversationSaga {
   constructor(private readonly messages: MessageService) {}
-
-  @Saga()
-  savedMessage = (event$: Observable<any>): Observable<ICommand> => {
-    return event$.pipe(
-      ofType(ConversationMessageSentEvent),
-      map((event) => new SaveConversationMessageCommand(event.payload)),
-    );
-  };
 
   @Saga()
   analyzeMessage = (events$: Observable<any>): Observable<ICommand> => {
@@ -67,7 +57,10 @@ export class ConversationSaga {
         if (!conversationId) return null;
 
         if (message.senderType === 'customer') {
-          return new EnsureConversationAssignedCommand(conversationId, companyId);
+          return new EnsureConversationAssignedCommand(
+            conversationId,
+            companyId,
+          );
         }
         if (message.senderType === 'member' && message.senderMemberId) {
           return new ClaimConversationCommand(
@@ -82,8 +75,8 @@ export class ConversationSaga {
         (
           command,
         ): command is
-          | EnsureConversationAssignedCommand
-          | ClaimConversationCommand => command !== null,
+          EnsureConversationAssignedCommand | ClaimConversationCommand =>
+          command !== null,
       ),
     );
   };

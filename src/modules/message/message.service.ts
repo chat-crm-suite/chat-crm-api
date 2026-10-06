@@ -30,6 +30,33 @@ export interface DeliveryStatusOutcome {
   message: Message | null;
 }
 
+/** Persist input shared by the inbound save and the T5 outbound save. */
+export interface SaveMessageParams {
+  companyId: string;
+  conversationId: string;
+  type: MessageType;
+  direction: MessageDirection;
+  senderType: MessageSenderType;
+  senderMemberId?: string | null;
+  senderCustomerId?: string | null;
+  body?: string | null;
+  externalId?: string | null;
+  clientMessageId?: string | null;
+  status?: MessageStatus;
+  attachments?: Array<{
+    type: AttachmentType;
+    mimeType?: string;
+    fileName?: string;
+    storageUrl?: string;
+    externalMediaId?: string;
+    status?: AttachmentStatus;
+    sizeBytes?: number | null;
+    width?: number | null;
+    height?: number | null;
+    durationMs?: number | null;
+  }>;
+}
+
 @Injectable()
 export class MessageService {
   constructor(private readonly repo: MessageRepository) {}
@@ -38,35 +65,59 @@ export class MessageService {
    * Persists an inbound/outbound message, its attachments and refreshes the
    * conversation preview (`last_message_id` / `last_message_at`).
    */
-  saveMessage(params: {
-    companyId: string;
-    conversationId: string;
-    type: MessageType;
-    direction: MessageDirection;
-    senderType: MessageSenderType;
-    senderMemberId?: string | null;
-    senderCustomerId?: string | null;
-    body?: string | null;
-    externalId?: string | null;
-    clientMessageId?: string | null;
-    status?: MessageStatus;
-    attachments?: Array<{
-      type: AttachmentType;
-      mimeType?: string;
-      fileName?: string;
-      storageUrl?: string;
-      externalMediaId?: string;
-      status?: AttachmentStatus;
-      sizeBytes?: number | null;
-      width?: number | null;
-      height?: number | null;
-      durationMs?: number | null;
-    }>;
-  }): Promise<Message> {
+  saveMessage(params: SaveMessageParams): Promise<Message> {
     return this.repo.create({
       ...params,
       status: params.status ?? 'pending',
     });
+  }
+
+  /**
+   * T5: outbound save, idempotent by `client_message_id`. A double submit
+   * returns the already-saved row with `created: false` instead of inserting a
+   * second one (the DB unique index settles concurrent submits).
+   */
+  async saveOutbound(
+    params: SaveMessageParams,
+  ): Promise<{ message: Message; created: boolean }> {
+    const clientMessageId = params.clientMessageId ?? null;
+
+    if (clientMessageId) {
+      const existing = await this.repo.findByClientMessageId(
+        params.conversationId,
+        clientMessageId,
+      );
+      if (existing) return { message: existing, created: false };
+    }
+
+    // Two concurrent submits can deadlock (unique index vs the conversation
+    // preview update) or lose the unique-index race; both are transient, and
+    // the retry either finds the winner's row or inserts after it commits.
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const message = await this.saveMessage(params);
+        return { message, created: true };
+      } catch (error: unknown) {
+        lastError = error;
+
+        if (
+          !clientMessageId ||
+          (!isDuplicateKeyError(error) && !isDeadlockError(error))
+        ) {
+          throw error;
+        }
+
+        const existing = await this.repo.findByClientMessageId(
+          params.conversationId,
+          clientMessageId,
+        );
+        if (existing) return { message: existing, created: false };
+      }
+    }
+
+    throw lastError;
   }
 
   /**
@@ -145,6 +196,30 @@ export class MessageService {
     return this.repo.findByExternalId(externalId);
   }
 
+  /**
+   * T5: Graph answered the send with a wamid: the pending row becomes `sent`
+   * and keeps the provider id. A row already moved returns `null`.
+   */
+  markSent(
+    messageId: string,
+    wamid: string,
+    at: Date = new Date(),
+  ): Promise<Message | null> {
+    return this.repo.markSent(messageId, wamid, at);
+  }
+
+  /**
+   * T5: the send failed for good: the row stays in the thread as `failed`
+   * with the provider error. A row already moved returns `null`.
+   */
+  markSendFailed(
+    messageId: string,
+    error: { code?: string | null; message?: string | null },
+    at: Date = new Date(),
+  ): Promise<Message | null> {
+    return this.repo.markSendFailed(messageId, error, at);
+  }
+
   /** T3: attachments of a saved row still waiting for their media file. */
   findPendingMediaAttachments(messageId: string): Promise<MessageAttachment[]> {
     return this.repo.findPendingMediaAttachments(messageId);
@@ -184,4 +259,39 @@ function isStatusAdvance(
   if (current === 'failed') return false;
 
   return STATUS_RANK[incoming] > STATUS_RANK[current];
+}
+
+/**
+ * MySQL unique-index violation. The driver may wrap the error (QueryFailedError
+ * exposes the original as `driverError`), so both shapes are checked.
+ */
+function isDuplicateKeyError(error: unknown): boolean {
+  const candidate = error as {
+    code?: string;
+    errno?: number;
+    driverError?: { code?: string; errno?: number };
+  };
+
+  return (
+    candidate?.code === 'ER_DUP_ENTRY' ||
+    candidate?.errno === 1062 ||
+    candidate?.driverError?.code === 'ER_DUP_ENTRY' ||
+    candidate?.driverError?.errno === 1062
+  );
+}
+
+/** InnoDB chose this transaction as the deadlock victim: safe to retry. */
+function isDeadlockError(error: unknown): boolean {
+  const candidate = error as {
+    code?: string;
+    errno?: number;
+    driverError?: { code?: string; errno?: number };
+  };
+
+  return (
+    candidate?.code === 'ER_LOCK_DEADLOCK' ||
+    candidate?.errno === 1213 ||
+    candidate?.driverError?.code === 'ER_LOCK_DEADLOCK' ||
+    candidate?.driverError?.errno === 1213
+  );
 }

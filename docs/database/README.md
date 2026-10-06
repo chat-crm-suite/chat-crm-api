@@ -20,6 +20,7 @@ The runtime DDL is the TypeORM entities (`src/**/entities/*.ts`) and the migrati
 ## Message lifecycle
 
 - Statuses advance in one direction: `pending < sent < delivered < read`; `failed` always wins. A late `delivered` after `read` is ignored. The current state lives on `messages.status` / `status_updated_at` / `error_code` / `error_message`, and every applied webhook transition is also appended to `message_status_events`.
+- A user-initiated retry is the one exception to `failed` being terminal: `resetFailedForRetry` compare-and-sets a `failed` outbound row back to `pending` (clearing the provider error), so the send pipeline calls the provider again; concurrent retries cannot both win.
 - MySQL first, sockets after: state is written to MySQL before anything is emitted, so a lost emit is recovered by reloading.
 - Idempotency keys: `messages.external_id` (provider wamid, unique per conversation) makes webhook retries a no-op; `client_message_id` (unique per conversation) makes a client resend a no-op.
 

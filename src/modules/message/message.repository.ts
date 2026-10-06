@@ -196,6 +196,43 @@ export class MessageRepository {
     });
   }
 
+  /**
+   * #8: a user-initiated retry flips a failed outbound row back to `pending`
+   * so the send pipeline calls Graph again. Only a `failed` row can transition
+   * (compare-and-set), so two concurrent retries cannot both win: the loser
+   * gets `null` and never sends. The provider error is cleared and the retry
+   * is appended to the history.
+   */
+  async resetFailedForRetry(
+    messageId: string,
+    at: Date,
+  ): Promise<Message | null> {
+    return this.dataSource.transaction(async (manager) => {
+      const result = await manager.update(
+        Message,
+        { id: messageId, status: 'failed' },
+        {
+          status: 'pending',
+          statusUpdatedAt: at,
+          errorCode: null,
+          errorMessage: null,
+        },
+      );
+
+      if (!result.affected) return null;
+
+      await manager.save(
+        manager.create(MessageStatusEvent, {
+          messageId,
+          status: 'pending',
+          occurredAt: at,
+        }),
+      );
+
+      return manager.findOneByOrFail(Message, { id: messageId });
+    });
+  }
+
   /** The message a Meta status refers to: `external_id` is the Graph `wamid`. */
   findByExternalId(externalId: string): Promise<Message | null> {
     return this.messages.findOne({

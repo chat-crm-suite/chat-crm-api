@@ -32,7 +32,11 @@ const message = (overrides: Partial<Message> = {}): Message =>
 
 function build() {
   const conversations = { saveOutbound: jest.fn() };
-  const messages = { markSent: jest.fn(), markSendFailed: jest.fn() };
+  const messages = {
+    markSent: jest.fn(),
+    markSendFailed: jest.fn(),
+    resetFailedForRetry: jest.fn(),
+  };
   const whatsapp = { deliverMessage: jest.fn() };
   const fanout = { emitStatusPatch: jest.fn(), emitError: jest.fn() };
   const eventBus = { publish: jest.fn() };
@@ -143,5 +147,112 @@ describe('AgentMessageSender stalled retries (T5)', () => {
 
     expect(whatsapp.deliverMessage).not.toHaveBeenCalled();
     expect(messages.markSent).not.toHaveBeenCalled();
+  });
+});
+
+describe('AgentMessageSender failed retries (#8)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('re-attempts delivery when the user retries a failed row', async () => {
+    const { sender, conversations, messages, whatsapp, fanout, eventBus } =
+      build();
+    const failed = message({
+      status: 'failed',
+      errorCode: '131047',
+      errorMessage: 'Re-engagement message',
+    });
+    const pending = message({
+      status: 'pending',
+      errorCode: null,
+      errorMessage: null,
+    });
+    conversations.saveOutbound.mockResolvedValue({
+      message: failed,
+      created: false,
+    });
+    messages.resetFailedForRetry.mockResolvedValue(pending);
+    whatsapp.deliverMessage.mockResolvedValue({
+      ok: true,
+      response: { messages: [{ id: 'wamid-2' }] },
+    });
+    messages.markSent.mockResolvedValue(
+      message({ status: 'sent', externalId: 'wamid-2' }),
+    );
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    expect(messages.resetFailedForRetry).toHaveBeenCalledWith('msg-1');
+    expect(whatsapp.deliverMessage).toHaveBeenCalledTimes(1);
+    expect(messages.markSent).toHaveBeenCalledWith('msg-1', 'wamid-2');
+    // The reset broadcasts the row going back to pending, then Graph's answer
+    // moves it to sent.
+    expect(fanout.emitStatusPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'msg-1', status: 'pending' }),
+    );
+    expect(fanout.emitStatusPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'msg-1', status: 'sent' }),
+    );
+    // The first send already broadcast the row; a retry only patches it.
+    expect(eventBus.publish).not.toHaveBeenCalled();
+  });
+
+  it('keeps the row failed when the retry fails again', async () => {
+    const { sender, conversations, messages, whatsapp, fanout } = build();
+    conversations.saveOutbound.mockResolvedValue({
+      message: message({ status: 'failed' }),
+      created: false,
+    });
+    messages.resetFailedForRetry.mockResolvedValue(
+      message({ status: 'pending' }),
+    );
+    whatsapp.deliverMessage.mockResolvedValue({
+      ok: false,
+      error: {
+        authFault: false,
+        retryable: false,
+        code: '131047',
+        message: 'Re-engagement message',
+      },
+    });
+    messages.markSendFailed.mockResolvedValue(
+      message({ status: 'failed', errorCode: '131047' }),
+    );
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: '131047',
+      message: 'Re-engagement message',
+    });
+    expect(fanout.emitError).toHaveBeenCalled();
+  });
+
+  it('lets only one of two concurrent retries reach Graph', async () => {
+    const { sender, conversations, messages, whatsapp } = build();
+    conversations.saveOutbound.mockResolvedValue({
+      message: message({ status: 'failed' }),
+      created: false,
+    });
+    // The repository CAS: the first caller flips failed -> pending, the second
+    // finds the row already moved and loses.
+    let won = false;
+    messages.resetFailedForRetry.mockImplementation(() => {
+      if (won) return Promise.resolve(null);
+      won = true;
+      return Promise.resolve(message({ status: 'pending' }));
+    });
+    whatsapp.deliverMessage.mockResolvedValue({
+      ok: true,
+      response: { messages: [{ id: 'wamid-2' }] },
+    });
+    messages.markSent.mockResolvedValue(
+      message({ status: 'sent', externalId: 'wamid-2' }),
+    );
+
+    await Promise.all([sender.send(data), sender.send(data)]);
+
+    expect(messages.resetFailedForRetry).toHaveBeenCalledTimes(2);
+    expect(whatsapp.deliverMessage).toHaveBeenCalledTimes(1);
+    expect(messages.markSent).toHaveBeenCalledTimes(1);
   });
 });

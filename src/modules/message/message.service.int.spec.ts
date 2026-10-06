@@ -26,7 +26,7 @@ jest.setTimeout(120_000);
  * their error, and every applied transition is appended to the history table.
  *
  * Regressions are ignored per the message lifecycle
- * (`docs/database/README.md` §2): `pending < sent < delivered < read`, and
+ * (`docs/database/README.md` — Message lifecycle): `pending < sent < delivered < read`, and
  * `failed` always wins.
  */
 describe('MessageService delivery states (integration)', () => {

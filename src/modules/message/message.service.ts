@@ -71,7 +71,7 @@ export class MessageService {
    * Applies one Meta delivery state (`sent`/`delivered`/`read`/`failed`) to
    * the message carrying that `wamid`. Unknown wamids and regressions
    * (`pending < sent < delivered < read`, `failed` terminal) are ignored, so
-   * the row only ever moves forward (docs/database/README.md §2).
+   * the row only ever moves forward (docs/database/README.md — Message lifecycle).
    */
   async applyDeliveryStatus(
     update: DeliveryStatusUpdate,

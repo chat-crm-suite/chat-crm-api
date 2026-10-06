@@ -1,27 +1,22 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
-import {
-  ConversationSocketEvent,
-  type ConversationMessageStatusPatch,
-} from '../../../../contracts/index';
+import type { ConversationMessageStatusPatch } from '../../../../contracts/index';
 import type { Message } from '../../../message/entities/message.entity';
 import { MessageService } from '../../../message/message.service';
-import { ConversationAssignmentService } from '../../assignment/conversation-assignment.service';
-import { ConversationGateway } from '../../gateways/conversation.gateway';
+import { ConversationFanoutService } from '../../realtime/conversation-fanout.service';
 import { UpdateMessageStatusCommand } from '../update-message-status.command';
 
 /**
- * T4: applies a Meta delivery state by `wamid` and pushes the resulting state
- * patch live to the conversation room plus the assignee's personal room. The
- * broadcast event keeps its shape: this only adds `conversation:message:status`.
+ * T4/T6: applies a Meta delivery state by `wamid` and pushes the resulting
+ * state patch live through the single fanout path (conversation room plus
+ * assignee preview). The broadcast event keeps its shape.
  */
 @CommandHandler(UpdateMessageStatusCommand)
 export class UpdateMessageStatusHandler implements ICommandHandler<UpdateMessageStatusCommand> {
   constructor(
     private readonly messages: MessageService,
-    private readonly assignment: ConversationAssignmentService,
-    private readonly gateway: ConversationGateway,
+    private readonly fanout: ConversationFanoutService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(UpdateMessageStatusHandler.name);
@@ -46,21 +41,7 @@ export class UpdateMessageStatusHandler implements ICommandHandler<UpdateMessage
       return { applied: false };
     }
 
-    const patch = toStatusPatch(outcome.message);
-
-    this.gateway.server
-      ?.to(`conversation:${patch.conversationId}`)
-      .emit(ConversationSocketEvent.MessageStatus, patch);
-
-    const active = await this.assignment.getActiveAssignment(
-      patch.conversationId,
-    );
-    const assigneeUserId = active?.member?.userId;
-    if (assigneeUserId) {
-      this.gateway.server
-        ?.to(`user:${assigneeUserId}`)
-        .emit(ConversationSocketEvent.MessageStatus, patch);
-    }
+    await this.fanout.emitStatusPatch(toStatusPatch(outcome.message));
 
     return { applied: true };
   }

@@ -7,12 +7,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChannelsModule } from '../../modules/channels/channels.module';
 import { Channel } from '../../modules/channels/entities/channel.entity';
 import { ConversationsModule } from '../../modules/conversations/conversations.module';
+import { MessageModule } from '../../modules/message/message.module';
 import { WhatsAppClient } from './clients/whatsapp.client';
 import { MessageContentHandlers } from './commands/handlers/message-content.handlers';
 import { ReceiveWhatsAppMessageHandler } from './commands/handlers/receive-whatsapp-message.handler';
 import { SendWhatsAppMessageHandler } from './commands/handlers/send-whatsapp-message.handler';
 import { WebhookController } from './controllers/index';
 import { WhatsappInboundEvent } from './entities/whatsapp-inbound-event.entity';
+import { InboundMessageSavedHandler } from './intake/inbound-message-saved.handler';
+import { WhatsAppInboundReplayService } from './intake/whatsapp-inbound-replay.service';
 import { WhatsAppIntakeService } from './intake/whatsapp-intake.service';
 import { WhatsAppService } from './whatsapp.service';
 
@@ -26,11 +29,14 @@ import { WhatsAppService } from './whatsapp.service';
     HttpModule,
     ChannelsModule,
     ConversationsModule,
+    MessageModule,
   ],
   controllers: [WebhookController],
   providers: [
     WhatsAppService,
     WhatsAppIntakeService,
+    WhatsAppInboundReplayService,
+    InboundMessageSavedHandler,
     WhatsAppClient,
     ReceiveWhatsAppMessageHandler,
     MessageContentHandlers,

@@ -97,6 +97,24 @@ describe('WhatsAppIntakeService', () => {
     expect(pending.map((row) => row.wamid)).toEqual(['wamid-crash-1']);
   });
 
+  it('consumes a pending event once its row exists', async () => {
+    await service.persistIfNew(inbound('wamid-replay-1'));
+
+    await service.markReplayed('wamid-replay-1');
+
+    expect(await service.listPending(10)).toEqual([]);
+    const row = await events.findOneByOrFail({ wamid: 'wamid-replay-1' });
+    expect(row.status).toBe('replayed');
+  });
+
+  it('markReplayed is idempotent for an already consumed wamid', async () => {
+    await service.persistIfNew(inbound('wamid-replay-2'));
+    await service.markReplayed('wamid-replay-2');
+
+    await expect(service.markReplayed('wamid-replay-2')).resolves.toBeUndefined();
+    expect(await events.count()).toBe(1);
+  });
+
   it('refuses to persist an empty wamid', async () => {
     await expect(
       service.persistIfNew({ ...inbound('wamid-x'), wamid: '' }),

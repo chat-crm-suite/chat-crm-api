@@ -11,5 +11,9 @@ export interface ConversationMessageDto
     mediaUrl?: string;
     /** Provider message id (wamid) for inbound messages. */
     externalId?: string;
+    /** Provider media id (Meta media reference) for inbound attachments. */
+    externalMediaId?: string;
+    /** Provider-reported MIME type for inbound attachments. */
+    mimeType?: string;
   };
 }

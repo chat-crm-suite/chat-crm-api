@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import type { DeliveryStatus } from '../../modules/conversations/commands/update-message-status.command';
 
 /** Meta delivery states T4 persists; `pending` is local and `played` is unused. */

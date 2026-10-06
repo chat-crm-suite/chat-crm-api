@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { UpdateMessageStatusCommand } from '../../../modules/conversations/commands/update-message-status.command';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
 import { WhatsAppInboundReplayService } from './whatsapp-inbound-replay.service';

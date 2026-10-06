@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { SaveConversationMessageCommand } from '../../../../modules/conversations/commands/save-conversation-message.command';
 import type { ConversationMessageDto } from '../../../../modules/conversations/dto/conversation-message.dto';
 import type { ChannelTransmission } from '../../../../modules/channels/channels.service';

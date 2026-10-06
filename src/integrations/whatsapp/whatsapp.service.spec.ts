@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import type { ChannelsService, ChannelTransmission } from '../../modules/channels/channels.service';
 import { FailWhatsAppMessageCommand } from '../../modules/conversations/commands/fail-whatsapp-message.command';
 import type { WhatsAppClient } from './clients/whatsapp.client';

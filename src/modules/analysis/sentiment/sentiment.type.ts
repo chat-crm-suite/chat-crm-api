@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 /** Normalized probabilities used by the event, entities and client mapping. */
 export type SentimentProbabilities = {
   pos: number;

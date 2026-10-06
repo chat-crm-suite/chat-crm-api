@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 /**
  * Desenlace de un intento de asignación. Lo consumen comandos, saga y
  * controllers para mapear a respuestas HTTP sin lanzar errores en el pipeline

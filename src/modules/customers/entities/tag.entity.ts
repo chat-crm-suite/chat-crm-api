@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';

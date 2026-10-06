@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ZodSerializerDto } from 'nestjs-zod';
 

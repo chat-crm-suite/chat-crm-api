@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 export { BroadcastConversationMessageHandler } from './broadcast-conversation-message.handler';
 export { ClaimConversationHandler } from './claim-conversation.handler';
 export { EnsureConversationAssignedHandler } from './ensure-conversation-assigned.handler';

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 /**
  * Tables the metrics module can aggregate against (schema v2 names).
  * `chats` -> `conversations`, `contacts` -> `customers` and

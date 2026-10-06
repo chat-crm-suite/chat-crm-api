@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 export { Analysis } from '../modules/analysis/entities/analysis.entity';
 export { SentimentResult } from '../modules/analysis/entities/sentiment-result.entity';
 export { Channel } from '../modules/channels/entities/channel.entity';

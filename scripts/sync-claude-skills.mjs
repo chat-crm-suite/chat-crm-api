@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 /**
  * Copy the committed skills (`.agents/skills`) into Claude Code's project
  * directory (`.claude/skills`, gitignored) so Claude sees them on any clone.

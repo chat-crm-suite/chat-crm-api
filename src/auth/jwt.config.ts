@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 /**
  * Single source for the JWT secret. HTTP auth (`JwtModule.register`), the
  * socket handshake (`ConversationsModule`) and the strategy verification

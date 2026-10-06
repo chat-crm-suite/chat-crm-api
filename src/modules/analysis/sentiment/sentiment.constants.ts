@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 // queue
 export const SENTIMENT_QUEUE = 'sentiment' as const;
 export const SENTIMENT_JOB = 'sentiment' as const;

@@ -20,13 +20,14 @@ export function getConversationMessageBase(
   message: Message,
 ): Pick<
   ConversationMessagePayload,
-  'id' | 'conversationId' | 'timestamp' | 'status' | 'sender'
+  'id' | 'conversationId' | 'timestamp' | 'status' | 'clientMessageId' | 'sender'
 > {
   return {
     id: message.id,
     conversationId: message.conversationId,
     timestamp: message.createdAt,
     status: message.status,
+    clientMessageId: message.clientMessageId ?? null,
     sender: getMessageSender(message),
   };
 }

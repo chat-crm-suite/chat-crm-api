@@ -128,6 +128,7 @@ describe('MessageService.getMessagePayload', () => {
       msg: { type: 'audio', mediaUrl: '/uploads/a.ogg', content: {} },
     });
     expect(Object.keys(payload as object).sort()).toEqual([
+      'clientMessageId',
       'conversationId',
       'id',
       'msg',
@@ -135,6 +136,15 @@ describe('MessageService.getMessagePayload', () => {
       'status',
       'timestamp',
     ]);
+  });
+
+  it('carries the client message id so the front reconciles the optimistic row', async () => {
+    findById.mockResolvedValue(message({ clientMessageId: 'client-1' }));
+    findAttachmentsByMessageIds.mockResolvedValue([]);
+
+    const payload = await service.getMessagePayload('msg-1');
+
+    expect(payload?.clientMessageId).toBe('client-1');
   });
 
   it('maps a location row to a readable body row', async () => {

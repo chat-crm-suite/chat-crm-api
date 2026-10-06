@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { MessageRepository } from './message.repository';
 import { MessageService } from './message.service';
 import type { MessageAttachment } from './entities/message-attachment.entity';
@@ -26,6 +29,7 @@ const attachment = (
     mimeType: 'image/jpeg',
     fileName: 'photo.jpg',
     storageUrl: '/uploads/photo.jpg',
+    status: 'ready',
     ...overrides,
   }) as MessageAttachment;
 
@@ -91,10 +95,65 @@ describe('MessageService.getMessagePayload', () => {
     expect(payload?.msg.mediaUrl).toBe('/uploads/photo.jpg');
   });
 
+  it('exposes the attachment status for a failed media row', async () => {
+    findById.mockResolvedValue(message({ type: 'image' }));
+    findAttachmentsByMessageIds.mockResolvedValue([
+      attachment({ status: 'failed', storageUrl: undefined }),
+    ]);
+
+    const payload = await service.getMessagePayload('msg-1');
+
+    expect(payload?.msg.attachmentStatus).toBe('failed');
+    expect(payload?.msg.mediaUrl).toBeNull();
+  });
+
   it('returns null when the message does not exist', async () => {
     findById.mockResolvedValue(null);
 
     await expect(service.getMessagePayload('missing')).resolves.toBeNull();
     expect(findAttachmentsByMessageIds).not.toHaveBeenCalled();
+  });
+
+  it('maps an audio row to the unchanged broadcast shape with mediaUrl', async () => {
+    findById.mockResolvedValue(message({ type: 'audio', body: null }));
+    findAttachmentsByMessageIds.mockResolvedValue([
+      attachment({ type: 'audio', mimeType: 'audio/ogg', storageUrl: '/uploads/a.ogg', fileName: 'a.ogg' }),
+    ]);
+
+    const payload = await service.getMessagePayload('msg-1');
+
+    expect(payload).toMatchObject({
+      id: 'msg-1',
+      conversationId: 'conv-1',
+      msg: { type: 'audio', mediaUrl: '/uploads/a.ogg', content: {} },
+    });
+    expect(Object.keys(payload as object).sort()).toEqual([
+      'conversationId',
+      'id',
+      'msg',
+      'sender',
+      'status',
+      'timestamp',
+    ]);
+  });
+
+  it('maps a location row to a readable body row', async () => {
+    findById.mockResolvedValue(
+      message({
+        type: 'location',
+        body: '📍 Oficina: 4.60971, -74.08175',
+      }),
+    );
+    findAttachmentsByMessageIds.mockResolvedValue([]);
+
+    const payload = await service.getMessagePayload('msg-1');
+
+    expect(payload).toMatchObject({
+      msg: {
+        type: 'location',
+        mediaUrl: null,
+        content: { body: '📍 Oficina: 4.60971, -74.08175' },
+      },
+    });
   });
 });

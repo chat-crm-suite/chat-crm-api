@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 /**
  * Message domain values live in the shared contracts (`src/contracts/message.contract.ts`).
  * Re-exported here so existing import paths keep working across the API.

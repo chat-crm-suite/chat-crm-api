@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import type { MessageAttachment } from '../entities/message-attachment.entity';
 import type { Message } from '../entities/message.entity';
 import type { ConversationMessagePayload } from '../message.types';
@@ -56,6 +59,7 @@ export function toConversationMessagePayload(
     msg: {
       type: message.type,
       mediaUrl: attachment?.storageUrl ?? null,
+      attachmentStatus: attachment?.status ?? null,
       content,
     },
   };

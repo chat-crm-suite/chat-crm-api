@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { PeriodTime } from '../../../lib/period';
 import { CompareMetric, Table } from '../metrics.types';
 import { SentimentLabel } from '../../analysis/sentiment/sentiment.enum';

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class Baseline1791155911668 implements MigrationInterface {

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
@@ -160,6 +163,21 @@ export class ChannelsService {
     externalAccountId: string,
   ): Promise<ChannelTransmission | null> {
     const channel = await this.findActiveByExternalAccountId(externalAccountId);
+    if (!channel) return null;
+
+    return {
+      channel,
+      credentials: decryptCredentials<WhatsAppCredentials>(channel.credentials),
+    };
+  }
+
+  /** Async enrichment path: the transmission of the conversation's channel. */
+  async getTransmissionByChannelId(
+    channelId: string,
+  ): Promise<ChannelTransmission | null> {
+    const channel = await this.channels.findOne({
+      where: { id: channelId, type: 'whatsapp' },
+    });
     if (!channel) return null;
 
     return {

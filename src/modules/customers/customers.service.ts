@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { Readable } from 'stream';
 import {
   BadRequestException,
@@ -153,7 +156,7 @@ export class CustomersService {
   }
 
   /**
-   * Resolution canon (docs/database/README.md): the webhook resolves a customer
+   * Resolution canon (docs/database/README.md — Identity canon): the webhook resolves a customer
    * through `customer_identities(channel_id, external_id)`. `external_id` is
    * stored raw; `phone_number` is normalized to `+digits` and is informational.
    * Concurrent duplicates are tolerated by re-reading after ER_DUP_ENTRY.

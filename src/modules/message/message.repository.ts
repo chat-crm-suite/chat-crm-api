@@ -1,8 +1,12 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
 
 import type {
+  AttachmentStatus,
   AttachmentType,
   MessageDirection,
   MessageSenderType,
@@ -11,6 +15,7 @@ import type {
 } from '../../contracts/index';
 import { Conversation } from '../conversations/entities/conversation.entity';
 import { MessageAttachment } from './entities/message-attachment.entity';
+import { MessageStatusEvent } from './entities/message-status-event.entity';
 import { Message } from './entities/message.entity';
 
 export interface SaveMessageAttachment {
@@ -19,6 +24,7 @@ export interface SaveMessageAttachment {
   fileName?: string;
   storageUrl?: string;
   externalMediaId?: string;
+  status?: AttachmentStatus;
   sizeBytes?: number | null;
   width?: number | null;
   height?: number | null;
@@ -83,6 +89,7 @@ export class MessageRepository {
               fileName: attachment.fileName,
               storageUrl: attachment.storageUrl,
               externalMediaId: attachment.externalMediaId,
+              status: attachment.status ?? 'ready',
               sizeBytes: attachment.sizeBytes ?? null,
               width: attachment.width ?? null,
               height: attachment.height ?? null,
@@ -110,6 +117,141 @@ export class MessageRepository {
     return this.messages.findOne({ where: { id: messageId } });
   }
 
+  /** T5 idempotency: the outbound row already saved for this client send. */
+  findByClientMessageId(
+    conversationId: string,
+    clientMessageId: string,
+  ): Promise<Message | null> {
+    return this.messages.findOne({
+      where: { conversationId, clientMessageId },
+    });
+  }
+
+  /**
+   * T5: a Graph send answer moves the pending row to `sent` and stores the
+   * wamid. Only a `pending` row can transition, so a retried answer can never
+   * resurrect a row that already moved (failed stays failed).
+   */
+  async markSent(
+    messageId: string,
+    wamid: string,
+    at: Date,
+  ): Promise<Message | null> {
+    return this.dataSource.transaction(async (manager) => {
+      const result = await manager.update(
+        Message,
+        { id: messageId, status: 'pending' },
+        {
+          status: 'sent',
+          externalId: wamid,
+          statusUpdatedAt: at,
+          sentAt: at,
+        },
+      );
+
+      if (!result.affected) return null;
+
+      await manager.save(
+        manager.create(MessageStatusEvent, {
+          messageId,
+          status: 'sent',
+          occurredAt: at,
+        }),
+      );
+
+      return manager.findOneByOrFail(Message, { id: messageId });
+    });
+  }
+
+  /** T5: a failed send stays in the thread with its error, never silent. */
+  async markSendFailed(
+    messageId: string,
+    error: { code?: string | null; message?: string | null },
+    at: Date,
+  ): Promise<Message | null> {
+    return this.dataSource.transaction(async (manager) => {
+      const result = await manager.update(
+        Message,
+        { id: messageId, status: 'pending' },
+        {
+          status: 'failed',
+          statusUpdatedAt: at,
+          errorCode: error.code?.slice(0, 50) ?? null,
+          errorMessage: error.message?.slice(0, 500) ?? null,
+        },
+      );
+
+      if (!result.affected) return null;
+
+      await manager.save(
+        manager.create(MessageStatusEvent, {
+          messageId,
+          status: 'failed',
+          occurredAt: at,
+          errorCode: error.code?.slice(0, 50) ?? null,
+        }),
+      );
+
+      return manager.findOneByOrFail(Message, { id: messageId });
+    });
+  }
+
+  /** The message a Meta status refers to: `external_id` is the Graph `wamid`. */
+  findByExternalId(externalId: string): Promise<Message | null> {
+    return this.messages.findOne({
+      where: { externalId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Applies one Meta delivery state to the message row and appends the
+   * transition to the append-only history, in a single transaction. The
+   * caller owns the transition policy (`MessageService`) and passes the
+   * statuses the update may start from; the UPDATE is guarded by them
+   * (compare-and-set), so a concurrent out-of-order status can never regress
+   * the row and a lost race appends no history row.
+   */
+  async applyStatus(
+    messageId: string,
+    update: {
+      status: MessageStatus;
+      occurredAt: Date;
+      errorCode?: string | null;
+      errorMessage?: string | null;
+    },
+    allowedFrom: MessageStatus[],
+  ): Promise<Message | null> {
+    if (!allowedFrom.length) return null;
+
+    return this.dataSource.transaction(async (manager) => {
+      const result = await manager.update(
+        Message,
+        { id: messageId, status: In(allowedFrom) },
+        {
+          status: update.status,
+          statusUpdatedAt: update.occurredAt,
+          // Column limits guard against oversized Meta errors.
+          errorCode: update.errorCode?.slice(0, 50) ?? null,
+          errorMessage: update.errorMessage?.slice(0, 500) ?? null,
+        },
+      );
+
+      if (!result.affected) return null;
+
+      await manager.save(
+        manager.create(MessageStatusEvent, {
+          messageId,
+          status: update.status,
+          occurredAt: update.occurredAt,
+          errorCode: update.errorCode?.slice(0, 50) ?? null,
+        }),
+      );
+
+      return manager.findOneByOrFail(Message, { id: messageId });
+    });
+  }
+
   findConversationMessages(conversationId: string): Promise<Message[]> {
     return this.messages.find({
       where: { conversationId },
@@ -126,5 +268,55 @@ export class MessageRepository {
       where: { messageId: In(messageIds) },
       order: { createdAt: 'ASC' },
     });
+  }
+
+  /** T3 enrichment input: attachments still waiting for their file. */
+  findPendingMediaAttachments(messageId: string): Promise<MessageAttachment[]> {
+    return this.attachments.find({
+      where: {
+        messageId,
+        status: 'pending',
+        externalMediaId: Not(IsNull()),
+      },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  /**
+   * T3 enrichment result. Only a `pending` attachment can transition, so a
+   * duplicate enrichment pass can never resurrect a failed one.
+   */
+  async markAttachmentReady(
+    attachmentId: string,
+    data: { storageUrl: string; mimeType?: string; sizeBytes?: number | null },
+  ): Promise<MessageAttachment | null> {
+    const result = await this.attachments.update(
+      { id: attachmentId, status: 'pending' },
+      {
+        status: 'ready',
+        storageUrl: data.storageUrl,
+        ...(data.mimeType !== undefined ? { mimeType: data.mimeType } : {}),
+        sizeBytes: data.sizeBytes ?? null,
+      },
+    );
+
+    // A concurrent pass already settled it: no second transition, no patch.
+    if (!result.affected) return null;
+
+    return this.attachments.findOne({ where: { id: attachmentId } });
+  }
+
+  /** Media failure is terminal for the attachment; the message row stays. */
+  async markAttachmentFailed(
+    attachmentId: string,
+  ): Promise<MessageAttachment | null> {
+    const result = await this.attachments.update(
+      { id: attachmentId, status: 'pending' },
+      { status: 'failed' },
+    );
+
+    if (!result.affected) return null;
+
+    return this.attachments.findOne({ where: { id: attachmentId } });
   }
 }

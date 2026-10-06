@@ -1,8 +1,13 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { CqrsModule } from '@nestjs/cqrs';
+import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { getJwtSecret } from '../../auth/jwt.config';
 import { SentimentModule } from '../analysis/sentiment/sentiment.module';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
 import { CustomersModule } from '../customers/customers.module';
@@ -17,6 +22,7 @@ import {
   FailWhatsAppMessageHandler,
   SaveConversationMessageHandler,
   SendConversationMessageHandler,
+  UpdateMessageStatusHandler,
   UpdateSentimentIndicatorHandler,
 } from './commands/handlers';
 import { ConversationProcessor } from './conversation.processor';
@@ -27,6 +33,8 @@ import { ConversationsService } from './conversations.service';
 import { ConversationAssignment } from './entities/conversation-assignment.entity';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationGateway } from './gateways/conversation.gateway';
+import { ConversationAccessService } from './realtime/conversation-access.service';
+import { ConversationFanoutService } from './realtime/conversation-fanout.service';
 
 const commandHandlers = [
   BroadcastConversationMessageHandler,
@@ -35,6 +43,7 @@ const commandHandlers = [
   FailWhatsAppMessageHandler,
   SaveConversationMessageHandler,
   SendConversationMessageHandler,
+  UpdateMessageStatusHandler,
   UpdateSentimentIndicatorHandler,
 ];
 
@@ -47,6 +56,11 @@ const commandHandlers = [
       CompanyMember,
     ]),
     BullModule.registerQueue({ name: 'chat' }),
+    // Same secret as the HTTP auth layer: the socket verifies the existing
+    // `access_token` cookie during the handshake.
+    JwtModule.register({
+      secret: getJwtSecret(),
+    }),
     MessageModule,
     NotificationsModule,
     CustomersModule,
@@ -57,6 +71,8 @@ const commandHandlers = [
     ConversationsService,
     ConversationRepository,
     ConversationGateway,
+    ConversationAccessService,
+    ConversationFanoutService,
     ConversationAssignmentService,
     ConversationAssignmentNotifier,
     ConversationProcessor,
@@ -67,6 +83,8 @@ const commandHandlers = [
     ConversationsService,
     ConversationRepository,
     ConversationAssignmentService,
+    ConversationGateway,
+    ConversationFanoutService,
   ],
 })
 export class ConversationsModule {}

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { Factory } from 'fishery';
 
 import { CompanyMember } from '@modules/company-members/entities/company-member.entity';

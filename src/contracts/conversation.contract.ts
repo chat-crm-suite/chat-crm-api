@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { MessageSenderTypeSchema, MessageTypeSchema } from './message.contract';
+import {
+  MessageSenderTypeSchema,
+  MessageStatusSchema,
+  MessageTypeSchema,
+} from './message.contract';
 
 /**
  * Conversation contracts (v2): replaces `chats`. Status/priority/reason are
@@ -42,6 +46,7 @@ export const ConversationSocketEvent = {
   ErrorMessage: 'conversation:message:error',
   SendMessage: 'conversation:message:send',
   ReceivedMessage: 'conversation:message:received',
+  MessageStatus: 'conversation:message:status',
   UpdateSentimentIndicator: 'conversation:sentiment:update',
   NewNotification: 'notification:new',
   ConversationAssigned: 'conversation:assigned',
@@ -129,4 +134,23 @@ export const SendConversationMessageSchema = z.object({
 
 export type SendConversationMessageInput = z.infer<
   typeof SendConversationMessageSchema
+>;
+
+/**
+ * `conversation:message:status` payload (server -> client): a delivery tick
+ * patch for one message, emitted to the conversation room and to the assignee.
+ * Failures keep their error so the thread can stay failed without reloading.
+ */
+export const ConversationMessageStatusPatchSchema = z.object({
+  id: z.string(),
+  conversationId: z.string(),
+  clientMessageId: z.string().nullish(),
+  status: MessageStatusSchema,
+  at: z.coerce.date(),
+  errorCode: z.string().nullish(),
+  errorMessage: z.string().nullish(),
+});
+
+export type ConversationMessageStatusPatch = z.infer<
+  typeof ConversationMessageStatusPatchSchema
 >;

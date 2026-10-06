@@ -13,13 +13,20 @@ import {
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { type WhatsappNotification } from '@daweto/whatsapp-api-types';
+import {
+  type WhatsappNotification,
+  type WhatsappNotificationStatus,
+} from '@daweto/whatsapp-api-types';
 
 import { WebhookQuery } from '../dto/webhook.query.dto';
 import { WhatsAppService } from '../whatsapp.service';
 import { mapWebhookToMessages } from '../mappers/whatsapp-message.mapper';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
 import { FailWhatsAppMessageCommand } from '../../../modules/conversations/commands/fail-whatsapp-message.command';
+import {
+  type DeliveryStatus,
+  UpdateMessageStatusCommand,
+} from '../../../modules/conversations/commands/update-message-status.command';
 import { WhatsAppIntakeService } from '../intake/whatsapp-intake.service';
 import { verifyWhatsAppSignature } from '../security/whatsapp-signature';
 
@@ -169,14 +176,23 @@ export class WebhookController {
     for (const status of statuses) {
       switch (status.status as unknown as WhatsappNotificationStatusStatus) {
         case WhatsappNotificationStatusStatus.Sent:
+          this.dispatchStatusUpdate(status, 'sent');
           this.logger.debug(
             `Sent message with id ${status.id} | ${JSON.stringify(status.pricing)}`,
           );
           break;
         case WhatsappNotificationStatusStatus.Delivered:
+          this.dispatchStatusUpdate(status, 'delivered');
           this.logger.debug(`Delivered message with id (${status.id}) to user`);
           break;
+        case WhatsappNotificationStatusStatus.Read:
+          this.dispatchStatusUpdate(status, 'read');
+          this.logger.debug(`Read message with id (${status.id}) by user`);
+          break;
         case WhatsappNotificationStatusStatus.Failed:
+          this.dispatchStatusUpdate(status, 'failed');
+          // Existing transient flash for open chats; the persisted state above
+          // is what keeps the failure visible without reloads.
           status.errors?.map((err) => {
             this.executeSafely(
               new FailWhatsAppMessageCommand(status.recipient_id, err),
@@ -194,14 +210,44 @@ export class WebhookController {
   }
 
   /**
+   * T4: persists one Meta state by `wamid` and pushes the live patch. Runs
+   * after the 200 (fire-and-forget), never blocking the webhook answer.
+   */
+  private dispatchStatusUpdate(
+    status: WhatsappNotificationStatus,
+    state: DeliveryStatus,
+  ): void {
+    const error = status.errors?.[0];
+
+    this.executeSafely(
+      new UpdateMessageStatusCommand(
+        status.id,
+        state,
+        toStatusDate(status.timestamp),
+        state === 'failed' && error
+          ? { code: String(error.code), message: error.message }
+          : null,
+      ),
+      `UpdateMessageStatus(${status.id})`,
+    );
+  }
+
+  /**
    * El webhook ya respondió 200 a WhatsApp: un fallo procesando el mensaje
    * debe quedar en logs, nunca tumbar Node.
    */
   private executeSafely(command: object, description: string): void {
-    this.commandBus
-      .execute(command)
-      .catch((error: unknown) => {
-        this.logger.error(error, `Async webhook command failed: ${description}`);
-      });
+    this.commandBus.execute(command).catch((error: unknown) => {
+      this.logger.error(error, `Async webhook command failed: ${description}`);
+    });
   }
+}
+
+/** Meta sends unix seconds as a string; fall back to arrival time. */
+function toStatusDate(timestamp?: string): Date {
+  const seconds = Number(timestamp);
+
+  return Number.isFinite(seconds) && seconds > 0
+    ? new Date(seconds * 1000)
+    : new Date();
 }

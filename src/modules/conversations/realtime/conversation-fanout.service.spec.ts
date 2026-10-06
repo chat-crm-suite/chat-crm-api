@@ -9,12 +9,16 @@ import type { ConversationGateway } from '../gateways/conversation.gateway';
 
 /**
  * T6 single fanout path: message bodies leave through one method that routes
- * to the conversation room plus the assignee's personal room. The company room
+ * to the conversation room plus the assignee's personal room (excluding the
+ * thread room, so a socket in both is not delivered twice). The company room
  * never receives bodies; unassigned conversations only reach their room.
  */
 describe('ConversationFanoutService (T6)', () => {
   const emit = jest.fn();
-  const to = jest.fn().mockReturnValue({ emit });
+  const except = jest.fn();
+  const to = jest.fn();
+  except.mockReturnValue({ emit });
+  to.mockReturnValue({ emit, except });
   const getActiveAssignee = jest.fn();
   const logger = { debug: jest.fn(), warn: jest.fn(), setContext: jest.fn() };
 
@@ -46,6 +50,7 @@ describe('ConversationFanoutService (T6)', () => {
     expect(to).toHaveBeenCalledWith('conversation:conv-1');
     expect(to).toHaveBeenCalledWith('user:user-9');
     expect(to).not.toHaveBeenCalledWith(expect.stringContaining('company:'));
+    expect(except).toHaveBeenCalledWith('conversation:conv-1');
     expect(emit).toHaveBeenCalledTimes(2);
     expect(emit).toHaveBeenCalledWith(
       ConversationSocketEvent.BroadcastMessage,
@@ -60,6 +65,7 @@ describe('ConversationFanoutService (T6)', () => {
 
     expect(to).toHaveBeenCalledTimes(1);
     expect(to).toHaveBeenCalledWith('conversation:conv-1');
+    expect(except).not.toHaveBeenCalled();
     expect(emit).toHaveBeenCalledTimes(1);
   });
 
@@ -84,6 +90,7 @@ describe('ConversationFanoutService (T6)', () => {
     expect(to).toHaveBeenCalledWith('conversation:conv-1');
     expect(to).toHaveBeenCalledWith('user:user-9');
     expect(to).not.toHaveBeenCalledWith(expect.stringContaining('company:'));
+    expect(except).toHaveBeenCalledWith('conversation:conv-1');
     expect(emit).toHaveBeenCalledTimes(2);
     expect(emit).toHaveBeenCalledWith(
       ConversationSocketEvent.MessageAttachment,
@@ -111,6 +118,7 @@ describe('ConversationFanoutService (T6)', () => {
     expect(to).toHaveBeenCalledWith('conversation:conv-1');
     expect(to).toHaveBeenCalledWith('user:user-9');
     expect(to).not.toHaveBeenCalledWith(expect.stringContaining('company:'));
+    expect(except).toHaveBeenCalledWith('conversation:conv-1');
     expect(emit).toHaveBeenCalledTimes(2);
     expect(emit).toHaveBeenCalledWith(
       ConversationSocketEvent.MessageStatus,

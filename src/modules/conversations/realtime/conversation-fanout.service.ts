@@ -18,10 +18,11 @@ import { ConversationAccessService } from './conversation-access.service';
  * T6 single fanout path for conversation content.
  *
  * Message bodies and delivery patches leave through here: the conversation
- * room carries the thread, the assignee's personal room carries the preview.
- * The company room is deliberately never a target, so no body can leak to a
- * company-wide audience; membership is enforced on join by
- * `ConversationAccessService`.
+ * room carries the thread, the assignee's personal room carries the preview
+ * for their other sessions (excluding the thread room, so a socket in both
+ * does not receive the event twice). The company room is deliberately never a
+ * target, so no body can leak to a company-wide audience; membership is
+ * enforced on join by `ConversationAccessService`.
  */
 @Injectable()
 export class ConversationFanoutService {
@@ -99,7 +100,14 @@ export class ConversationFanoutService {
 
     const assignee = await this.access.getActiveAssignee(conversationId);
     if (assignee?.userId) {
-      server.to(`user:${assignee.userId}`).emit(event, payload);
+      // A socket already in the thread receives the event through the
+      // conversation room: the personal-room copy is only the preview for the
+      // assignee's other sessions, so it excludes the thread room to avoid a
+      // duplicate delivery.
+      server
+        .to(`user:${assignee.userId}`)
+        .except(`conversation:${conversationId}`)
+        .emit(event, payload);
     }
   }
 }

@@ -52,7 +52,12 @@ describe('Realtime fanout (T6)', () => {
   let access: ConversationAccessService;
   let fanout: ConversationFanoutService;
   let conversationsService: ConversationsService;
-  let events: Array<{ room: string; event: string; payload: unknown }>;
+  let events: Array<{
+    room: string;
+    except: string | null;
+    event: string;
+    payload: unknown;
+  }>;
   let seq = 0;
 
   beforeAll(async () => {
@@ -65,8 +70,13 @@ describe('Realtime fanout (T6)', () => {
     const gateway = {
       server: {
         to: (room: string) => ({
+          except: (exceptRoom: string) => ({
+            emit: (event: string, payload: unknown) => {
+              events.push({ room, except: exceptRoom, event, payload });
+            },
+          }),
           emit: (event: string, payload: unknown) => {
-            events.push({ room, event, payload });
+            events.push({ room, except: null, event, payload });
           },
         }),
       },
@@ -220,6 +230,13 @@ describe('Realtime fanout (T6)', () => {
       `user:${agent.user.id}`,
     ]);
     expect(rooms.some((room) => room.startsWith('company:'))).toBe(false);
+
+    // The personal-room preview excludes the thread room: a socket already in
+    // the conversation must not receive the same event twice.
+    const preview = events.find(
+      (entry) => entry.room === `user:${agent.user.id}`,
+    );
+    expect(preview?.except).toBe(`conversation:${conversation.id}`);
   });
 
   it('notifies supervisors live when an inbound message leaves the conversation unassigned', async () => {

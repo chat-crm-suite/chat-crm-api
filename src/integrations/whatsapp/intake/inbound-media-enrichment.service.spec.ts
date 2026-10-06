@@ -1,7 +1,4 @@
-import {
-  ConversationSocketEvent,
-  type ConversationMessageAttachmentPatch,
-} from '../../../contracts/index';
+import { type ConversationMessageAttachmentPatch } from '../../../contracts/index';
 import { MessageSavedEvent } from '../../../modules/conversations/events/message-saved.event';
 import { InboundMediaEnrichmentHandler } from './inbound-media-enrichment.handler';
 import type { ChannelTransmission } from '../../../modules/channels/channels.service';
@@ -9,7 +6,7 @@ import type { MessageAttachment } from '../../../modules/message/entities/messag
 import type { Message } from '../../../modules/message/entities/message.entity';
 import type { MessageService } from '../../../modules/message/message.service';
 import type { ConversationsService } from '../../../modules/conversations/conversations.service';
-import type { ConversationGateway } from '../../../modules/conversations/gateways/conversation.gateway';
+import type { ConversationFanoutService } from '../../../modules/conversations/realtime/conversation-fanout.service';
 import type { ChannelsService } from '../../../modules/channels/channels.service';
 import type { WhatsAppClient } from '../clients/whatsapp.client';
 import { InboundMediaEnrichmentService } from './inbound-media-enrichment.service';
@@ -19,6 +16,7 @@ import { InboundMediaEnrichmentService } from './inbound-media-enrichment.servic
  * completed in the background. Success stores the file and patches the
  * attachment as ready; any failure marks it failed and emits the failed
  * patch, but the message row (body/caption) is never deleted or emptied.
+ * T6: the patch leaves through the single fanout path.
  */
 const transmission = {
   channel: { id: 'chan-1', companyId: 'co-1' },
@@ -57,8 +55,9 @@ function build() {
   const conversations = { findOne: jest.fn() };
   const channels = { getTransmissionByChannelId: jest.fn() };
   const client = { downloadMedia: jest.fn() };
-  const emit = jest.fn();
-  const gateway = { server: { to: jest.fn().mockReturnValue({ emit }) } };
+  const fanout = {
+    emitAttachmentPatch: jest.fn().mockResolvedValue(undefined),
+  };
   const logger = {
     debug: jest.fn(),
     error: jest.fn(),
@@ -71,21 +70,24 @@ function build() {
     conversations as unknown as ConversationsService,
     channels as unknown as ChannelsService,
     client as unknown as WhatsAppClient,
-    gateway as unknown as ConversationGateway,
+    fanout as unknown as ConversationFanoutService,
     logger as never,
   );
 
-  return { service, messages, conversations, channels, client, gateway, emit, logger };
+  return { service, messages, conversations, channels, client, fanout, logger };
 }
 
 describe('InboundMediaEnrichmentService (T3)', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('stores the downloaded media and emits the ready patch', async () => {
-    const { service, messages, conversations, channels, client, gateway, emit } =
+    const { service, messages, conversations, channels, client, fanout } =
       build();
     messages.findPendingMediaAttachments.mockResolvedValue([attachment()]);
-    conversations.findOne.mockResolvedValue({ id: 'conv-1', channelId: 'chan-1' });
+    conversations.findOne.mockResolvedValue({
+      id: 'conv-1',
+      channelId: 'chan-1',
+    });
     channels.getTransmissionByChannelId.mockResolvedValue(transmission);
     client.downloadMedia.mockResolvedValue({
       fileUrl: '/uploads/co-1/media-1.jpg',
@@ -113,9 +115,7 @@ describe('InboundMediaEnrichmentService (T3)', () => {
       mimeType: 'image/jpeg',
       sizeBytes: 10,
     });
-    expect(gateway.server.to).toHaveBeenCalledWith('conversation:conv-1');
-    expect(emit).toHaveBeenCalledWith(
-      ConversationSocketEvent.MessageAttachment,
+    expect(fanout.emitAttachmentPatch).toHaveBeenCalledWith(
       expect.objectContaining<Partial<ConversationMessageAttachmentPatch>>({
         id: 'msg-1',
         conversationId: 'conv-1',
@@ -129,9 +129,13 @@ describe('InboundMediaEnrichmentService (T3)', () => {
   });
 
   it('marks the attachment failed and emits the failed patch without touching the row', async () => {
-    const { service, messages, conversations, channels, client, emit } = build();
+    const { service, messages, conversations, channels, client, fanout } =
+      build();
     messages.findPendingMediaAttachments.mockResolvedValue([attachment()]);
-    conversations.findOne.mockResolvedValue({ id: 'conv-1', channelId: 'chan-1' });
+    conversations.findOne.mockResolvedValue({
+      id: 'conv-1',
+      channelId: 'chan-1',
+    });
     channels.getTransmissionByChannelId.mockResolvedValue(transmission);
     client.downloadMedia.mockRejectedValue(new Error('graph down'));
     messages.markAttachmentFailed.mockResolvedValue(
@@ -143,8 +147,7 @@ describe('InboundMediaEnrichmentService (T3)', () => {
     expect(messages.markAttachmentFailed).toHaveBeenCalledWith('att-1');
     expect(messages.markAttachmentReady).not.toHaveBeenCalled();
     expect(messages.saveMessage).not.toHaveBeenCalled();
-    expect(emit).toHaveBeenCalledWith(
-      ConversationSocketEvent.MessageAttachment,
+    expect(fanout.emitAttachmentPatch).toHaveBeenCalledWith(
       expect.objectContaining<Partial<ConversationMessageAttachmentPatch>>({
         id: 'msg-1',
         attachmentId: 'att-1',
@@ -155,9 +158,13 @@ describe('InboundMediaEnrichmentService (T3)', () => {
   });
 
   it('fails every pending attachment when the channel transmission is gone', async () => {
-    const { service, messages, conversations, channels, client, emit } = build();
+    const { service, messages, conversations, channels, client, fanout } =
+      build();
     messages.findPendingMediaAttachments.mockResolvedValue([attachment()]);
-    conversations.findOne.mockResolvedValue({ id: 'conv-1', channelId: 'chan-1' });
+    conversations.findOne.mockResolvedValue({
+      id: 'conv-1',
+      channelId: 'chan-1',
+    });
     channels.getTransmissionByChannelId.mockResolvedValue(null);
     messages.markAttachmentFailed.mockResolvedValue(
       attachment({ status: 'failed' }),
@@ -167,21 +174,39 @@ describe('InboundMediaEnrichmentService (T3)', () => {
 
     expect(client.downloadMedia).not.toHaveBeenCalled();
     expect(messages.markAttachmentFailed).toHaveBeenCalledWith('att-1');
-    expect(emit).toHaveBeenCalledWith(
-      ConversationSocketEvent.MessageAttachment,
+    expect(fanout.emitAttachmentPatch).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'failed' }),
     );
   });
 
+  it('marks every pending attachment failed when the transmission lookup throws', async () => {
+    const { service, messages, conversations, client, fanout, logger } =
+      build();
+    messages.findPendingMediaAttachments.mockResolvedValue([attachment()]);
+    conversations.findOne.mockRejectedValue(new Error('decrypt failed'));
+    messages.markAttachmentFailed.mockResolvedValue(
+      attachment({ status: 'failed' }),
+    );
+
+    await service.enrich(message());
+
+    expect(client.downloadMedia).not.toHaveBeenCalled();
+    expect(messages.markAttachmentFailed).toHaveBeenCalledWith('att-1');
+    expect(fanout.emitAttachmentPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'failed' }),
+    );
+    expect(logger.error).toHaveBeenCalled();
+  });
+
   it('does nothing when the message has no pending media attachment', async () => {
-    const { service, messages, conversations, client, emit } = build();
+    const { service, messages, conversations, client, fanout } = build();
     messages.findPendingMediaAttachments.mockResolvedValue([]);
 
     await service.enrich(message());
 
     expect(conversations.findOne).not.toHaveBeenCalled();
     expect(client.downloadMedia).not.toHaveBeenCalled();
-    expect(emit).not.toHaveBeenCalled();
+    expect(fanout.emitAttachmentPatch).not.toHaveBeenCalled();
   });
 });
 

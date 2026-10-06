@@ -60,6 +60,34 @@ describe('ConversationFanoutService (T6)', () => {
     expect(emit).toHaveBeenCalledTimes(1);
   });
 
+  it('routes the attachment patch through the same conversation + assignee path', async () => {
+    const patch = {
+      id: 'msg-1',
+      conversationId: 'conv-1',
+      attachmentId: 'att-1',
+      status: 'ready' as const,
+      url: '/uploads/a.jpg',
+      mimeType: 'image/jpeg',
+      sizeBytes: 10,
+      at: new Date('2026-10-05T12:40:00.000Z'),
+    };
+    getActiveAssignee.mockResolvedValue({
+      memberId: 'member-1',
+      userId: 'user-9',
+    });
+
+    await fanout.emitAttachmentPatch(patch);
+
+    expect(to).toHaveBeenCalledWith('conversation:conv-1');
+    expect(to).toHaveBeenCalledWith('user:user-9');
+    expect(to).not.toHaveBeenCalledWith(expect.stringContaining('company:'));
+    expect(emit).toHaveBeenCalledTimes(2);
+    expect(emit).toHaveBeenCalledWith(
+      ConversationSocketEvent.MessageAttachment,
+      patch,
+    );
+  });
+
   it('routes the delivery status patch through the same conversation + assignee path', async () => {
     const patch = {
       id: 'msg-1',

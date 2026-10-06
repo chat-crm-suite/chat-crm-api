@@ -35,6 +35,7 @@ describe('WebhookController (T1 durable intake)', () => {
   let commandExecute: jest.Mock<Promise<unknown>, [unknown]>;
   let configGet: jest.Mock;
   let persistIfNew: jest.Mock;
+  let markReplayed: jest.Mock;
   let logger: {
     debug: jest.Mock;
     error: jest.Mock;
@@ -68,6 +69,7 @@ describe('WebhookController (T1 durable intake)', () => {
       .mockResolvedValue(undefined);
     configGet = jest.fn().mockReturnValue('test-app-secret');
     persistIfNew = jest.fn().mockResolvedValue('stored');
+    markReplayed = jest.fn().mockResolvedValue(undefined);
     logger = {
       debug: jest.fn(),
       error: jest.fn(),
@@ -80,7 +82,7 @@ describe('WebhookController (T1 durable intake)', () => {
       { execute: commandExecute } as never,
       logger as never,
       { get: configGet } as never,
-      { persistIfNew } as never,
+      { persistIfNew, markReplayed } as never,
     );
   });
 
@@ -184,7 +186,49 @@ describe('WebhookController (T1 durable intake)', () => {
     expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
   });
 
-  it('keeps answering 200 for status-only callbacks', async () => {
+  it('persists a status-only callback before answering 200', async () => {
+    const res = response();
+
+    await controller.receiveMessage(
+      statusPayload(),
+      request(STATUS_PAYLOAD, STATUS_SIGNATURE) as never,
+      res as never,
+    );
+
+    expect(persistIfNew).toHaveBeenCalledWith(
+      expect.objectContaining({
+        wamid: 'wamid-out-1',
+        kind: 'status:delivered',
+        messageType: 'delivered',
+      }),
+    );
+    expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
+  });
+
+  it('answers 200 only after the status tick is durable', async () => {
+    let resolvePersist!: (outcome: 'stored' | 'duplicate') => void;
+    persistIfNew.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePersist = resolve;
+      }),
+    );
+    const res = response();
+
+    const pending = controller.receiveMessage(
+      statusPayload(),
+      request(STATUS_PAYLOAD, STATUS_SIGNATURE) as never,
+      res as never,
+    );
+    await Promise.resolve();
+    expect(res.sendStatus).not.toHaveBeenCalled();
+
+    resolvePersist('stored');
+    await pending;
+    expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
+  });
+
+  it('does not dispatch a status tick already stored by an earlier post', async () => {
+    persistIfNew.mockResolvedValue('duplicate');
     const res = response();
 
     await controller.receiveMessage(
@@ -194,7 +238,23 @@ describe('WebhookController (T1 durable intake)', () => {
     );
 
     expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
-    expect(persistIfNew).not.toHaveBeenCalled();
+    expect(statusCommand()).toBeUndefined();
+  });
+
+  it('consumes the durable status tick once it is applied', async () => {
+    const res = response();
+
+    await controller.receiveMessage(
+      statusPayload(),
+      request(STATUS_PAYLOAD, STATUS_SIGNATURE) as never,
+      res as never,
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(markReplayed).toHaveBeenCalledWith(
+      'wamid-out-1',
+      'status:delivered',
+    );
   });
 
   it('dispatches a delivered state keyed by wamid with Meta time', async () => {

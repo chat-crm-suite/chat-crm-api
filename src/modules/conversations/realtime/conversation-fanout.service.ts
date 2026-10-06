@@ -4,6 +4,7 @@ import type { WhatsappNotificationError } from '@daweto/whatsapp-api-types';
 
 import {
   ConversationSocketEvent,
+  type ConversationMessageAttachmentPatch,
   type ConversationMessageStatusPatch,
 } from '../../../contracts/index';
 import type { ConversationMessagePayload } from '../../message/message.types';
@@ -46,6 +47,17 @@ export class ConversationFanoutService {
     return this.emitToThreadAndAssignee(
       patch.conversationId,
       ConversationSocketEvent.MessageStatus,
+      patch,
+    );
+  }
+
+  /** Live media-enrichment patch: same routing as the message body. */
+  emitAttachmentPatch(
+    patch: ConversationMessageAttachmentPatch,
+  ): Promise<void> {
+    return this.emitToThreadAndAssignee(
+      patch.conversationId,
+      ConversationSocketEvent.MessageAttachment,
       patch,
     );
   }

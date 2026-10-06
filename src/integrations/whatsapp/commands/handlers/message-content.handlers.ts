@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
-import { firstValueFrom } from 'rxjs';
 
 import type {
   MessageType,
@@ -11,7 +10,6 @@ import type {
 import { ChannelTransmission } from '../../../../modules/channels/channels.service';
 import { ConversationRepository } from '../../../../modules/conversations/conversation.repository';
 import { SaveConversationMessageCommand } from '../../../../modules/conversations/commands/save-conversation-message.command';
-import { WhatsAppClient } from '../../clients/whatsapp.client';
 import {
   AudioContent,
   ContactContent,
@@ -38,19 +36,10 @@ interface IncomingPayload {
   content: WhatsAppTextContent | WhatsAppDocumentContent;
 }
 
-/** Media fields shared by every downloadable inbound type. */
-interface DownloadableMedia {
-  id?: string;
-  caption?: string;
-  filename?: string;
-  mime_type?: string;
-}
-
 @Injectable()
 export class MessageContentHandlers {
   constructor(
     private readonly conversations: ConversationRepository,
-    private readonly client: WhatsAppClient,
     private readonly commandBus: CommandBus,
     private readonly logger: PinoLogger,
   ) {}
@@ -88,39 +77,6 @@ export class MessageContentHandlers {
     );
   }
 
-  /**
-   * Downloads inbound media through the channel transmission. A failed
-   * download is logged and returns no URL: the row is still saved, so the
-   * message (caption/text included) is never dropped.
-   */
-  private async downloadMedia(
-    media: DownloadableMedia | undefined,
-    transmission: ChannelTransmission,
-  ): Promise<{ fileUrl?: string; mimeType?: string }> {
-    if (!media?.id) return {};
-
-    this.client.setChannel(transmission.channel, transmission.credentials);
-    const ext = media.filename?.split('.').pop() || undefined;
-
-    try {
-      const { fileUrl, mimeType } = await firstValueFrom(
-        this.client.upload(
-          media.id,
-          transmission.credentials.accessToken,
-          ext,
-        ),
-      );
-      this.logger.debug({ mediaId: media.id, fileUrl }, 'Inbound media saved');
-      return { fileUrl, mimeType };
-    } catch (error: unknown) {
-      this.logger.error(
-        { error, mediaId: media.id },
-        'Inbound media download failed; persisting the row without the file',
-      );
-      return {};
-    }
-  }
-
   private readonly text: ContentHandlerPort<TextContent> = {
     handle: async (content, context, transmission) => {
       await this.saveMessage(
@@ -141,21 +97,15 @@ export class MessageContentHandlers {
   private readonly image: ContentHandlerPort<ImageContent> = {
     handle: async (content, context, transmission) => {
       const media = content.image;
-      const { fileUrl, mimeType } = await this.downloadMedia(
-        media,
-        transmission,
-      );
 
       await this.saveMessage(
         context,
         {
           type: 'image',
-          mediaUrl: fileUrl,
           externalId: context.messageId,
           externalMediaId: media?.id,
-          mimeType,
+          mimeType: media?.mime_type,
           content: {
-            link: fileUrl,
             caption: media?.caption,
           },
         },
@@ -167,21 +117,15 @@ export class MessageContentHandlers {
   private readonly document: ContentHandlerPort<DocumentContent> = {
     handle: async (content, context, transmission) => {
       const media = content.document;
-      const { fileUrl, mimeType } = await this.downloadMedia(
-        media,
-        transmission,
-      );
 
       await this.saveMessage(
         context,
         {
           type: 'document',
-          mediaUrl: fileUrl,
           externalId: context.messageId,
           externalMediaId: media?.id,
-          mimeType,
+          mimeType: media?.mime_type,
           content: {
-            link: fileUrl,
             caption: media?.caption,
             filename: media?.filename,
           },
@@ -194,20 +138,15 @@ export class MessageContentHandlers {
   private readonly audio: ContentHandlerPort<AudioContent> = {
     handle: async (content, context, transmission) => {
       const media = content.audio;
-      const { fileUrl, mimeType } = await this.downloadMedia(
-        media,
-        transmission,
-      );
 
       await this.saveMessage(
         context,
         {
           type: 'audio',
-          mediaUrl: fileUrl,
           externalId: context.messageId,
           externalMediaId: media?.id,
-          mimeType,
-          content: { link: fileUrl },
+          mimeType: media?.mime_type,
+          content: {},
         },
         transmission,
       );
@@ -217,21 +156,15 @@ export class MessageContentHandlers {
   private readonly video: ContentHandlerPort<VideoContent> = {
     handle: async (content, context, transmission) => {
       const media = content.video;
-      const { fileUrl, mimeType } = await this.downloadMedia(
-        media,
-        transmission,
-      );
 
       await this.saveMessage(
         context,
         {
           type: 'video',
-          mediaUrl: fileUrl,
           externalId: context.messageId,
           externalMediaId: media?.id,
-          mimeType,
+          mimeType: media?.mime_type,
           content: {
-            link: fileUrl,
             caption: media?.caption,
             filename: media?.filename,
           },
@@ -244,20 +177,15 @@ export class MessageContentHandlers {
   private readonly sticker: ContentHandlerPort<StickerContent> = {
     handle: async (content, context, transmission) => {
       const media = content.sticker;
-      const { fileUrl, mimeType } = await this.downloadMedia(
-        media,
-        transmission,
-      );
 
       await this.saveMessage(
         context,
         {
           type: 'sticker',
-          mediaUrl: fileUrl,
           externalId: context.messageId,
           externalMediaId: media?.id,
-          mimeType,
-          content: { link: fileUrl },
+          mimeType: media?.mime_type,
+          content: {},
         },
         transmission,
       );

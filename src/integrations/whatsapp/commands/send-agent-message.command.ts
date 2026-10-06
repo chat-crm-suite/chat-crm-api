@@ -9,7 +9,11 @@ import { SendConversationMessageDto } from '../../../modules/conversations/dto/s
  * acyclic; the processor only dispatches.
  */
 export class SendAgentMessageCommand extends Command<Message | null> {
-  constructor(public readonly data: SendConversationMessageDto) {
+  constructor(
+    public readonly data: SendConversationMessageDto,
+    /** BullMQ `attemptsMade`: 0 on the first run, >0 after a stalled retry. */
+    public readonly attemptsMade = 0,
+  ) {
     super();
   }
 }

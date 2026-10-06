@@ -24,11 +24,15 @@ export class ConversationProcessor extends WorkerHost {
 
   /**
    * T5: an agent send is saved first as `pending` by the outbound pipeline,
-   * which then waits for Graph's wamid before marking it `sent`.
+   * which then waits for Graph's wamid before marking it `sent`. The job's
+   * `attemptsMade` travels with the command so a stalled retry can finish a
+   * row the dead attempt left pending.
    */
-  sendMessageToWhatsapp(data: SendConversationMessageDto) {
+  sendMessageToWhatsapp(data: SendConversationMessageDto, attemptsMade = 0) {
     this.logger.debug('Execute send whatsapp client');
-    return this.commandBus.execute(new SendAgentMessageCommand(data));
+    return this.commandBus.execute(
+      new SendAgentMessageCommand(data, attemptsMade),
+    );
   }
 
   saveConversationMessage(
@@ -47,6 +51,7 @@ export class ConversationProcessor extends WorkerHost {
       case 'send-message':
         return await this.sendMessageToWhatsapp(
           job.data as SendConversationMessageDto,
+          job.attemptsMade,
         );
       case 'save-message':
         return await this.saveConversationMessage(job.data);

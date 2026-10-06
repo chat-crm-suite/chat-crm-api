@@ -45,7 +45,11 @@ describe('ConversationProcessor (T5 outbound)', () => {
     commandBus.execute.mockResolvedValue(saved);
 
     await expect(
-      processor.process({ name: 'send-message', data: sendJobData } as never),
+      processor.process({
+        name: 'send-message',
+        data: sendJobData,
+        attemptsMade: 2,
+      } as never),
     ).resolves.toBe(saved);
 
     expect(commandBus.execute).toHaveBeenCalledTimes(1);
@@ -53,6 +57,8 @@ describe('ConversationProcessor (T5 outbound)', () => {
       .calls[0][0] as SendAgentMessageCommand;
     expect(command).toBeInstanceOf(SendAgentMessageCommand);
     expect(command.data).toBe(sendJobData);
+    // A stalled retry must be distinguishable from a fresh duplicate.
+    expect(command.attemptsMade).toBe(2);
   });
 
   it('does not publish a save event after a send job completes', () => {

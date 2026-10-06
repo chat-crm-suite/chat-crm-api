@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { EventBus } from '@nestjs/cqrs';
-import type { WhatsappNotificationError } from '@daweto/whatsapp-api-types';
 import { PinoLogger } from 'nestjs-pino';
 
 import { getMessageStrategy } from '../../../modules/message/strategies/strategy.registry';
@@ -13,6 +12,7 @@ import { ConversationFanoutService } from '../../../modules/conversations/realti
 import { SendConversationMessageDto } from '../../../modules/conversations/dto/send-conversation-message.dto';
 import type { WhatsAppPayload } from '../interfaces/whatsapp-message.interface';
 import type { WhatsAppErrorInfo } from '../clients/whatsapp.client';
+import { toLegacyWhatsAppError } from '../legacy-error';
 import { WhatsAppService } from '../whatsapp.service';
 
 /**
@@ -34,7 +34,11 @@ export class AgentMessageSender {
     this.logger.setContext(AgentMessageSender.name);
   }
 
-  async send(data: SendConversationMessageDto): Promise<Message | null> {
+  async send(
+    data: SendConversationMessageDto,
+    options?: { attemptsMade?: number },
+  ): Promise<Message | null> {
+    const attemptsMade = options?.attemptsMade ?? 0;
     const { message, created } = await this.conversations.saveOutbound(
       data.room,
       { ...data.msg, clientMessageId: data.clientMessageId ?? null },
@@ -45,16 +49,31 @@ export class AgentMessageSender {
     // A double submit (same client id) returns the existing row: the first
     // submit already broadcast it and owns the Graph send.
     if (!created) {
-      this.logger.debug(
-        { messageId: message.id, clientMessageId: message.clientMessageId },
-        'Duplicate client message id ignored',
-      );
-      return message;
-    }
+      // A stalled BullMQ retry is not a duplicate: the original attempt died
+      // before Graph answered, so a still-pending row is ours to send.
+      if (attemptsMade === 0 || message.status !== 'pending') {
+        this.logger.debug(
+          { messageId: message.id, clientMessageId: message.clientMessageId },
+          'Duplicate client message id ignored',
+        );
+        return message;
+      }
 
-    // Same live path as any saved message: the pending row reaches the thread
-    // before Graph is even called.
-    await this.eventBus.publish(new MessageSavedEvent(message, data.companyId));
+      this.logger.warn(
+        {
+          messageId: message.id,
+          clientMessageId: message.clientMessageId,
+          attemptsMade,
+        },
+        'Retrying a stalled outbound send over the pending row',
+      );
+    } else {
+      // Same live path as any saved message: the pending row reaches the
+      // thread before Graph is even called.
+      await this.eventBus.publish(
+        new MessageSavedEvent(message, data.companyId),
+      );
+    }
 
     let payload: WhatsAppPayload;
     try {
@@ -123,27 +142,10 @@ export class AgentMessageSender {
       await this.fanout.emitStatusPatch(toMessageStatusPatch(failed));
       await this.fanout.emitError(
         failed.conversationId,
-        toLegacySendError(error, messageType),
+        toLegacyWhatsAppError(error, messageType),
       );
     }
 
     return failed ?? message;
   }
-}
-
-/** Mirrors the legacy `FailWhatsAppMessageCommand` error shape. */
-function toLegacySendError(
-  error: WhatsAppErrorInfo,
-  messageType: string,
-): WhatsappNotificationError {
-  const code = Number(error.code);
-
-  return {
-    code: Number.isFinite(code) ? code : 0,
-    title: 'Whatsapp cliente error',
-    message: error.message,
-    error_data: {
-      details: `Request whatsapp client error for ${messageType} message`,
-    },
-  };
 }

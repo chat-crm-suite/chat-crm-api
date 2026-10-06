@@ -20,6 +20,8 @@ export class SendAgentMessageHandler implements ICommandHandler<SendAgentMessage
       'Send agent message',
     );
 
-    return this.sender.send(command.data);
+    return this.sender.send(command.data, {
+      attemptsMade: command.attemptsMade,
+    });
   }
 }

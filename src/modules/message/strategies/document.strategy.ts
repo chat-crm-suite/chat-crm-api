@@ -40,6 +40,7 @@ export class DocumentMessageStrategy implements MessageStrategy {
       msg: {
         type: 'document',
         mediaUrl: attachment?.storageUrl ?? null,
+        attachmentStatus: attachment?.status ?? null,
         content: {
           caption: message.body ?? undefined,
           filename: attachment?.fileName,

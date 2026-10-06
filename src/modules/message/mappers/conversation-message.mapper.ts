@@ -56,6 +56,7 @@ export function toConversationMessagePayload(
     msg: {
       type: message.type,
       mediaUrl: attachment?.storageUrl ?? null,
+      attachmentStatus: attachment?.status ?? null,
       content,
     },
   };

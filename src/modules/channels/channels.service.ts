@@ -168,6 +168,21 @@ export class ChannelsService {
     };
   }
 
+  /** Async enrichment path: the transmission of the conversation's channel. */
+  async getTransmissionByChannelId(
+    channelId: string,
+  ): Promise<ChannelTransmission | null> {
+    const channel = await this.channels.findOne({
+      where: { id: channelId, type: 'whatsapp' },
+    });
+    if (!channel) return null;
+
+    return {
+      channel,
+      credentials: decryptCredentials<WhatsAppCredentials>(channel.credentials),
+    };
+  }
+
   /** Outbound path: the active WhatsApp channel of a company, decrypted. */
   async getTransmissionForCompany(
     companyId: string,

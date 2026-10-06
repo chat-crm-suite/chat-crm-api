@@ -14,6 +14,8 @@ import { ReceiveWhatsAppMessageHandler } from './commands/handlers/receive-whats
 import { SendWhatsAppMessageHandler } from './commands/handlers/send-whatsapp-message.handler';
 import { WebhookController } from './controllers/index';
 import { WhatsappInboundEvent } from './entities/whatsapp-inbound-event.entity';
+import { InboundMediaEnrichmentHandler } from './intake/inbound-media-enrichment.handler';
+import { InboundMediaEnrichmentService } from './intake/inbound-media-enrichment.service';
 import { InboundMessageSavedHandler } from './intake/inbound-message-saved.handler';
 import { WhatsAppInboundReplayService } from './intake/whatsapp-inbound-replay.service';
 import { WhatsAppIntakeService } from './intake/whatsapp-intake.service';
@@ -37,6 +39,8 @@ import { WhatsAppService } from './whatsapp.service';
     WhatsAppIntakeService,
     WhatsAppInboundReplayService,
     InboundMessageSavedHandler,
+    InboundMediaEnrichmentService,
+    InboundMediaEnrichmentHandler,
     WhatsAppClient,
     ReceiveWhatsAppMessageHandler,
     MessageContentHandlers,

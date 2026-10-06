@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getDataSourceToken, TypeOrmModule } from '@nestjs/typeorm';
-import { of } from 'rxjs';
 import { DataSource, EntityTarget } from 'typeorm';
 
 import * as Entities from '@entities';
@@ -13,8 +12,10 @@ import {
 } from '@factories';
 import { MessageContentHandlers } from '@integrations/whatsapp/commands/handlers/message-content.handlers';
 import { ReceiveWhatsAppMessageCommand } from '@integrations/whatsapp/commands/receive-whatsapp-message.command';
+import { InboundMediaEnrichmentService } from '@integrations/whatsapp/intake/inbound-media-enrichment.service';
 import { WhatsAppInboundReplayService } from '@integrations/whatsapp/intake/whatsapp-inbound-replay.service';
 import { WhatsAppIntakeService } from '@integrations/whatsapp/intake/whatsapp-intake.service';
+import { ConversationSocketEvent } from '../../src/contracts/index';
 import type { ChannelTransmission } from '@modules/channels/channels.service';
 import { SaveConversationMessageCommand } from '@modules/conversations/commands/save-conversation-message.command';
 import { ConversationRepository } from '@modules/conversations/conversation.repository';
@@ -44,11 +45,12 @@ const logger = () =>
   }) as never;
 
 /**
- * T2 acceptance over the real DB: an event persisted by T1 (crash between the
- * 200 and the save) replays from its stored payload into a visible
- * conversation row, and is consumed so it never replays twice.
+ * T2/T3 acceptance over the real DB: an event persisted by T1 (crash between
+ * the 200 and the save) replays from its stored payload into a visible
+ * conversation row whose media is a `pending` reference; the async enrichment
+ * then stores the file (ready) or marks it failed without touching the row.
  */
-describe('Inbound row-first persist - integration', () => {
+describe('Inbound row-first persist + media enrichment - integration', () => {
   const AUDIO_WAMID = 'wamid-int-audio-1';
   const audioPayload = {
     id: AUDIO_WAMID,
@@ -62,7 +64,13 @@ describe('Inbound row-first persist - integration', () => {
   let dataSource: DataSource;
   let intake: WhatsAppIntakeService;
   let replay: WhatsAppInboundReplayService;
+  let enrichment: InboundMediaEnrichmentService;
+  let messageService: MessageService;
   let currentTransmission: ChannelTransmission | null = null;
+
+  const downloadMedia = jest.fn();
+  const emit = jest.fn();
+  const to = jest.fn().mockReturnValue({ emit });
 
   const commandBus = {
     // Replaced in beforeAll with a loopback bus that replaces the BullMQ queue
@@ -90,7 +98,7 @@ describe('Inbound row-first persist - integration', () => {
       dataSource.getRepository(MessageAttachment),
       dataSource,
     );
-    const messageService = new MessageService(messageRepository);
+    messageService = new MessageService(messageRepository);
 
     const customers = new CustomersService(
       dataSource.getRepository(Customer),
@@ -116,16 +124,6 @@ describe('Inbound row-first persist - integration', () => {
 
     const handlers = new MessageContentHandlers(
       conversationRepository,
-      {
-        setChannel: jest.fn(),
-        upload: jest.fn().mockReturnValue(
-          of({
-            fileUrl: '/uploads/media-audio-1.ogg',
-            mimeType: 'audio/ogg',
-            size: 10,
-          }),
-        ),
-      } as never,
       commandBus as never,
       logger(),
     );
@@ -165,10 +163,25 @@ describe('Inbound row-first persist - integration', () => {
       commandBus as never,
       logger(),
     );
+
+    enrichment = new InboundMediaEnrichmentService(
+      messageService,
+      conversations,
+      {
+        getTransmissionByChannelId: jest.fn(() =>
+          Promise.resolve(currentTransmission),
+        ),
+      } as never,
+      { downloadMedia } as never,
+      { server: { to } } as never,
+      logger(),
+    );
   });
 
   beforeEach(async () => {
     currentTransmission = null;
+    jest.clearAllMocks();
+    to.mockReturnValue({ emit });
     await truncateAllTables(dataSource);
   });
 
@@ -202,7 +215,7 @@ describe('Inbound row-first persist - integration', () => {
     return { company, channel, customer, conversation };
   }
 
-  it('replays a crash-persisted audio event into a playable row and consumes it', async () => {
+  it('replays a crash-persisted audio event into a pending row and enriches it to ready', async () => {
     const { conversation } = await setupConversation();
     await intake.persistIfNew({
       wamid: AUDIO_WAMID,
@@ -224,24 +237,126 @@ describe('Inbound row-first persist - integration', () => {
       status: 'delivered',
     });
 
-    const attachment = await dataSource
+    const pendingAttachment = await dataSource
       .getRepository(MessageAttachment)
       .findOneByOrFail({ messageId: message.id });
-    expect(attachment).toMatchObject({
+    expect(pendingAttachment).toMatchObject({
       type: 'audio',
       mimeType: 'audio/ogg',
-      storageUrl: '/uploads/media-audio-1.ogg',
       externalMediaId: 'media-audio-1',
+      status: 'pending',
+    });
+    expect(pendingAttachment.storageUrl ?? null).toBeNull();
+
+    // Async enrichment: the file lands in the company folder and the row gets
+    // the ready patch without being re-saved.
+    downloadMedia.mockResolvedValue({
+      fileUrl: '/uploads/co-test/media-audio-1.ogg',
+      mimeType: 'audio/ogg',
+      sizeBytes: 10,
     });
 
-    const savedConversation = await dataSource
-      .getRepository(Conversation)
-      .findOneByOrFail({ id: conversation.id });
-    expect(savedConversation.lastMessageId).toBe(message.id);
+    await enrichment.enrich(message);
+
+    const enriched = await dataSource
+      .getRepository(MessageAttachment)
+      .findOneByOrFail({ id: pendingAttachment.id });
+    expect(enriched).toMatchObject({
+      status: 'ready',
+      storageUrl: '/uploads/co-test/media-audio-1.ogg',
+      sizeBytes: 10,
+    });
+    expect(
+      await dataSource.getRepository(Message).findOneByOrFail({ id: message.id }),
+    ).toMatchObject({ type: 'audio', externalId: AUDIO_WAMID });
+
+    expect(emit).toHaveBeenCalledWith(
+      ConversationSocketEvent.MessageAttachment,
+      expect.objectContaining({
+        id: message.id,
+        conversationId: conversation.id,
+        attachmentId: pendingAttachment.id,
+        status: 'ready',
+        url: '/uploads/co-test/media-audio-1.ogg',
+      }),
+    );
+
+    // Idempotent: a second enrichment pass finds nothing pending and emits
+    // no duplicate patch.
+    downloadMedia.mockClear();
+    emit.mockClear();
+    await enrichment.enrich(message);
+    expect(downloadMedia).not.toHaveBeenCalled();
+    expect(emit).not.toHaveBeenCalled();
 
     // Consumed: a second pass (e.g. next boot) has nothing to replay.
     await expect(replay.replayPending()).resolves.toBe(0);
     expect(await intake.listPending(10)).toEqual([]);
+  });
+
+  it('keeps the row with its caption when the media enrichment fails', async () => {
+    const { conversation } = await setupConversation();
+    await intake.persistIfNew({
+      wamid: 'wamid-int-image-1',
+      phoneNumberId: 'phone-1',
+      messageType: 'image',
+      payload: {
+        id: 'wamid-int-image-1',
+        from: '15551234567',
+        timestamp: '1760000002',
+        type: 'image',
+        image: { id: 'media-img-1', caption: 'mira esto', mime_type: 'image/jpeg' },
+      },
+    });
+
+    await expect(replay.replayPending()).resolves.toBe(1);
+
+    const message = await dataSource
+      .getRepository(Message)
+      .findOneByOrFail({ externalId: 'wamid-int-image-1' });
+    expect(message).toMatchObject({
+      type: 'image',
+      body: 'mira esto',
+      conversationId: conversation.id,
+    });
+
+    const pendingAttachment = await dataSource
+      .getRepository(MessageAttachment)
+      .findOneByOrFail({ messageId: message.id });
+    expect(pendingAttachment.status).toBe('pending');
+
+    downloadMedia.mockRejectedValue(new Error('graph down'));
+
+    await enrichment.enrich(message);
+
+    const failed = await dataSource
+      .getRepository(MessageAttachment)
+      .findOneByOrFail({ id: pendingAttachment.id });
+    expect(failed).toMatchObject({ status: 'failed' });
+    expect(failed.storageUrl ?? null).toBeNull();
+
+    // The row survives with its caption: a failed file never empties it.
+    const kept = await dataSource
+      .getRepository(Message)
+      .findOneByOrFail({ id: message.id });
+    expect(kept).toMatchObject({ body: 'mira esto', type: 'image' });
+    expect(kept.deletedAt ?? null).toBeNull();
+
+    expect(emit).toHaveBeenCalledWith(
+      ConversationSocketEvent.MessageAttachment,
+      expect.objectContaining({
+        id: message.id,
+        attachmentId: pendingAttachment.id,
+        status: 'failed',
+        url: null,
+      }),
+    );
+
+    // History stays honest after a reload: the failed state travels in the
+    // same payload the thread already consumes.
+    await expect(messageService.getMessagePayload(message.id)).resolves.toMatchObject({
+      msg: { type: 'image', mediaUrl: null, attachmentStatus: 'failed' },
+    });
   });
 
   it('replays a location event as a short readable row', async () => {

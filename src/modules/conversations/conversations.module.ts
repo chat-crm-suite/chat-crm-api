@@ -69,6 +69,7 @@ const commandHandlers = [
     ConversationsService,
     ConversationRepository,
     ConversationAssignmentService,
+    ConversationGateway,
   ],
 })
 export class ConversationsModule {}

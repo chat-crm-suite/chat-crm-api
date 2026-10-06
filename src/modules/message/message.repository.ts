@@ -204,7 +204,10 @@ export class MessageRepository {
   /**
    * Applies one Meta delivery state to the message row and appends the
    * transition to the append-only history, in a single transaction. The
-   * caller owns the transition policy (`MessageService`).
+   * caller owns the transition policy (`MessageService`) and passes the
+   * statuses the update may start from; the UPDATE is guarded by them
+   * (compare-and-set), so a concurrent out-of-order status can never regress
+   * the row and a lost race appends no history row.
    */
   async applyStatus(
     messageId: string,
@@ -214,11 +217,14 @@ export class MessageRepository {
       errorCode?: string | null;
       errorMessage?: string | null;
     },
-  ): Promise<Message> {
+    allowedFrom: MessageStatus[],
+  ): Promise<Message | null> {
+    if (!allowedFrom.length) return null;
+
     return this.dataSource.transaction(async (manager) => {
-      await manager.update(
+      const result = await manager.update(
         Message,
-        { id: messageId },
+        { id: messageId, status: In(allowedFrom) },
         {
           status: update.status,
           statusUpdatedAt: update.occurredAt,
@@ -227,6 +233,8 @@ export class MessageRepository {
           errorMessage: update.errorMessage?.slice(0, 500) ?? null,
         },
       );
+
+      if (!result.affected) return null;
 
       await manager.save(
         manager.create(MessageStatusEvent, {

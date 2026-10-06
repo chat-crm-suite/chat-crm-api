@@ -146,6 +146,49 @@ describe('MessageService delivery states (integration)', () => {
     expect(await events.count()).toBe(0);
   });
 
+  it('refuses a stale transition when the current status no longer allows it', async () => {
+    const message = await seedOutbound({ status: 'read' });
+    const repository = module.get(MessageRepository);
+
+    const saved = await repository.applyStatus(
+      message.id,
+      { status: 'delivered', occurredAt },
+      ['pending', 'sent'],
+    );
+
+    expect(saved).toBeNull();
+    expect((await reload(message.id)).status).toBe('read');
+    expect(await events.count({ where: { messageId: message.id } })).toBe(0);
+  });
+
+  it('never regresses when a delivered and a read land out of order', async () => {
+    const message = await seedOutbound({ status: 'sent' });
+
+    await Promise.all([
+      service.applyDeliveryStatus({
+        wamid: 'wamid-out-1',
+        status: 'read',
+        occurredAt: new Date('2026-10-05T12:20:00.000Z'),
+      }),
+      service.applyDeliveryStatus({
+        wamid: 'wamid-out-1',
+        status: 'delivered',
+        occurredAt: new Date('2026-10-05T12:21:00.000Z'),
+      }),
+    ]);
+
+    expect((await reload(message.id)).status).toBe('read');
+
+    const history = await events.find({
+      where: { messageId: message.id },
+      order: { id: 'ASC' },
+    });
+    const rank = { pending: 0, sent: 1, delivered: 2, read: 3, failed: 4 };
+    const ranks = history.map((row) => rank[row.status]);
+
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+  });
+
   it('keeps failed as the final state, with its error intact', async () => {
     const message = await seedOutbound({ status: 'read' });
 

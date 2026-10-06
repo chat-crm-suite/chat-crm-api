@@ -52,3 +52,12 @@ export const ATTACHMENT_TYPES = [
 ] as const;
 export const AttachmentTypeSchema = z.enum(ATTACHMENT_TYPES);
 export type AttachmentType = z.infer<typeof AttachmentTypeSchema>;
+
+/**
+ * Attachment lifecycle (T3): inbound media is born `pending` (the row is
+ * already visible) and the async enrichment moves it to `ready` or `failed`.
+ * Uploaded/outbound files are `ready` from the start.
+ */
+export const ATTACHMENT_STATUSES = ['pending', 'ready', 'failed'] as const;
+export const AttachmentStatusSchema = z.enum(ATTACHMENT_STATUSES);
+export type AttachmentStatus = z.infer<typeof AttachmentStatusSchema>;

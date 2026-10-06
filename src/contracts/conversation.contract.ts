@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  AttachmentStatusSchema,
   MessageSenderTypeSchema,
   MessageStatusSchema,
   MessageTypeSchema,
@@ -47,6 +48,7 @@ export const ConversationSocketEvent = {
   SendMessage: 'conversation:message:send',
   ReceivedMessage: 'conversation:message:received',
   MessageStatus: 'conversation:message:status',
+  MessageAttachment: 'conversation:message:attachment',
   UpdateSentimentIndicator: 'conversation:sentiment:update',
   NewNotification: 'notification:new',
   ConversationAssigned: 'conversation:assigned',
@@ -153,4 +155,24 @@ export const ConversationMessageStatusPatchSchema = z.object({
 
 export type ConversationMessageStatusPatch = z.infer<
   typeof ConversationMessageStatusPatchSchema
+>;
+
+/**
+ * `conversation:message:attachment` payload (server -> client): the async
+ * media enrichment finished for one attachment of a saved row. `ready` carries
+ * the stored `url`; `failed` says the file is missing (the row itself stays).
+ */
+export const ConversationMessageAttachmentPatchSchema = z.object({
+  id: z.string(),
+  conversationId: z.string(),
+  attachmentId: z.string(),
+  status: AttachmentStatusSchema,
+  url: z.string().nullish(),
+  mimeType: z.string().nullish(),
+  sizeBytes: z.number().nullish(),
+  at: z.coerce.date(),
+});
+
+export type ConversationMessageAttachmentPatch = z.infer<
+  typeof ConversationMessageAttachmentPatchSchema
 >;

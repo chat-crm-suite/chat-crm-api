@@ -26,6 +26,7 @@ const attachment = (
     mimeType: 'image/jpeg',
     fileName: 'photo.jpg',
     storageUrl: '/uploads/photo.jpg',
+    status: 'ready',
     ...overrides,
   }) as MessageAttachment;
 
@@ -89,6 +90,18 @@ describe('MessageService.getMessagePayload', () => {
 
     expect(payload?.msg.type).toBe('audio');
     expect(payload?.msg.mediaUrl).toBe('/uploads/photo.jpg');
+  });
+
+  it('exposes the attachment status for a failed media row', async () => {
+    findById.mockResolvedValue(message({ type: 'image' }));
+    findAttachmentsByMessageIds.mockResolvedValue([
+      attachment({ status: 'failed', storageUrl: undefined }),
+    ]);
+
+    const payload = await service.getMessagePayload('msg-1');
+
+    expect(payload?.msg.attachmentStatus).toBe('failed');
+    expect(payload?.msg.mediaUrl).toBeNull();
   });
 
   it('returns null when the message does not exist', async () => {

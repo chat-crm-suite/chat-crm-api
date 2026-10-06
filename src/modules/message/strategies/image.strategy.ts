@@ -39,6 +39,7 @@ export class ImageMessageStrategy implements MessageStrategy {
       msg: {
         type: 'image',
         mediaUrl: attachment?.storageUrl ?? null,
+        attachmentStatus: attachment?.status ?? null,
         content: { caption: message.body ?? undefined },
       },
     };

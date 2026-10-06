@@ -86,6 +86,10 @@ export class ConversationsService {
 
     const link = msg.mediaUrl ?? msg.content?.link;
     const attachmentType = ATTACHMENT_TYPE_BY_MESSAGE_TYPE[msg.type];
+    // T3: inbound media keeps its reference without a file yet; the async
+    // enrichment downloads it and flips the attachment to ready/failed.
+    const attachmentStatus =
+      inbound && msg.externalMediaId && !link ? 'pending' : 'ready';
 
     return this.messageService.saveMessage({
       companyId: resolvedCompanyId,
@@ -108,6 +112,7 @@ export class ConversationsService {
                 fileName: msg.content?.filename,
                 storageUrl: link,
                 externalMediaId: msg.externalMediaId,
+                status: attachmentStatus,
               },
             ]
           : undefined,

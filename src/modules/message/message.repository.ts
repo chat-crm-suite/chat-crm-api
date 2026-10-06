@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
 
 import type {
+  AttachmentStatus,
   AttachmentType,
   MessageDirection,
   MessageSenderType,
@@ -20,6 +21,7 @@ export interface SaveMessageAttachment {
   fileName?: string;
   storageUrl?: string;
   externalMediaId?: string;
+  status?: AttachmentStatus;
   sizeBytes?: number | null;
   width?: number | null;
   height?: number | null;
@@ -84,6 +86,7 @@ export class MessageRepository {
               fileName: attachment.fileName,
               storageUrl: attachment.storageUrl,
               externalMediaId: attachment.externalMediaId,
+              status: attachment.status ?? 'ready',
               sizeBytes: attachment.sizeBytes ?? null,
               width: attachment.width ?? null,
               height: attachment.height ?? null,
@@ -175,5 +178,55 @@ export class MessageRepository {
       where: { messageId: In(messageIds) },
       order: { createdAt: 'ASC' },
     });
+  }
+
+  /** T3 enrichment input: attachments still waiting for their file. */
+  findPendingMediaAttachments(messageId: string): Promise<MessageAttachment[]> {
+    return this.attachments.find({
+      where: {
+        messageId,
+        status: 'pending',
+        externalMediaId: Not(IsNull()),
+      },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  /**
+   * T3 enrichment result. Only a `pending` attachment can transition, so a
+   * duplicate enrichment pass can never resurrect a failed one.
+   */
+  async markAttachmentReady(
+    attachmentId: string,
+    data: { storageUrl: string; mimeType?: string; sizeBytes?: number | null },
+  ): Promise<MessageAttachment | null> {
+    const result = await this.attachments.update(
+      { id: attachmentId, status: 'pending' },
+      {
+        status: 'ready',
+        storageUrl: data.storageUrl,
+        ...(data.mimeType !== undefined ? { mimeType: data.mimeType } : {}),
+        sizeBytes: data.sizeBytes ?? null,
+      },
+    );
+
+    // A concurrent pass already settled it: no second transition, no patch.
+    if (!result.affected) return null;
+
+    return this.attachments.findOne({ where: { id: attachmentId } });
+  }
+
+  /** Media failure is terminal for the attachment; the message row stays. */
+  async markAttachmentFailed(
+    attachmentId: string,
+  ): Promise<MessageAttachment | null> {
+    const result = await this.attachments.update(
+      { id: attachmentId, status: 'pending' },
+      { status: 'failed' },
+    );
+
+    if (!result.affected) return null;
+
+    return this.attachments.findOne({ where: { id: attachmentId } });
   }
 }

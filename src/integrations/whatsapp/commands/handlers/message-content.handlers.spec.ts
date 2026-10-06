@@ -1,14 +1,13 @@
-import { of, throwError } from 'rxjs';
-
 import { SaveConversationMessageCommand } from '../../../../modules/conversations/commands/save-conversation-message.command';
 import type { ConversationMessageDto } from '../../../../modules/conversations/dto/conversation-message.dto';
 import type { ChannelTransmission } from '../../../../modules/channels/channels.service';
 import { MessageContentHandlers } from './message-content.handlers';
 
 /**
- * T2 row-first persist: every known inbound type must reach the save command
- * as a visible row. Media types carry their downloaded URL, and a failed
- * download never drops the row (caption/text survives).
+ * T3 row-first persist: every known inbound type reaches the save command as
+ * a visible row, and media types keep their reference (`externalMediaId`) for
+ * the async enrichment. Nothing is downloaded inline, so a media failure can
+ * never delay or drop the row.
  */
 const transmission = (): ChannelTransmission =>
   ({
@@ -35,14 +34,6 @@ function build() {
       customer: { id: 'cust-1' },
     }),
   };
-  const client = {
-    setChannel: jest.fn(),
-    upload: jest
-      .fn()
-      .mockReturnValue(
-        of({ fileUrl: '/uploads/media-1.ogg', mimeType: 'audio/ogg', size: 10 }),
-      ),
-  };
   const commandBus = {
     execute: jest.fn<Promise<unknown>, [unknown]>().mockResolvedValue(undefined),
   };
@@ -54,12 +45,11 @@ function build() {
   };
   const handlers = new MessageContentHandlers(
     conversations as never,
-    client as never,
     commandBus as never,
     logger as never,
   );
 
-  return { handlers, conversations, client, commandBus, logger };
+  return { handlers, conversations, commandBus, logger };
 }
 
 const savedPayload = (
@@ -72,9 +62,9 @@ const savedPayload = (
     : undefined;
 };
 
-describe('MessageContentHandlers (T2 inbound types)', () => {
-  it('persists an audio message as a playable row with its media URL', async () => {
-    const { handlers, client, commandBus } = build();
+describe('MessageContentHandlers (T3 pending media reference)', () => {
+  it('persists an audio message as a row with its media reference (no download)', async () => {
+    const { handlers, commandBus } = build();
 
     await handlers.getHandler('audio')?.handle(
       {
@@ -85,59 +75,24 @@ describe('MessageContentHandlers (T2 inbound types)', () => {
       transmission(),
     );
 
-    expect(client.setChannel).toHaveBeenCalled();
-    expect(client.upload).toHaveBeenCalledWith(
-      'media-audio-1',
-      'token-1',
-      undefined,
-    );
     expect(commandBus.execute).toHaveBeenCalledTimes(1);
-
     expect(savedPayload(commandBus.execute)).toMatchObject({
       room: 'conv-1',
       companyId: 'co-1',
       sender: { id: 'cust-1', type: 'customer' },
       msg: {
         type: 'audio',
-        mediaUrl: '/uploads/media-1.ogg',
         externalId: 'wamid-1',
         externalMediaId: 'media-audio-1',
-        mimeType: 'audio/ogg',
-        content: { link: '/uploads/media-1.ogg' },
+        mimeType: 'audio/ogg; codecs=opus',
+        content: {},
       },
     });
+    expect(savedPayload(commandBus.execute)?.msg.mediaUrl).toBeUndefined();
   });
 
-  it('still persists the row when the media download fails', async () => {
-    const { handlers, client, commandBus, logger } = build();
-    client.upload.mockReturnValue(throwError(() => new Error('graph down')));
-
-    await handlers.getHandler('audio')?.handle(
-      {
-        type: 'audio',
-        audio: { id: 'media-audio-1', mime_type: 'audio/ogg' },
-      },
-      context(),
-      transmission(),
-    );
-
-    const payload = savedPayload(commandBus.execute);
-    expect(payload).toMatchObject({
-      msg: {
-        type: 'audio',
-        externalId: 'wamid-1',
-        externalMediaId: 'media-audio-1',
-      },
-    });
-    expect(payload?.msg.mediaUrl).toBeUndefined();
-    expect(logger.error).toHaveBeenCalled();
-  });
-
-  it('persists an image with caption and media URL', async () => {
-    const { handlers, client, commandBus } = build();
-    client.upload.mockReturnValue(
-      of({ fileUrl: '/uploads/img.jpg', mimeType: 'image/jpeg', size: 10 }),
-    );
+  it('persists an image with caption and media reference', async () => {
+    const { handlers, commandBus } = build();
 
     await handlers.getHandler('image')?.handle(
       {
@@ -151,19 +106,16 @@ describe('MessageContentHandlers (T2 inbound types)', () => {
     expect(savedPayload(commandBus.execute)).toMatchObject({
       msg: {
         type: 'image',
-        mediaUrl: '/uploads/img.jpg',
         externalMediaId: 'media-img-1',
         mimeType: 'image/jpeg',
-        content: { link: '/uploads/img.jpg', caption: 'mira' },
+        content: { caption: 'mira' },
       },
     });
+    expect(savedPayload(commandBus.execute)?.msg.mediaUrl).toBeUndefined();
   });
 
   it('persists a document with filename and caption', async () => {
-    const { handlers, client, commandBus } = build();
-    client.upload.mockReturnValue(
-      of({ fileUrl: '/uploads/doc.pdf', mimeType: 'application/pdf', size: 10 }),
-    );
+    const { handlers, commandBus } = build();
 
     await handlers.getHandler('document')?.handle(
       {
@@ -180,17 +132,12 @@ describe('MessageContentHandlers (T2 inbound types)', () => {
       transmission(),
     );
 
-    expect(client.upload).toHaveBeenCalledWith(
-      'media-doc-1',
-      'token-1',
-      'pdf',
-    );
     expect(savedPayload(commandBus.execute)).toMatchObject({
       msg: {
         type: 'document',
-        mediaUrl: '/uploads/doc.pdf',
+        externalMediaId: 'media-doc-1',
+        mimeType: 'application/pdf',
         content: {
-          link: '/uploads/doc.pdf',
           caption: 'factura',
           filename: 'factura.pdf',
         },
@@ -199,10 +146,7 @@ describe('MessageContentHandlers (T2 inbound types)', () => {
   });
 
   it('persists a video with caption and filename', async () => {
-    const { handlers, client, commandBus } = build();
-    client.upload.mockReturnValue(
-      of({ fileUrl: '/uploads/clip.mp4', mimeType: 'video/mp4', size: 10 }),
-    );
+    const { handlers, commandBus } = build();
 
     await handlers.getHandler('video')?.handle(
       {
@@ -221,9 +165,9 @@ describe('MessageContentHandlers (T2 inbound types)', () => {
     expect(savedPayload(commandBus.execute)).toMatchObject({
       msg: {
         type: 'video',
-        mediaUrl: '/uploads/clip.mp4',
+        externalMediaId: 'media-video-1',
+        mimeType: 'video/mp4',
         content: {
-          link: '/uploads/clip.mp4',
           caption: 'mira esto',
           filename: 'clip.mp4',
         },
@@ -231,11 +175,8 @@ describe('MessageContentHandlers (T2 inbound types)', () => {
     });
   });
 
-  it('persists a sticker as a media row', async () => {
-    const { handlers, client, commandBus } = build();
-    client.upload.mockReturnValue(
-      of({ fileUrl: '/uploads/sticker.webp', mimeType: 'image/webp', size: 10 }),
-    );
+  it('persists a sticker as a media row with its reference', async () => {
+    const { handlers, commandBus } = build();
 
     await handlers.getHandler('sticker')?.handle(
       {
@@ -249,14 +190,14 @@ describe('MessageContentHandlers (T2 inbound types)', () => {
     expect(savedPayload(commandBus.execute)).toMatchObject({
       msg: {
         type: 'sticker',
-        mediaUrl: '/uploads/sticker.webp',
         externalMediaId: 'media-sticker-1',
+        mimeType: 'image/webp',
       },
     });
   });
 
   it('persists the row even when the media has no reference at all', async () => {
-    const { handlers, client, commandBus } = build();
+    const { handlers, commandBus } = build();
 
     await handlers.getHandler('image')?.handle(
       { type: 'image', image: { caption: 'foto sin archivo' } },
@@ -264,13 +205,13 @@ describe('MessageContentHandlers (T2 inbound types)', () => {
       transmission(),
     );
 
-    expect(client.upload).not.toHaveBeenCalled();
     expect(savedPayload(commandBus.execute)).toMatchObject({
       msg: {
         type: 'image',
         content: { caption: 'foto sin archivo' },
       },
     });
+    expect(savedPayload(commandBus.execute)?.msg.externalMediaId).toBeUndefined();
   });
 
   it('persists a location as a short readable row', async () => {

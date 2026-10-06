@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import type {
+  AttachmentStatus,
   AttachmentType,
   MessageDirection,
   MessageSenderType,
@@ -55,6 +56,7 @@ export class MessageService {
       fileName?: string;
       storageUrl?: string;
       externalMediaId?: string;
+      status?: AttachmentStatus;
       sizeBytes?: number | null;
       width?: number | null;
       height?: number | null;
@@ -141,6 +143,26 @@ export class MessageService {
   /** Replay idempotency: does this wamid already have a persisted row? */
   findByExternalId(externalId: string): Promise<Message | null> {
     return this.repo.findByExternalId(externalId);
+  }
+
+  /** T3: attachments of a saved row still waiting for their media file. */
+  findPendingMediaAttachments(messageId: string): Promise<MessageAttachment[]> {
+    return this.repo.findPendingMediaAttachments(messageId);
+  }
+
+  /** T3: stores the downloaded file data on a pending attachment. */
+  markAttachmentReady(
+    attachmentId: string,
+    data: { storageUrl: string; mimeType?: string; sizeBytes?: number | null },
+  ): Promise<MessageAttachment | null> {
+    return this.repo.markAttachmentReady(attachmentId, data);
+  }
+
+  /** T3: media failure leaves the message row intact, only the file is gone. */
+  markAttachmentFailed(
+    attachmentId: string,
+  ): Promise<MessageAttachment | null> {
+    return this.repo.markAttachmentFailed(attachmentId);
   }
 }
 

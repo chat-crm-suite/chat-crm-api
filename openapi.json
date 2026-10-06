@@ -866,6 +866,36 @@
         ]
       }
     },
+    "/conversations/{id}/sentiment": {
+      "get": {
+        "operationId": "ConversationsController_findSentiment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationSentimentDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Conversations"
+        ]
+      }
+    },
     "/notifications": {
       "get": {
         "operationId": "NotificationController_getLatest",
@@ -1771,6 +1801,40 @@
         "required": [
           "conversationId",
           "memberId"
+        ]
+      },
+      "ConversationSentimentDto": {
+        "type": "object",
+        "properties": {
+          "avgPos": {
+            "type": "number"
+          },
+          "avgNeu": {
+            "type": "number"
+          },
+          "avgNeg": {
+            "type": "number"
+          },
+          "totalMessages": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "dominant": {
+            "type": "string",
+            "enum": [
+              "POS",
+              "NEU",
+              "NEG"
+            ]
+          }
+        },
+        "required": [
+          "avgPos",
+          "avgNeu",
+          "avgNeg",
+          "totalMessages",
+          "dominant"
         ]
       },
       "CreateCustomerDto": {

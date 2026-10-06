@@ -19,13 +19,17 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiOkResponse } from '@nestjs/swagger';
 import { ClsService } from 'nestjs-cls';
+import { ZodSerializerDto } from 'nestjs-zod';
 
 import { multerConfig } from '../../config/multer.config';
 import { CLS_COMPANY_ID, CLS_USER_ID } from '../../config/cls.keys';
+import { SentimentService } from '../analysis/sentiment/sentiment.service';
 import { MessageService } from '../message/message.service';
 import { ConversationsService } from './conversations.service';
 import { AssignConversationDto } from './dto/assign-conversation.dto';
+import { ConversationSentimentDto } from './dto/conversation-sentiment.dto';
 import { AssignmentOutcome } from './assignment/assignment.types';
 
 @Controller('conversations')
@@ -34,6 +38,7 @@ export class ConversationsController {
   constructor(
     private readonly service: ConversationsService,
     private readonly messages: MessageService,
+    private readonly sentiment: SentimentService,
     private readonly cls: ClsService,
   ) {}
 
@@ -143,5 +148,23 @@ export class ConversationsController {
   @Get(':id/messages')
   findMessages(@Param('id') id: string) {
     return this.messages.getConversationMessages(id);
+  }
+
+  /**
+   * Customer tone of one conversation, scoped to the caller's company:
+   * averages over its completed sentiment analyses (historical threads
+   * included). Empty conversations stay neutral; unknown or foreign ids are
+   * a 404.
+   */
+  @Get(':id/sentiment')
+  @ZodSerializerDto(ConversationSentimentDto)
+  @ApiOkResponse({ type: ConversationSentimentDto })
+  findSentiment(@Param('id') id: string) {
+    const companyId = this.cls.get<string>(CLS_COMPANY_ID);
+    if (!companyId) {
+      throw new BadRequestException('Company context required');
+    }
+
+    return this.sentiment.getConversationSentiment(id, companyId);
   }
 }

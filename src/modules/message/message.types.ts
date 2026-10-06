@@ -17,6 +17,11 @@ export interface ConversationMessagePayload {
   conversationId: string;
   timestamp: Date;
   status: MessageStatus;
+  /**
+   * T3: front-generated send id. The broadcast carries it so the optimistic
+   * pending row reconciles with the saved row instead of duplicating it.
+   */
+  clientMessageId?: string | null;
   sender: {
     id: string;
     type: MessageSenderType;

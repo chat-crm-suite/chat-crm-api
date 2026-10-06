@@ -34,5 +34,6 @@ import { SentimentService } from './sentiment.service';
     SentimentRepository,
     AnalyseMessageHandler,
   ],
+  exports: [SentimentService],
 })
 export class SentimentModule {}

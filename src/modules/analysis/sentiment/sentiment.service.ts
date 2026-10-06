@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
-import type { SentimentLabel } from '../../../contracts/index';
+import type {
+  ConversationSentiment,
+  SentimentLabel,
+} from '../../../contracts/index';
 import { SentimentClient } from './sentiment.client';
 import { DEFAULT_SENTIMENT_MODEL } from './sentiment.constants';
 import type { SentimentResponse } from './sentiment.interface';
-import { SentimentRepository } from './sentiment.repository';
+import {
+  SentimentRepository,
+  type ConversationSentimentAggregate,
+} from './sentiment.repository';
 import type {
   SentimentAnalysisResult,
   SentimentPayload,
@@ -92,11 +98,11 @@ export class SentimentService {
         label: mapped.label,
         conversationId,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       if (analysisId) {
         await this.repo
           .markFailed(analysisId, error)
-          .catch((markError) =>
+          .catch((markError: unknown) =>
             this.logger.error(
               { err: markError, analysisId },
               'Failed to mark sentiment analysis as failed',
@@ -111,6 +117,35 @@ export class SentimentService {
 
       return null;
     }
+  }
+
+  /**
+   * T4: per-conversation customer tone for `GET /conversations/:id/sentiment`,
+   * built from the persisted analyses and scoped to the caller's company. An
+   * unknown id (or one owned by another company) is a 404; an existing
+   * conversation without analyses stays neutral with zero averages.
+   */
+  async getConversationSentiment(
+    conversationId: string,
+    companyId: string,
+  ): Promise<ConversationSentiment> {
+    const belongs = await this.repo.conversationBelongsToCompany(
+      conversationId,
+      companyId,
+    );
+    if (!belongs) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    const aggregate = await this.repo.aggregateConversationSentiment(
+      conversationId,
+      companyId,
+    );
+
+    return {
+      ...aggregate,
+      dominant: dominantTone(aggregate),
+    };
   }
 
   private mapResponse(response: SentimentResponse): MappedResponse {
@@ -155,4 +190,23 @@ function normalizeLabel(label: unknown): SentimentLabel {
     default:
       return 'neutral';
   }
+}
+
+/**
+ * Highest average wins; ties resolve POS > NEG > NEU so the indicator is
+ * deterministic, and an empty conversation stays neutral.
+ */
+function dominantTone(
+  aggregate: ConversationSentimentAggregate,
+): ConversationSentiment['dominant'] {
+  if (aggregate.totalMessages === 0) return 'NEU';
+
+  if (
+    aggregate.avgPos >= aggregate.avgNeu &&
+    aggregate.avgPos >= aggregate.avgNeg
+  ) {
+    return 'POS';
+  }
+
+  return aggregate.avgNeg >= aggregate.avgNeu ? 'NEG' : 'NEU';
 }

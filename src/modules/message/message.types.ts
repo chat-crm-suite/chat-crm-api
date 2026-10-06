@@ -1,4 +1,8 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import type {
+  AttachmentStatus,
   MessageSenderType,
   MessageStatus,
   MessageType,
@@ -20,6 +24,8 @@ export interface ConversationMessagePayload {
   msg: {
     type: MessageType;
     mediaUrl?: string | null;
+    /** T3: pending/ready/failed for rows whose file arrives async. */
+    attachmentStatus?: AttachmentStatus | null;
     content: {
       body?: string;
       link?: string;

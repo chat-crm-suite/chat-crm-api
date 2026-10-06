@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 /**
  * Raw SQL result shapes for the metrics module (schema v2).
  * Keys mirror the SQL aliases, which are kept stable for the API consumers.
@@ -43,7 +46,7 @@ export interface SentimentTopQuery extends SentimentUser {
 }
 
 export interface SentimentTop {
-  onwer: SentimentUser | SentimentContact;
+  owner: SentimentUser | SentimentContact;
   agent?: SentimentUser;
   contact?: SentimentContact;
   label: string;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { WhatsAppDocumentBuilder } from '../../../integrations/whatsapp/builders/whatsapp-document.builder';
 import type {
   WhatsAppDocumentContent,
@@ -40,6 +43,7 @@ export class DocumentMessageStrategy implements MessageStrategy {
       msg: {
         type: 'document',
         mediaUrl: attachment?.storageUrl ?? null,
+        attachmentStatus: attachment?.status ?? null,
         content: {
           caption: message.body ?? undefined,
           filename: attachment?.fileName,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import type { SendConversationMessageInput } from '../../../contracts/index';
 
 /**
@@ -11,5 +14,9 @@ export interface ConversationMessageDto
     mediaUrl?: string;
     /** Provider message id (wamid) for inbound messages. */
     externalId?: string;
+    /** Provider media id (Meta media reference) for inbound attachments. */
+    externalMediaId?: string;
+    /** Provider-reported MIME type for inbound attachments. */
+    mimeType?: string;
   };
 }

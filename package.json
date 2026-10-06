@@ -14,9 +14,9 @@
     ]
   },
   "description": "",
-  "author": "",
+  "author": "Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -30,6 +30,9 @@
     "migration:run": "node --env-file-if-exists=.env ./node_modules/typeorm/cli-ts-node-commonjs.js migration:run -d data-source.ts",
     "migration:revert": "node --env-file-if-exists=.env ./node_modules/typeorm/cli-ts-node-commonjs.js migration:revert -d data-source.ts",
     "db:reset": "node --env-file-if-exists=.env -r ts-node/register/transpile-only ./scripts/db-reset.ts",
+  "skills:install": "pnpm dlx skills@1.7.0 experimental_install -y",
+  "skills:setup": "pnpm skills:install && pnpm skills:sync",
+  "skills:sync": "node ./scripts/sync-claude-skills.mjs",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",

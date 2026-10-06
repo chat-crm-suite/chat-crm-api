@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 export { Analysis } from '../modules/analysis/entities/analysis.entity';
 export { SentimentResult } from '../modules/analysis/entities/sentiment-result.entity';
 export { Channel } from '../modules/channels/entities/channel.entity';
@@ -21,3 +24,4 @@ export { MessageAttachment } from '../modules/message/entities/message-attachmen
 export { MessageStatusEvent } from '../modules/message/entities/message-status-event.entity';
 export { Notification } from '../modules/notifications/entities/notification.entity';
 export { User } from '../modules/users/entities/user.entity';
+export { WhatsappInboundEvent } from '../integrations/whatsapp/entities/whatsapp-inbound-event.entity';

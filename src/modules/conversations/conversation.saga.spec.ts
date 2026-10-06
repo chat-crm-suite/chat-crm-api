@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { firstValueFrom, of, toArray } from 'rxjs';
 
 import { AnalyzeMessageCommand } from '../analysis/sentiment/commands/analyze-message.command';

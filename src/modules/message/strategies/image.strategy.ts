@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { WhatsAppImageBuilder } from '../../../integrations/whatsapp/builders/whatsapp-image.builder';
 import type {
   WhatsAppMediaContent,
@@ -39,6 +42,7 @@ export class ImageMessageStrategy implements MessageStrategy {
       msg: {
         type: 'image',
         mediaUrl: attachment?.storageUrl ?? null,
+        attachmentStatus: attachment?.status ?? null,
         content: { caption: message.body ?? undefined },
       },
     };

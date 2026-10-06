@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import type { MessageType } from '../../../contracts/index';
 import { DocumentMessageStrategy } from './document.strategy';
 import { ImageMessageStrategy } from './image.strategy';

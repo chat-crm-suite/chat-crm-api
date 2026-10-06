@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -10,6 +13,7 @@ import { UsersModule } from '@modules';
 import { SetupModule } from '../modules/setup/setup.module';
 import { JwtStrategy } from '../strategies/jwt.strategy';
 import { AdminBootstrapService } from './admin-bootstrap.service';
+import { getJwtSecret } from './jwt.config';
 
 @Module({
   imports: [
@@ -17,7 +21,7 @@ import { AdminBootstrapService } from './admin-bootstrap.service';
     UsersModule,
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your_jwt_secret',
+      secret: getJwtSecret(),
       signOptions: { expiresIn: '1d' },
     }),
     CompanyMembersModule,

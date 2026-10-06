@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import {
   Column,
   CreateDateColumn,
@@ -6,7 +9,10 @@ import {
   ManyToOne,
 } from 'typeorm';
 
-import type { AttachmentType } from '../../../contracts/index';
+import type {
+  AttachmentStatus,
+  AttachmentType,
+} from '../../../contracts/index';
 import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
 import { Message } from './message.entity';
 
@@ -46,6 +52,10 @@ export class MessageAttachment extends UuidV7Entity {
 
   @Column({ name: 'external_media_id', length: 128, nullable: true })
   externalMediaId?: string;
+
+  /** T3: `pending` until the async enrichment stores or fails the file. */
+  @Column({ type: 'varchar', length: 32, default: 'ready' })
+  status: AttachmentStatus;
 
   @Column({ type: 'int', nullable: true })
   width?: number | null;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
@@ -9,7 +12,10 @@ import type {
   MessageType,
 } from '../../contracts/index';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
-import { MessageService } from '../message/message.service';
+import {
+  MessageService,
+  type SaveMessageParams,
+} from '../message/message.service';
 import { ConversationAssignmentService } from './assignment/conversation-assignment.service';
 import { ConversationAssignmentNotifier } from './assignment/conversation-assignment.notifier';
 import { AssignmentOutcome } from './assignment/assignment.types';
@@ -23,6 +29,18 @@ interface MessageContentLike {
   link?: string;
   caption?: string;
   filename?: string;
+}
+
+/** Parsed message content accepted by `saveMsg` / `saveOutbound`. */
+export interface SaveConversationMessageContent {
+  type: MessageType;
+  content: MessageContentLike;
+  mediaUrl?: string;
+  externalId?: string;
+  externalMediaId?: string;
+  mimeType?: string;
+  /** Front-generated send id: makes outbound retries idempotent. */
+  clientMessageId?: string | null;
 }
 
 const ATTACHMENT_TYPE_BY_MESSAGE_TYPE: Partial<
@@ -58,15 +76,36 @@ export class ConversationsService {
    */
   async saveMsg(
     conversationId: string,
-    msg: {
-      type: MessageType;
-      content: MessageContentLike;
-      mediaUrl?: string;
-      externalId?: string;
-    },
+    msg: SaveConversationMessageContent,
     sender: { id: string; type: MessageSenderType },
     companyId?: string,
   ) {
+    return this.messageService.saveMessage(
+      await this.buildMessageParams(conversationId, msg, sender, companyId),
+    );
+  }
+
+  /**
+   * T5: same persist path as `saveMsg`, but reports whether the row is new, so
+   * the outbound pipeline sends to Graph exactly once per `clientMessageId`.
+   */
+  async saveOutbound(
+    conversationId: string,
+    msg: SaveConversationMessageContent,
+    sender: { id: string; type: MessageSenderType },
+    companyId?: string,
+  ) {
+    return this.messageService.saveOutbound(
+      await this.buildMessageParams(conversationId, msg, sender, companyId),
+    );
+  }
+
+  private async buildMessageParams(
+    conversationId: string,
+    msg: SaveConversationMessageContent,
+    sender: { id: string; type: MessageSenderType },
+    companyId?: string,
+  ): Promise<SaveMessageParams> {
     const conversation = await this.conversationRepo.findOne({
       where: { id: conversationId },
       select: { id: true, companyId: true },
@@ -84,8 +123,12 @@ export class ConversationsService {
 
     const link = msg.mediaUrl ?? msg.content?.link;
     const attachmentType = ATTACHMENT_TYPE_BY_MESSAGE_TYPE[msg.type];
+    // T3: inbound media keeps its reference without a file yet; the async
+    // enrichment downloads it and flips the attachment to ready/failed.
+    const attachmentStatus =
+      inbound && msg.externalMediaId && !link ? 'pending' : 'ready';
 
-    return this.messageService.saveMessage({
+    return {
       companyId: resolvedCompanyId,
       conversationId,
       type: msg.type,
@@ -95,19 +138,24 @@ export class ConversationsService {
       senderCustomerId: inbound ? sender.id : null,
       body: msg.content?.body ?? msg.content?.caption ?? null,
       externalId: msg.externalId ?? null,
-      status: inbound ? 'delivered' : 'sent',
+      clientMessageId: msg.clientMessageId ?? null,
+      // T5: an outbound row is born pending; Graph's wamid (or the failure)
+      // moves it. Inbound rows are already delivered when persisted.
+      status: inbound ? 'delivered' : 'pending',
       attachments:
-        attachmentType && link
+        attachmentType && (link || msg.externalMediaId)
           ? [
               {
                 type: attachmentType,
-                mimeType: guessMimeType(msg.content?.filename),
+                mimeType: msg.mimeType ?? guessMimeType(msg.content?.filename),
                 fileName: msg.content?.filename,
                 storageUrl: link,
+                externalMediaId: msg.externalMediaId,
+                status: attachmentStatus,
               },
             ]
           : undefined,
-    });
+    };
   }
 
   /**
@@ -174,7 +222,12 @@ export class ConversationsService {
       if (active?.memberId) {
         await this.notifier.notifyAssigned(conversationId, active.memberId);
       }
-    } else if (outcome === AssignmentOutcome.NO_CANDIDATES) {
+    } else if (
+      // The conversation stays ownerless: notify supervisors live, both when
+      // nobody is available and when auto-assignment is off for the company.
+      outcome === AssignmentOutcome.NO_CANDIDATES ||
+      outcome === AssignmentOutcome.DISABLED
+    ) {
       await this.notifier.notifyUnassigned(conversationId, companyId);
     }
 
@@ -196,7 +249,11 @@ export class ConversationsService {
     if (outcome === AssignmentOutcome.ASSIGNED) {
       const active = await this.assignment.getActiveAssignment(conversationId);
       if (active?.memberId) {
-        await this.notifier.notifyAssigned(conversationId, active.memberId, false);
+        await this.notifier.notifyAssigned(
+          conversationId,
+          active.memberId,
+          false,
+        );
       }
     }
 

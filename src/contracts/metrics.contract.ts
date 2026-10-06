@@ -1,10 +1,13 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
+
 import { z } from 'zod';
 
 /**
  * Metrics query/param contracts. Query values arrive as strings, so numbers
  * are coerced and enums validated after normalization.
  */
-export const METRICS_PERIODS = ['hour', 'day', 'week', 'month'] as const;
+export const METRICS_PERIODS = ['hour', 'day', 'week', 'month', 'year'] as const;
 export const MetricsPeriodSchema = z.enum(METRICS_PERIODS);
 
 export const METRIC_SENTIMENT_LABELS = ['POS', 'NEU', 'NEG'] as const;

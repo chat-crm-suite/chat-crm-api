@@ -255,4 +255,67 @@ describe('AgentMessageSender failed retries (#8)', () => {
     expect(whatsapp.deliverMessage).toHaveBeenCalledTimes(1);
     expect(messages.markSent).toHaveBeenCalledTimes(1);
   });
+
+  it('flags the 24h-window failure with the template action and recipient (#9)', async () => {
+    const { sender, conversations, messages, whatsapp, fanout } = build();
+    conversations.saveOutbound.mockResolvedValue({
+      message: message(),
+      created: true,
+    });
+    whatsapp.deliverMessage.mockResolvedValue({
+      ok: false,
+      error: {
+        authFault: false,
+        retryable: false,
+        code: '131047',
+        message: 'Re-engagement message',
+      },
+    });
+    messages.markSendFailed.mockResolvedValue(
+      message({ status: 'failed', errorCode: '131047' }),
+    );
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    expect(fanout.emitError).toHaveBeenCalledWith(
+      'conv-1',
+      expect.objectContaining({
+        code: 131047,
+        hasAction: true,
+        to: '+15551234567',
+      }),
+    );
+  });
+
+  it('leaves the legacy error shape unchanged for other failures (#9)', async () => {
+    const { sender, conversations, messages, whatsapp, fanout } = build();
+    conversations.saveOutbound.mockResolvedValue({
+      message: message(),
+      created: true,
+    });
+    whatsapp.deliverMessage.mockResolvedValue({
+      ok: false,
+      error: {
+        authFault: true,
+        retryable: false,
+        code: '190',
+        message: 'expired token',
+      },
+    });
+    messages.markSendFailed.mockResolvedValue(
+      message({ status: 'failed', errorCode: '190' }),
+    );
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    // Exact shape: a plain failure carries no hasAction/to.
+    expect(fanout.emitError).toHaveBeenCalledWith('conv-1', {
+      code: 190,
+      title: 'Whatsapp cliente error',
+      message: 'expired token',
+      error_data: {
+        details: 'Request whatsapp client error for text message',
+      },
+    });
+  });
 });

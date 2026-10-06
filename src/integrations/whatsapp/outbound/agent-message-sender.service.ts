@@ -130,13 +130,14 @@ export class AgentMessageSender {
           message: error instanceof Error ? error.message : String(error),
         },
         data.msg.type,
+        data.to,
       );
     }
 
     const outcome = await this.whatsapp.deliverMessage(payload, data.companyId);
 
     if (!outcome.ok) {
-      return this.failSend(message, outcome.error, data.msg.type);
+      return this.failSend(message, outcome.error, data.msg.type, data.to);
     }
 
     const wamid = outcome.response?.messages?.[0]?.id;
@@ -149,6 +150,7 @@ export class AgentMessageSender {
           message: 'WhatsApp send answered without a wamid',
         },
         data.msg.type,
+        data.to,
       );
     }
 
@@ -162,12 +164,15 @@ export class AgentMessageSender {
 
   /**
    * The row stays in the thread as `failed` with the provider error; the live
-   * patch and the legacy error event carry the same failure.
+   * patch and the legacy error event carry the same failure. The recipient is
+   * the send destination, so a 24h-window failure can offer the template
+   * action with the phone to reuse (#9).
    */
   private async failSend(
     message: Message,
     error: WhatsAppErrorInfo,
     messageType: string,
+    recipient?: string,
   ): Promise<Message> {
     this.logger.error({ error, messageId: message.id }, 'WhatsApp send failed');
 
@@ -180,7 +185,7 @@ export class AgentMessageSender {
       await this.fanout.emitStatusPatch(toMessageStatusPatch(failed));
       await this.fanout.emitError(
         failed.conversationId,
-        toLegacyWhatsAppError(error, messageType),
+        toLegacyWhatsAppError(error, messageType, recipient),
       );
     }
 

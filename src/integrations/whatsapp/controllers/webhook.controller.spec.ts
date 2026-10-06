@@ -5,6 +5,7 @@ import { HttpStatus } from '@nestjs/common';
 import type { WhatsappNotification } from '@daweto/whatsapp-api-types';
 
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
+import { FailWhatsAppMessageCommand } from '../../../modules/conversations/commands/fail-whatsapp-message.command';
 import { UpdateMessageStatusCommand } from '../../../modules/conversations/commands/update-message-status.command';
 import { WebhookController } from './webhook.controller';
 
@@ -58,6 +59,13 @@ describe('WebhookController (T1 durable intake)', () => {
       .find(
         (command): command is UpdateMessageStatusCommand =>
           command instanceof UpdateMessageStatusCommand,
+      );
+  const failCommand = () =>
+    commandExecute.mock.calls
+      .map(([command]) => command)
+      .find(
+        (command): command is FailWhatsAppMessageCommand =>
+          command instanceof FailWhatsAppMessageCommand,
       );
   const request = (rawBody: string, signature: string | undefined) => ({
     headers: { 'x-hub-signature-256': signature },
@@ -297,5 +305,24 @@ describe('WebhookController (T1 durable intake)', () => {
       },
     });
     expect(statusCommand()?.occurredAt).toEqual(new Date(1_760_000_002_000));
+  });
+
+  it('flags a raw 131047 status error for the template action (#9)', async () => {
+    const res = response();
+
+    await controller.receiveMessage(
+      failedStatusPayload(),
+      request(FAILED_STATUS_PAYLOAD, FAILED_STATUS_SIGNATURE) as never,
+      res as never,
+    );
+
+    const command = failCommand();
+    expect(command).toBeInstanceOf(FailWhatsAppMessageCommand);
+    expect(command?.recipientId).toBe('15551234567');
+    expect(command?.err).toMatchObject({
+      code: 131047,
+      hasAction: true,
+      to: '15551234567',
+    });
   });
 });

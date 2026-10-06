@@ -16,4 +16,4 @@ Single-context. See `docs/agents/domain.md`.
 
 ### Skill tooling
 
-Project skills are committed under `.agents/skills/`. Run `pnpm skills:sync` to copy them into `.claude/skills/` (local, gitignored) so Claude Code sees them.
+Skills are local, not committed: `skills-lock.json` pins them (like `package.json` + lockfile). Fresh clone: `pnpm skills:setup` — restores `.agents/skills` from the lock and copies them into `.claude/skills` for Claude Code. `.agents/` and `.claude/` are gitignored.

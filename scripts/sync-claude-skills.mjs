@@ -19,7 +19,9 @@ const source = join(root, '.agents', 'skills');
 const target = join(root, '.claude', 'skills');
 
 if (!existsSync(source)) {
-  console.error(`No skills found at ${source}`);
+  console.error(
+    `No skills found at ${source} — run \`pnpm skills:install\` first.`,
+  );
   process.exit(1);
 }
 

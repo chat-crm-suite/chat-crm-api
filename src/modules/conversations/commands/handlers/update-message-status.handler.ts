@@ -1,8 +1,7 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
-import type { ConversationMessageStatusPatch } from '../../../../contracts/index';
-import type { Message } from '../../../message/entities/message.entity';
+import { toMessageStatusPatch } from '../../../message/mappers/message-status-patch.mapper';
 import { MessageService } from '../../../message/message.service';
 import { ConversationFanoutService } from '../../realtime/conversation-fanout.service';
 import { UpdateMessageStatusCommand } from '../update-message-status.command';
@@ -41,20 +40,8 @@ export class UpdateMessageStatusHandler implements ICommandHandler<UpdateMessage
       return { applied: false };
     }
 
-    await this.fanout.emitStatusPatch(toStatusPatch(outcome.message));
+    await this.fanout.emitStatusPatch(toMessageStatusPatch(outcome.message));
 
     return { applied: true };
   }
-}
-
-function toStatusPatch(message: Message): ConversationMessageStatusPatch {
-  return {
-    id: message.id,
-    conversationId: message.conversationId,
-    clientMessageId: message.clientMessageId ?? null,
-    status: message.status,
-    at: message.statusUpdatedAt ?? new Date(),
-    errorCode: message.errorCode ?? null,
-    errorMessage: message.errorMessage ?? null,
-  };
 }

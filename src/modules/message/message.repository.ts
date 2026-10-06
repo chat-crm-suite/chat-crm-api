@@ -114,6 +114,85 @@ export class MessageRepository {
     return this.messages.findOne({ where: { id: messageId } });
   }
 
+  /** T5 idempotency: the outbound row already saved for this client send. */
+  findByClientMessageId(
+    conversationId: string,
+    clientMessageId: string,
+  ): Promise<Message | null> {
+    return this.messages.findOne({
+      where: { conversationId, clientMessageId },
+    });
+  }
+
+  /**
+   * T5: a Graph send answer moves the pending row to `sent` and stores the
+   * wamid. Only a `pending` row can transition, so a retried answer can never
+   * resurrect a row that already moved (failed stays failed).
+   */
+  async markSent(
+    messageId: string,
+    wamid: string,
+    at: Date,
+  ): Promise<Message | null> {
+    return this.dataSource.transaction(async (manager) => {
+      const result = await manager.update(
+        Message,
+        { id: messageId, status: 'pending' },
+        {
+          status: 'sent',
+          externalId: wamid,
+          statusUpdatedAt: at,
+          sentAt: at,
+        },
+      );
+
+      if (!result.affected) return null;
+
+      await manager.save(
+        manager.create(MessageStatusEvent, {
+          messageId,
+          status: 'sent',
+          occurredAt: at,
+        }),
+      );
+
+      return manager.findOneByOrFail(Message, { id: messageId });
+    });
+  }
+
+  /** T5: a failed send stays in the thread with its error, never silent. */
+  async markSendFailed(
+    messageId: string,
+    error: { code?: string | null; message?: string | null },
+    at: Date,
+  ): Promise<Message | null> {
+    return this.dataSource.transaction(async (manager) => {
+      const result = await manager.update(
+        Message,
+        { id: messageId, status: 'pending' },
+        {
+          status: 'failed',
+          statusUpdatedAt: at,
+          errorCode: error.code?.slice(0, 50) ?? null,
+          errorMessage: error.message?.slice(0, 500) ?? null,
+        },
+      );
+
+      if (!result.affected) return null;
+
+      await manager.save(
+        manager.create(MessageStatusEvent, {
+          messageId,
+          status: 'failed',
+          occurredAt: at,
+          errorCode: error.code?.slice(0, 50) ?? null,
+        }),
+      );
+
+      return manager.findOneByOrFail(Message, { id: messageId });
+    });
+  }
+
   /** The message a Meta status refers to: `external_id` is the Graph `wamid`. */
   findByExternalId(externalId: string): Promise<Message | null> {
     return this.messages.findOne({

@@ -9,6 +9,7 @@ import {
   WhatsappNotificationAudioMessage as AudioMessage,
   WhatsappNotificationVideoMessage as VideoMessage,
   WhatsappNotificationStickerMessage as StickerMessage,
+  WhatsappNotificationButtonMessage as ButtonMessage,
   WhatsappNotificationError,
   WhatsappNotificationStatus,
 } from '@daweto/whatsapp-api-types';
@@ -40,6 +41,7 @@ const handlers: {
   contacts?: Handler<{ contacts?: ContactPerson[] }>;
   interactive?: Handler<{ interactive?: InteractiveContent['interactive'] }>;
   reaction?: Handler<{ reaction?: ReactionContent['reaction'] }>;
+  button?: Handler<ButtonMessage>;
 } = {
   text: (msg) => ({ type: 'text', text: msg.text ?? { body: '' } }),
   image: (msg) => ({ type: 'image', image: msg.image }),
@@ -51,6 +53,14 @@ const handlers: {
   contacts: (msg) => ({ type: 'contact', contacts: msg.contacts }),
   interactive: (msg) => ({ type: 'interactive', interactive: msg.interactive }),
   reaction: (msg) => ({ type: 'reaction', reaction: msg.reaction }),
+  // Legacy template quick-reply click: same readable row as an interactive.
+  button: (msg) => ({
+    type: 'interactive',
+    interactive: {
+      type: 'button_reply',
+      button_reply: { id: msg.button?.payload, title: msg.button?.text },
+    },
+  }),
 };
 
 // --- Mappers ---
@@ -109,6 +119,9 @@ const toMessage = (
         msg as unknown as { reaction?: ReactionContent['reaction'] },
         ctx,
       );
+      break;
+    case 'button':
+      content = handlers.button?.(msg as ButtonMessage, ctx);
       break;
     default:
       return undefined;

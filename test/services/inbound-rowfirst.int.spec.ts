@@ -20,6 +20,7 @@ import type { ChannelTransmission } from '@modules/channels/channels.service';
 import { SaveConversationMessageCommand } from '@modules/conversations/commands/save-conversation-message.command';
 import { ConversationRepository } from '@modules/conversations/conversation.repository';
 import { ConversationsService } from '@modules/conversations/conversations.service';
+import { ConversationFanoutService } from '@modules/conversations/realtime/conversation-fanout.service';
 import { Conversation } from '@modules/conversations/entities/conversation.entity';
 import { ConversationAssignment } from '@modules/conversations/entities/conversation-assignment.entity';
 import { CompanyMember } from '@modules/company-members/entities/company-member.entity';
@@ -164,6 +165,14 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
       logger(),
     );
 
+    // T6: attachment patches leave through the same fanout path as every
+    // other conversation event (room + assignee), observed here at the socket.
+    const fanout = new ConversationFanoutService(
+      { server: { to } } as never,
+      { getActiveAssignee: jest.fn().mockResolvedValue(null) } as never,
+      logger(),
+    );
+
     enrichment = new InboundMediaEnrichmentService(
       messageService,
       conversations,
@@ -173,7 +182,7 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
         ),
       } as never,
       { downloadMedia } as never,
-      { server: { to } } as never,
+      fanout,
       logger(),
     );
   });

@@ -68,9 +68,7 @@ describe('WhatsAppIntakeService', () => {
   });
 
   it('answers duplicate for an already-seen wamid without a second row', async () => {
-    expect(await service.persistIfNew(inbound('wamid-retry-1'))).toBe(
-      'stored',
-    );
+    expect(await service.persistIfNew(inbound('wamid-retry-1'))).toBe('stored');
     expect(await service.persistIfNew(inbound('wamid-retry-1'))).toBe(
       'duplicate',
     );
@@ -86,6 +84,69 @@ describe('WhatsAppIntakeService', () => {
 
     expect(outcomes.sort()).toEqual(['duplicate', 'stored']);
     expect(await events.count()).toBe(1);
+  });
+
+  it('stores a status tick for the same wamid without colliding with its message event', async () => {
+    expect(await service.persistIfNew(inbound('wamid-mixed-1'))).toBe('stored');
+    expect(
+      await service.persistIfNew({
+        wamid: 'wamid-mixed-1',
+        phoneNumberId: 'phone-1',
+        messageType: 'delivered',
+        payload: { id: 'wamid-mixed-1', status: 'delivered' },
+        kind: 'status:delivered',
+      }),
+    ).toBe('stored');
+
+    const rows = await events.find({ where: { wamid: 'wamid-mixed-1' } });
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.kind).sort()).toEqual([
+      'message',
+      'status:delivered',
+    ]);
+  });
+
+  it('answers duplicate for the same wamid and kind', async () => {
+    await service.persistIfNew({
+      ...inbound('wamid-mixed-2'),
+      kind: 'status:read',
+    });
+    expect(
+      await service.persistIfNew({
+        ...inbound('wamid-mixed-2'),
+        kind: 'status:read',
+      }),
+    ).toBe('duplicate');
+
+    expect(await events.count()).toBe(1);
+  });
+
+  it('consumes only the event kind it is told to consume', async () => {
+    await service.persistIfNew(inbound('wamid-mixed-3'));
+    await service.persistIfNew({
+      ...inbound('wamid-mixed-3'),
+      kind: 'status:delivered',
+      messageType: 'delivered',
+    });
+
+    await service.markReplayed('wamid-mixed-3', 'status:delivered');
+
+    expect(
+      (
+        await events.findOneByOrFail({
+          wamid: 'wamid-mixed-3',
+          kind: 'message',
+        })
+      ).status,
+    ).toBe('pending');
+    expect(
+      (
+        await events.findOneByOrFail({
+          wamid: 'wamid-mixed-3',
+          kind: 'status:delivered',
+        })
+      ).status,
+    ).toBe('replayed');
   });
 
   it('leaves the event behind when processing never runs (crash-safety)', async () => {
@@ -111,7 +172,9 @@ describe('WhatsAppIntakeService', () => {
     await service.persistIfNew(inbound('wamid-replay-2'));
     await service.markReplayed('wamid-replay-2');
 
-    await expect(service.markReplayed('wamid-replay-2')).resolves.toBeUndefined();
+    await expect(
+      service.markReplayed('wamid-replay-2'),
+    ).resolves.toBeUndefined();
     expect(await events.count()).toBe(1);
   });
 

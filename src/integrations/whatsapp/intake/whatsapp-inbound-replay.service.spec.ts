@@ -1,3 +1,4 @@
+import { UpdateMessageStatusCommand } from '../../../modules/conversations/commands/update-message-status.command';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
 import { WhatsAppInboundReplayService } from './whatsapp-inbound-replay.service';
 
@@ -18,6 +19,21 @@ describe('WhatsAppInboundReplayService', () => {
       timestamp: '1760000000',
       type: 'text',
       text: { body: 'hola' },
+    },
+    ...overrides,
+  });
+
+  const statusEvent = (overrides: Record<string, unknown> = {}) => ({
+    wamid: 'wamid-out-1',
+    phoneNumberId: 'phone-1',
+    messageType: 'delivered',
+    kind: 'status:delivered',
+    status: 'pending',
+    payload: {
+      id: 'wamid-out-1',
+      status: 'delivered',
+      timestamp: '1760000001',
+      recipient_id: '15551234567',
     },
     ...overrides,
   });
@@ -73,7 +89,7 @@ describe('WhatsAppInboundReplayService', () => {
       type: 'text',
       text: { body: 'hola' },
     });
-    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-text-1');
+    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-text-1', 'message');
   });
 
   it('replays media events with their stored media reference', async () => {
@@ -100,7 +116,93 @@ describe('WhatsAppInboundReplayService', () => {
       type: 'audio',
       audio: { id: 'media-audio-1', mime_type: 'audio/ogg' },
     });
-    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-audio-1');
+    expect(intake.markReplayed).toHaveBeenCalledWith(
+      'wamid-audio-1',
+      'message',
+    );
+  });
+
+  it('drains every page of the crash backlog until the store is empty', async () => {
+    const { service, intake, commandBus } = build();
+    intake.listPending
+      .mockResolvedValueOnce([
+        textEvent({ wamid: 'wamid-page-1' }),
+        textEvent({ wamid: 'wamid-page-2' }),
+      ])
+      .mockResolvedValueOnce([textEvent({ wamid: 'wamid-page-3' })])
+      .mockResolvedValue([]);
+
+    await expect(service.replayPending(2)).resolves.toBe(3);
+
+    expect(intake.listPending).toHaveBeenCalledTimes(2);
+    expect(intake.listPending).toHaveBeenNthCalledWith(1, 2);
+    expect(intake.listPending).toHaveBeenNthCalledWith(2, 2);
+    expect(commandBus.execute).toHaveBeenCalledTimes(3);
+    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-page-3', 'message');
+  });
+
+  it('stops paging when a full page cannot be consumed (failed events stay pending)', async () => {
+    const { service, intake, commandBus } = build();
+    intake.listPending.mockResolvedValue([
+      textEvent({ wamid: 'wamid-stuck-1' }),
+      textEvent({ wamid: 'wamid-stuck-2' }),
+    ]);
+    commandBus.execute.mockRejectedValue(new Error('broker down'));
+
+    await expect(service.replayPending(2)).resolves.toBe(0);
+
+    expect(intake.listPending).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies a pending status tick through the update-status path and consumes it', async () => {
+    const { service, intake, messages, commandBus } = build();
+    intake.listPending.mockResolvedValue([statusEvent()]);
+
+    await expect(service.replayPending()).resolves.toBe(1);
+
+    expect(messages.findByExternalId).not.toHaveBeenCalled();
+    const command = commandBus.execute.mock
+      .calls[0][0] as UpdateMessageStatusCommand;
+    expect(command).toBeInstanceOf(UpdateMessageStatusCommand);
+    expect(command).toMatchObject({
+      wamid: 'wamid-out-1',
+      status: 'delivered',
+    });
+    expect(command.occurredAt).toEqual(new Date(1_760_000_001_000));
+    expect(intake.markReplayed).toHaveBeenCalledWith(
+      'wamid-out-1',
+      'status:delivered',
+    );
+  });
+
+  it('replays a failed status tick with its provider error', async () => {
+    const { service, intake, commandBus } = build();
+    intake.listPending.mockResolvedValue([
+      statusEvent({
+        kind: 'status:failed',
+        messageType: 'failed',
+        payload: {
+          id: 'wamid-out-1',
+          status: 'failed',
+          timestamp: '1760000002',
+          errors: [{ code: 131047, message: 'Re-engagement message' }],
+        },
+      }),
+    ]);
+
+    await service.replayPending();
+
+    const command = commandBus.execute.mock
+      .calls[0][0] as UpdateMessageStatusCommand;
+    expect(command).toMatchObject({
+      wamid: 'wamid-out-1',
+      status: 'failed',
+      error: { code: '131047', message: 'Re-engagement message' },
+    });
+    expect(intake.markReplayed).toHaveBeenCalledWith(
+      'wamid-out-1',
+      'status:failed',
+    );
   });
 
   it('consumes the event without dispatching when the row already exists', async () => {
@@ -112,14 +214,22 @@ describe('WhatsAppInboundReplayService', () => {
 
     expect(messages.findByExternalId).toHaveBeenCalledWith('wamid-text-1');
     expect(commandBus.execute).not.toHaveBeenCalled();
-    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-text-1');
+    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-text-1', 'message');
   });
 
   it('leaves the event pending when replay fails, and keeps processing the rest', async () => {
     const { service, intake, commandBus, logger } = build();
     intake.listPending.mockResolvedValue([
       textEvent({ wamid: 'wamid-fail-1' }),
-      textEvent({ wamid: 'wamid-ok-1', payload: { id: 'wamid-ok-1', from: '1', type: 'text', text: { body: 'ok' } } }),
+      textEvent({
+        wamid: 'wamid-ok-1',
+        payload: {
+          id: 'wamid-ok-1',
+          from: '1',
+          type: 'text',
+          text: { body: 'ok' },
+        },
+      }),
     ]);
     commandBus.execute
       .mockRejectedValueOnce(new Error('broker down'))
@@ -128,7 +238,7 @@ describe('WhatsAppInboundReplayService', () => {
     await service.replayPending();
 
     expect(intake.markReplayed).toHaveBeenCalledTimes(1);
-    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-ok-1');
+    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-ok-1', 'message');
     expect(logger.error).toHaveBeenCalled();
   });
 
@@ -146,7 +256,10 @@ describe('WhatsAppInboundReplayService', () => {
 
     expect(messages.findByExternalId).not.toHaveBeenCalled();
     expect(commandBus.execute).not.toHaveBeenCalled();
-    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-order-1');
+    expect(intake.markReplayed).toHaveBeenCalledWith(
+      'wamid-order-1',
+      'message',
+    );
     expect(logger.warn).toHaveBeenCalled();
   });
 
@@ -157,7 +270,7 @@ describe('WhatsAppInboundReplayService', () => {
     await expect(service.replayPending()).resolves.toBe(0);
 
     expect(commandBus.execute).not.toHaveBeenCalled();
-    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-text-1');
+    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-text-1', 'message');
   });
 
   it('runs a replay pass on application bootstrap', () => {

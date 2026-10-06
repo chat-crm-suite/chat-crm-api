@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
+import {
+  isDeadlockError,
+  isDuplicateKeyError,
+} from '../../lib/helpers/query-error.helper';
 import type {
   AttachmentStatus,
   AttachmentType,
@@ -136,7 +140,21 @@ export class MessageService {
       return { applied: false, message };
     }
 
-    const saved = await this.repo.applyStatus(message.id, update);
+    // Compare-and-set: only the statuses the incoming state may advance from
+    // are accepted, so a concurrent status landing first wins and this update
+    // becomes a noop instead of a regression.
+    const allowedFrom = (Object.keys(STATUS_RANK) as MessageStatus[]).filter(
+      (status) => isStatusAdvance(status, update.status),
+    );
+
+    const saved = await this.repo.applyStatus(message.id, update, allowedFrom);
+    if (!saved) {
+      return {
+        applied: false,
+        message: await this.repo.findByExternalId(update.wamid),
+      };
+    }
+
     return { applied: true, message: saved };
   }
 
@@ -259,39 +277,4 @@ function isStatusAdvance(
   if (current === 'failed') return false;
 
   return STATUS_RANK[incoming] > STATUS_RANK[current];
-}
-
-/**
- * MySQL unique-index violation. The driver may wrap the error (QueryFailedError
- * exposes the original as `driverError`), so both shapes are checked.
- */
-function isDuplicateKeyError(error: unknown): boolean {
-  const candidate = error as {
-    code?: string;
-    errno?: number;
-    driverError?: { code?: string; errno?: number };
-  };
-
-  return (
-    candidate?.code === 'ER_DUP_ENTRY' ||
-    candidate?.errno === 1062 ||
-    candidate?.driverError?.code === 'ER_DUP_ENTRY' ||
-    candidate?.driverError?.errno === 1062
-  );
-}
-
-/** InnoDB chose this transaction as the deadlock victim: safe to retry. */
-function isDeadlockError(error: unknown): boolean {
-  const candidate = error as {
-    code?: string;
-    errno?: number;
-    driverError?: { code?: string; errno?: number };
-  };
-
-  return (
-    candidate?.code === 'ER_LOCK_DEADLOCK' ||
-    candidate?.errno === 1213 ||
-    candidate?.driverError?.code === 'ER_LOCK_DEADLOCK' ||
-    candidate?.driverError?.errno === 1213
-  );
 }

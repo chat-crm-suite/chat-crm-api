@@ -15,6 +15,7 @@ import {
   type WhatsAppSendResponse,
 } from './clients/whatsapp.client';
 import { WhatsAppPayload } from './interfaces/whatsapp-message.interface';
+import { toLegacyWhatsAppError } from './legacy-error';
 
 /** T5: the send outcome without losing the error that caused the failure. */
 export type WhatsAppDeliveryOutcome =
@@ -134,17 +135,11 @@ export class WhatsAppService {
       'WhatsApp send failed',
     );
 
-    const code = Number(info.code);
-
     await this.commandBus.execute(
-      new FailWhatsAppMessageCommand(payload.to, {
-        code: Number.isFinite(code) ? code : 0,
-        title: 'Whatsapp cliente error',
-        message: info.message,
-        error_data: {
-          details: `Request whatsapp client error for ${payload.type} message`,
-        },
-      }),
+      new FailWhatsAppMessageCommand(
+        payload.to,
+        toLegacyWhatsAppError(info, payload.type),
+      ),
     );
   }
 }

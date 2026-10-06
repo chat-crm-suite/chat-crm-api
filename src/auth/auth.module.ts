@@ -10,6 +10,7 @@ import { UsersModule } from '@modules';
 import { SetupModule } from '../modules/setup/setup.module';
 import { JwtStrategy } from '../strategies/jwt.strategy';
 import { AdminBootstrapService } from './admin-bootstrap.service';
+import { getJwtSecret } from './jwt.config';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { AdminBootstrapService } from './admin-bootstrap.service';
     UsersModule,
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your_jwt_secret',
+      secret: getJwtSecret(),
       signOptions: { expiresIn: '1d' },
     }),
     CompanyMembersModule,

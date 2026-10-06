@@ -4,6 +4,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { getJwtSecret } from '../../auth/jwt.config';
 import { SentimentModule } from '../analysis/sentiment/sentiment.module';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
 import { CustomersModule } from '../customers/customers.module';
@@ -55,7 +56,7 @@ const commandHandlers = [
     // Same secret as the HTTP auth layer: the socket verifies the existing
     // `access_token` cookie during the handshake.
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your_jwt_secret',
+      secret: getJwtSecret(),
     }),
     MessageModule,
     NotificationsModule,

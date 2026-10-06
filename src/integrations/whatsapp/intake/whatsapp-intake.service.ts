@@ -1,22 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
-import { QueryFailedError, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
+import { isDuplicateKeyError } from '../../../lib/helpers/query-error.helper';
 import { WhatsappInboundEvent } from '../entities/whatsapp-inbound-event.entity';
 
 export type IntakeOutcome = 'stored' | 'duplicate';
 
 export interface InboundEventInput {
   wamid: string;
+  /** `message` (default) or `status:<state>`: part of the dedupe key. */
+  kind?: string;
   phoneNumberId?: string | null;
   messageType?: string | null;
   payload: unknown;
 }
 
 /**
- * Exactly-once intake store: the unique constraint on `wamid` is the
- * dedupe mechanism, so concurrent retries can never create two rows.
+ * Exactly-once intake store: the unique constraint on `(wamid, kind)` is the
+ * dedupe mechanism, so concurrent retries can never create two rows and a
+ * status tick never collides with the message event of the same wamid.
  */
 @Injectable()
 export class WhatsAppIntakeService {
@@ -37,6 +41,7 @@ export class WhatsAppIntakeService {
       // vs duplicate, even under concurrency.
       const row = this.events.create();
       row.wamid = input.wamid;
+      row.kind = input.kind ?? 'message';
       row.phoneNumberId = input.phoneNumberId ?? null;
       row.messageType = input.messageType ?? null;
       row.payload = input.payload as Record<string, unknown>;
@@ -45,7 +50,10 @@ export class WhatsAppIntakeService {
       return 'stored';
     } catch (error) {
       if (isDuplicateKeyError(error)) {
-        this.logger.debug({ wamid: input.wamid }, 'Duplicate webhook wamid');
+        this.logger.debug(
+          { wamid: input.wamid, kind: input.kind ?? 'message' },
+          'Duplicate webhook event',
+        );
         return 'duplicate';
       }
       throw error;
@@ -62,33 +70,16 @@ export class WhatsAppIntakeService {
   }
 
   /**
-   * Consumes a pending event (T2): once its conversation row exists, it must
-   * never be replayed again. Idempotent: an already-consumed or unknown wamid
-   * is a noop.
+   * Consumes one pending event (T2): once its conversation row (or applied
+   * status) exists, it must never be replayed again. Idempotent: an
+   * already-consumed or unknown `(wamid, kind)` is a noop.
    */
-  async markReplayed(wamid: string): Promise<void> {
+  async markReplayed(wamid: string, kind = 'message'): Promise<void> {
     if (!wamid) return;
 
     await this.events.update(
-      { wamid, status: 'pending' },
+      { wamid, kind, status: 'pending' },
       { status: 'replayed' },
     );
   }
-}
-
-/** MySQL 1062 / sqlite UNIQUE: an already-seen `wamid`, never a real error. */
-function isDuplicateKeyError(error: unknown): boolean {
-  if (error instanceof QueryFailedError) {
-    const driverError = error.driverError as
-      | { code?: string; errno?: number }
-      | undefined;
-    if (
-      driverError?.code === 'ER_DUP_ENTRY' ||
-      driverError?.errno === 1062
-    ) {
-      return true;
-    }
-    return /UNIQUE constraint failed/i.test(error.message);
-  }
-  return false;
 }

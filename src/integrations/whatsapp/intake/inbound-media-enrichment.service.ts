@@ -1,16 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
-import {
-  ConversationSocketEvent,
-  type ConversationMessageAttachmentPatch,
-} from '../../../contracts/index';
+import type { ConversationMessageAttachmentPatch } from '../../../contracts/index';
 import {
   ChannelsService,
   type ChannelTransmission,
 } from '../../../modules/channels/channels.service';
 import { ConversationsService } from '../../../modules/conversations/conversations.service';
-import { ConversationGateway } from '../../../modules/conversations/gateways/conversation.gateway';
+import { ConversationFanoutService } from '../../../modules/conversations/realtime/conversation-fanout.service';
 import type { MessageAttachment } from '../../../modules/message/entities/message-attachment.entity';
 import type { Message } from '../../../modules/message/entities/message.entity';
 import { MessageService } from '../../../modules/message/message.service';
@@ -32,7 +29,7 @@ export class InboundMediaEnrichmentService {
     private readonly conversations: ConversationsService,
     private readonly channels: ChannelsService,
     private readonly client: WhatsAppClient,
-    private readonly gateway: ConversationGateway,
+    private readonly fanout: ConversationFanoutService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(InboundMediaEnrichmentService.name);
@@ -42,7 +39,17 @@ export class InboundMediaEnrichmentService {
     const pending = await this.messages.findPendingMediaAttachments(message.id);
     if (!pending.length) return;
 
-    const transmission = await this.resolveTransmission(message);
+    // A failing lookup (decrypt/DB) must settle every pending attachment as
+    // failed; otherwise the row keeps a `pending` attachment forever.
+    let transmission: ChannelTransmission | null;
+    try {
+      transmission = await this.resolveTransmission(message);
+    } catch (error: unknown) {
+      for (const attachment of pending) {
+        await this.failAttachment(message, attachment, error);
+      }
+      return;
+    }
 
     for (const attachment of pending) {
       if (!transmission) {
@@ -61,7 +68,9 @@ export class InboundMediaEnrichmentService {
   private async resolveTransmission(
     message: Message,
   ): Promise<ChannelTransmission | null> {
-    const conversation = await this.conversations.findOne(message.conversationId);
+    const conversation = await this.conversations.findOne(
+      message.conversationId,
+    );
     if (!conversation?.channelId) return null;
 
     return this.channels.getTransmissionByChannelId(conversation.channelId);
@@ -129,9 +138,15 @@ export class InboundMediaEnrichmentService {
       at: new Date(),
     };
 
-    this.gateway.server
-      ?.to(`conversation:${message.conversationId}`)
-      .emit(ConversationSocketEvent.MessageAttachment, patch);
+    // T6 single fanout path: the conversation room carries the thread, the
+    // assignee's personal room carries the preview. A fanout failure must
+    // never fail the already-durable enrichment.
+    void this.fanout.emitAttachmentPatch(patch).catch((error: unknown) => {
+      this.logger.error(
+        { error, attachmentId: attachment.id },
+        'Attachment patch fanout failed',
+      );
+    });
   }
 }
 

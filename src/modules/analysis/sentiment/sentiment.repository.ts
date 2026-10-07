@@ -181,6 +181,27 @@ export class SentimentRepository {
   }
 
   /**
+   * T6: recovery debt for `GET /metrics` — every skipped sentiment analysis
+   * still waiting for a deferred retry (retryable reason, scheduled, attempts
+   * not exhausted). Overdue rows count too: they are work the worker has not
+   * picked up yet, not lost work.
+   */
+  countPendingRetries(): Promise<number> {
+    return this.analyses
+      .createQueryBuilder('analysis')
+      .where('analysis.status = :status', { status: 'skipped' })
+      .andWhere('analysis.type = :type', { type: AnalysisType.SENTIMENT })
+      .andWhere('analysis.skipReason IN (:...reasons)', {
+        reasons: RETRYABLE_SKIP_REASONS,
+      })
+      .andWhere('analysis.nextRetryAt IS NOT NULL')
+      .andWhere('analysis.retryCount < :maxAttempts', {
+        maxAttempts: MAX_RETRY_ATTEMPTS,
+      })
+      .getCount();
+  }
+
+  /**
    * T4: moves a due skip to its next attempt — increments `retryCount` and
    * pre-schedules the following wait (`null` once the enqueued attempt was the
    * last). The update is a compare-and-set on the scanned attempt count and

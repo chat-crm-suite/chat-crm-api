@@ -6,8 +6,17 @@ import { NotFoundException } from '@nestjs/common';
 import type { CircuitBreakerService } from '../ia/circuit-breaker.service';
 import type { KillSwitchService } from '../ia/kill-switch.service';
 import type { SentimentClient } from './sentiment.client';
+import type { SentimentMetricsService } from './sentiment-metrics.service';
 import type { SentimentRepository } from './sentiment.repository';
 import { SentimentService } from './sentiment.service';
+
+/** T6: shared stub for the counters seam; assertions live in the T6 describe. */
+const metrics = {
+  recordCompleted: jest.fn(),
+  recordFailed: jest.fn(),
+  recordSkipped: jest.fn(),
+  recordRetryEnqueued: jest.fn(),
+};
 
 /**
  * T4: `getConversationSentiment` maps the persisted aggregate into the shared
@@ -27,6 +36,8 @@ describe('SentimentService.getConversationSentiment (T4)', () => {
       } as unknown as SentimentRepository,
       {} as never,
       { setContext: jest.fn() } as never,
+      {} as never,
+      metrics as unknown as SentimentMetricsService,
     );
 
   beforeEach(() => {
@@ -178,6 +189,7 @@ describe('SentimentService.analyzeMessage availability handling (T1)', () => {
         recordSuccess,
         recordFailure,
       } as unknown as CircuitBreakerService,
+      metrics as unknown as SentimentMetricsService,
     );
 
   beforeEach(() => {
@@ -325,6 +337,7 @@ describe('SentimentService.analyzeMessage kill switch (T2)', () => {
         recordSuccess,
         recordFailure,
       } as unknown as CircuitBreakerService,
+      metrics as unknown as SentimentMetricsService,
     );
 
   beforeEach(() => {
@@ -428,6 +441,7 @@ describe('SentimentService.analyzeMessage circuit breaker (T3)', () => {
         recordSuccess,
         recordFailure,
       } as unknown as CircuitBreakerService,
+      metrics as unknown as SentimentMetricsService,
     );
 
   beforeEach(() => {
@@ -584,6 +598,7 @@ describe('SentimentService.analyzeMessage deferred retry (T4)', () => {
         recordSuccess,
         recordFailure,
       } as unknown as CircuitBreakerService,
+      metrics as unknown as SentimentMetricsService,
     );
 
   beforeEach(() => {
@@ -642,5 +657,135 @@ describe('SentimentService.analyzeMessage deferred retry (T4)', () => {
     expect(analyze).not.toHaveBeenCalled();
     expect(markSkipped).not.toHaveBeenCalled();
     expect(markFailed).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * T6: every terminal path of the analysis feeds the `/metrics` counters
+ * through the service seam: a completed analysis records its IA latency, a
+ * real failure records `failed`, and each availability skip records its reason.
+ * A payload that never becomes an analysis (missing context/content) records
+ * nothing.
+ */
+describe('SentimentService.analyzeMessage metrics (T6)', () => {
+  const findMessage = jest.fn();
+  const createProcessing = jest.fn();
+  const complete = jest.fn();
+  const markFailed = jest.fn();
+  const markSkipped = jest.fn();
+  const analyze = jest.fn();
+  const isEnabled = jest.fn();
+  const beforeCall = jest.fn();
+  const recordSuccess = jest.fn();
+  const recordFailure = jest.fn();
+  const logger = {
+    setContext: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  };
+
+  const payload = {
+    messageId: 'message-1',
+    content: 'hola',
+    conversationId: 'conversation-1',
+  };
+
+  const build = () =>
+    new SentimentService(
+      {
+        findMessage,
+        createProcessing,
+        complete,
+        markFailed,
+        markSkipped,
+      } as unknown as SentimentRepository,
+      { analyze } as unknown as SentimentClient,
+      logger as never,
+      { isEnabled } as unknown as KillSwitchService,
+      {
+        beforeCall,
+        recordSuccess,
+        recordFailure,
+      } as unknown as CircuitBreakerService,
+      metrics as unknown as SentimentMetricsService,
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findMessage.mockResolvedValue({
+      id: 'message-1',
+      conversationId: 'conversation-1',
+      companyId: 'company-1',
+      body: 'hola',
+    });
+    createProcessing.mockResolvedValue({ id: 'analysis-1' });
+    markFailed.mockResolvedValue(undefined);
+    markSkipped.mockResolvedValue(undefined);
+    isEnabled.mockResolvedValue(true);
+    beforeCall.mockResolvedValue(true);
+    recordSuccess.mockResolvedValue(undefined);
+    recordFailure.mockResolvedValue(undefined);
+  });
+
+  it('records a completed analysis with its IA call latency', async () => {
+    analyze.mockResolvedValue({
+      text: 'hola',
+      label: 'POS',
+      probabilities: { POS: 0.9, NEU: 0.05, NEG: 0.05 },
+    });
+
+    await expect(build().analyzeMessage(payload)).resolves.toMatchObject({
+      label: 'positive',
+    });
+
+    expect(metrics.recordCompleted).toHaveBeenCalledTimes(1);
+    expect(metrics.recordCompleted).toHaveBeenCalledWith(expect.any(Number));
+    expect(metrics.recordFailed).not.toHaveBeenCalled();
+    expect(metrics.recordSkipped).not.toHaveBeenCalled();
+  });
+
+  it('records a failed analysis on a broken IA contract', async () => {
+    analyze.mockResolvedValue({
+      label: 'ham',
+      probabilities: { POS: 0.5, NEU: 0.3, NEG: 0.2 },
+    });
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(metrics.recordFailed).toHaveBeenCalledTimes(1);
+    expect(metrics.recordCompleted).not.toHaveBeenCalled();
+    expect(metrics.recordSkipped).not.toHaveBeenCalled();
+  });
+
+  it.each(['kill_switch', 'circuit_breaker', 'ia_unavailable'] as const)(
+    'records a skipped analysis with its reason (%s)',
+    async (reason) => {
+      if (reason === 'kill_switch') isEnabled.mockResolvedValue(false);
+      if (reason === 'circuit_breaker') beforeCall.mockResolvedValue(false);
+      if (reason === 'ia_unavailable') {
+        analyze.mockRejectedValue({ code: 'ECONNREFUSED' });
+      }
+
+      await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+      expect(metrics.recordSkipped).toHaveBeenCalledWith(reason);
+      expect(metrics.recordCompleted).not.toHaveBeenCalled();
+      expect(metrics.recordFailed).not.toHaveBeenCalled();
+    },
+  );
+
+  it('records nothing when the payload never becomes an analysis', async () => {
+    findMessage.mockResolvedValue(null);
+
+    await expect(
+      build().analyzeMessage({ messageId: 'message-1', content: '' }),
+    ).resolves.toBeNull();
+
+    expect(metrics.recordCompleted).not.toHaveBeenCalled();
+    expect(metrics.recordFailed).not.toHaveBeenCalled();
+    expect(metrics.recordSkipped).not.toHaveBeenCalled();
+    expect(metrics.recordRetryEnqueued).not.toHaveBeenCalled();
   });
 });

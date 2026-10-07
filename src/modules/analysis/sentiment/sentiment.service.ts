@@ -15,6 +15,7 @@ import { SentimentClient } from './sentiment.client';
 import { DEFAULT_SENTIMENT_MODEL } from './sentiment.constants';
 import { IaContractError, isIaUnavailable } from './sentiment.errors';
 import type { SentimentResponse } from './sentiment.interface';
+import { SentimentMetricsService } from './sentiment-metrics.service';
 import {
   SentimentRepository,
   type ConversationSentimentAggregate,
@@ -57,6 +58,7 @@ export class SentimentService {
     private readonly logger: PinoLogger,
     private readonly killSwitch: KillSwitchService,
     private readonly breaker: CircuitBreakerService,
+    private readonly metrics: SentimentMetricsService,
   ) {
     this.logger.setContext(SentimentService.name);
   }
@@ -131,6 +133,7 @@ export class SentimentService {
       return null;
     }
 
+    const startedAt = Date.now();
     const response = await this.client
       .analyze(content)
       .catch(async (error: unknown) => {
@@ -166,6 +169,9 @@ export class SentimentService {
         probabilities: mapped.probabilities,
         result: { probabilities: mapped.probabilities },
       });
+
+      // T6: a completed analysis also samples the IA latency (the call above).
+      await this.metrics.recordCompleted(Date.now() - startedAt);
 
       return {
         messageId: payload.messageId,
@@ -205,6 +211,9 @@ export class SentimentService {
       },
       SKIP_MESSAGES[reason],
     );
+
+    // T6: the omission is visible in `/metrics` per reason.
+    await this.metrics.recordSkipped(reason);
   }
 
   private async markFailed(
@@ -226,6 +235,9 @@ export class SentimentService {
       { err: error, messageId: payload.messageId, conversationId },
       'Sentiment analysis failed',
     );
+
+    // T6: real failures are counted apart from availability skips.
+    await this.metrics.recordFailed();
   }
 
   /**

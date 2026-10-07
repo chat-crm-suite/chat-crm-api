@@ -7,6 +7,7 @@ import { Analysis } from '../entities/analysis.entity';
 import { CircuitBreakerService } from '../ia/circuit-breaker.service';
 import { KillSwitchService } from '../ia/kill-switch.service';
 import { SENTIMENT_JOB } from './sentiment.constants';
+import type { SentimentMetricsService } from './sentiment-metrics.service';
 import { SENTIMENT_RETRY_BATCH_SIZE } from './sentiment-retry.policy';
 import { SentimentRetryService } from './sentiment-retry.service';
 import type { SentimentRepository } from './sentiment.repository';
@@ -24,6 +25,9 @@ describe('SentimentRetryService (T4)', () => {
   const add = jest.fn();
   const isEnabled = jest.fn();
   const isOpen = jest.fn();
+  const metrics = {
+    recordRetryEnqueued: jest.fn(),
+  };
   const logger = {
     setContext: jest.fn(),
     debug: jest.fn(),
@@ -44,6 +48,7 @@ describe('SentimentRetryService (T4)', () => {
       logger as never,
       { isEnabled } as unknown as KillSwitchService,
       { isOpen } as unknown as CircuitBreakerService,
+      metrics as unknown as SentimentMetricsService,
     );
 
   const candidate = (overrides: Partial<Analysis> = {}): Analysis =>
@@ -76,6 +81,7 @@ describe('SentimentRetryService (T4)', () => {
 
     expect(findDueRetries).not.toHaveBeenCalled();
     expect(add).not.toHaveBeenCalled();
+    expect(metrics.recordRetryEnqueued).not.toHaveBeenCalled();
     expect(logger.debug).toHaveBeenCalled();
   });
 
@@ -119,6 +125,8 @@ describe('SentimentRetryService (T4)', () => {
       0,
       new Date(NOW.getTime() + 900_000),
     );
+    // T6: the re-enqueue feeds the `/metrics` retry counter.
+    expect(metrics.recordRetryEnqueued).toHaveBeenCalledTimes(1);
     expect(logger.info).toHaveBeenCalled();
     expect(logger.error).not.toHaveBeenCalled();
   });
@@ -187,6 +195,7 @@ describe('SentimentRetryService (T4)', () => {
       enqueued: 1,
     });
 
+    expect(metrics.recordRetryEnqueued).toHaveBeenCalledTimes(1);
     expect(logger.warn).toHaveBeenCalled();
     expect(scheduleRetryAttempt).toHaveBeenCalledTimes(1);
     expect(scheduleRetryAttempt).toHaveBeenCalledWith(

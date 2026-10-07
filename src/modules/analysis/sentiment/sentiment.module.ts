@@ -11,6 +11,7 @@ import sentimentConfig from '../../../config/sentiment.config';
 import { Message } from '../../message/entities/message.entity';
 import { Analysis } from '../entities/analysis.entity';
 import { SentimentResult } from '../entities/sentiment-result.entity';
+import { IaModule } from '../ia/ia.module';
 import { AnalyseMessageHandler } from './commands/handlers/analyse-message.handler';
 import { SentimentClient } from './sentiment.client';
 import { SENTIMENT_QUEUE } from './sentiment.constants';
@@ -26,6 +27,7 @@ import { SentimentService } from './sentiment.service';
       name: SENTIMENT_QUEUE,
     }),
     HttpModule,
+    IaModule,
   ],
   providers: [
     SentimentClient,

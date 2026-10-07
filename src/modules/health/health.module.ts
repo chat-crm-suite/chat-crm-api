@@ -5,6 +5,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import healthConfig from '../../config/health.config';
+import { IaModule } from '../analysis/ia/ia.module';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 import { HEALTH_PROBES } from './health.probe';
@@ -14,7 +15,7 @@ import { DatabaseProbe } from './probes/database.probe';
 import { IaProbe } from './probes/ia.probe';
 
 @Module({
-  imports: [ConfigModule.forFeature(healthConfig)],
+  imports: [ConfigModule.forFeature(healthConfig), IaModule],
   controllers: [HealthController],
   providers: [
     HealthService,

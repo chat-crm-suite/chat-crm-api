@@ -3,6 +3,7 @@
 
 import { NotFoundException } from '@nestjs/common';
 
+import type { KillSwitchService } from '../ia/kill-switch.service';
 import type { SentimentClient } from './sentiment.client';
 import type { SentimentRepository } from './sentiment.repository';
 import { SentimentService } from './sentiment.service';
@@ -141,6 +142,7 @@ describe('SentimentService.analyzeMessage availability handling (T1)', () => {
   const markFailed = jest.fn();
   const markSkipped = jest.fn();
   const analyze = jest.fn();
+  const isEnabled = jest.fn();
   const logger = {
     setContext: jest.fn(),
     info: jest.fn(),
@@ -166,6 +168,7 @@ describe('SentimentService.analyzeMessage availability handling (T1)', () => {
       } as unknown as SentimentRepository,
       { analyze } as unknown as SentimentClient,
       logger as never,
+      { isEnabled } as unknown as KillSwitchService,
     );
 
   beforeEach(() => {
@@ -179,6 +182,7 @@ describe('SentimentService.analyzeMessage availability handling (T1)', () => {
     createProcessing.mockResolvedValue({ id: 'analysis-1' });
     markFailed.mockResolvedValue(undefined);
     markSkipped.mockResolvedValue(undefined);
+    isEnabled.mockResolvedValue(true);
   });
 
   it.each([
@@ -258,6 +262,97 @@ describe('SentimentService.analyzeMessage availability handling (T1)', () => {
       expect.objectContaining({ label: 'positive', confidence: 0.9 }),
     );
     expect(markFailed).not.toHaveBeenCalled();
+    expect(markSkipped).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * T2: the manual kill switch short-circuits every analysis before the IA is
+ * called. The analysis row is still recorded as `skipped` / `kill_switch` with
+ * an info log, so the operator can see what was omitted and why.
+ */
+describe('SentimentService.analyzeMessage kill switch (T2)', () => {
+  const findMessage = jest.fn();
+  const createProcessing = jest.fn();
+  const complete = jest.fn();
+  const markFailed = jest.fn();
+  const markSkipped = jest.fn();
+  const analyze = jest.fn();
+  const isEnabled = jest.fn();
+  const logger = {
+    setContext: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  };
+
+  const payload = {
+    messageId: 'message-1',
+    content: 'hola',
+    conversationId: 'conversation-1',
+  };
+
+  const build = () =>
+    new SentimentService(
+      {
+        findMessage,
+        createProcessing,
+        complete,
+        markFailed,
+        markSkipped,
+      } as unknown as SentimentRepository,
+      { analyze } as unknown as SentimentClient,
+      logger as never,
+      { isEnabled } as unknown as KillSwitchService,
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findMessage.mockResolvedValue({
+      id: 'message-1',
+      conversationId: 'conversation-1',
+      companyId: 'company-1',
+      body: 'hola',
+    });
+    createProcessing.mockResolvedValue({ id: 'analysis-1' });
+    markFailed.mockResolvedValue(undefined);
+    markSkipped.mockResolvedValue(undefined);
+  });
+
+  it('skips with kill_switch without calling the IA when disabled', async () => {
+    isEnabled.mockResolvedValue(false);
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(isEnabled).toHaveBeenCalled();
+    expect(markSkipped).toHaveBeenCalledWith('analysis-1', 'kill_switch');
+    expect(analyze).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        analysisId: 'analysis-1',
+        reason: 'kill_switch',
+      }),
+      expect.any(String),
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('proceeds with the IA when the flag is enabled', async () => {
+    isEnabled.mockResolvedValue(true);
+    analyze.mockResolvedValue({
+      text: 'hola',
+      label: 'POS',
+      probabilities: { POS: 0.9, NEU: 0.05, NEG: 0.05 },
+    });
+
+    await expect(build().analyzeMessage(payload)).resolves.toMatchObject({
+      label: 'positive',
+    });
+
+    expect(analyze).toHaveBeenCalled();
     expect(markSkipped).not.toHaveBeenCalled();
   });
 });

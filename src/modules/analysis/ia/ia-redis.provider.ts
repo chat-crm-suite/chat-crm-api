@@ -8,10 +8,10 @@ import { PinoLogger } from 'nestjs-pino';
 export const IA_REDIS = 'IA_REDIS';
 
 /**
- * Dedicated ioredis connection for the kill switch (and, later, the circuit
- * breaker). `lazyConnect` keeps importing the module from opening a socket, and
- * a single retry per request makes a Redis outage surface quickly instead of
- * piling up queued commands on the analysis hot path.
+ * Dedicated ioredis connection for the kill switch and the circuit breaker.
+ * `lazyConnect` keeps importing the module from opening a socket, and a single
+ * retry per request makes a Redis outage surface quickly instead of piling up
+ * queued commands on the analysis hot path.
  */
 export function createIaRedis(logger: PinoLogger): Redis {
   const redis = new Redis({

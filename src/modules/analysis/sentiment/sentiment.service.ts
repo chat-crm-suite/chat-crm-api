@@ -9,6 +9,7 @@ import type {
   ConversationSentiment,
   SentimentLabel,
 } from '../../../contracts/index';
+import { CircuitBreakerService } from '../ia/circuit-breaker.service';
 import { KillSwitchService } from '../ia/kill-switch.service';
 import { SentimentClient } from './sentiment.client';
 import { DEFAULT_SENTIMENT_MODEL } from './sentiment.constants';
@@ -43,9 +44,10 @@ const SKIP_MESSAGES: Record<AnalysisSkipReason, string> = {
  * context (and body fallback), calls the FastAPI client and persists the
  * `analyses` + `sentiment_results` rows. Never throws: IA unavailability marks
  * the analysis `skipped` (reason `ia_unavailable`) and returns null; broken
- * responses or real failures mark it `failed` and also return null. While the
- * manual kill switch is off, the analysis is skipped as `kill_switch` before
- * any IA call.
+ * responses or real failures mark it `failed` and also return null. The
+ * decision pipeline is kill switch → circuit breaker → IA call: a manual
+ * disable skips as `kill_switch` and an open breaker skips as
+ * `circuit_breaker`, both before any IA call.
  */
 @Injectable()
 export class SentimentService {
@@ -54,6 +56,7 @@ export class SentimentService {
     private readonly client: SentimentClient,
     private readonly logger: PinoLogger,
     private readonly killSwitch: KillSwitchService,
+    private readonly breaker: CircuitBreakerService,
   ) {
     this.logger.setContext(SentimentService.name);
   }
@@ -101,10 +104,26 @@ export class SentimentService {
 
     const analysisId = analysis.id;
 
-    // T2: the manual kill switch short-circuits before any IA call. The
-    // analysis is still recorded as skipped, so the omission stays visible.
+    // T2/T3: decision pipeline — kill switch → circuit breaker → IA call.
+    // Both short-circuits still record the analysis as skipped, so omissions
+    // stay visible.
     if (!(await this.killSwitch.isEnabled())) {
-      await this.markSkipped(analysisId, payload, conversationId, 'kill_switch');
+      await this.markSkipped(
+        analysisId,
+        payload,
+        conversationId,
+        'kill_switch',
+      );
+      return null;
+    }
+
+    if (!(await this.breaker.beforeCall())) {
+      await this.markSkipped(
+        analysisId,
+        payload,
+        conversationId,
+        'circuit_breaker',
+      );
       return null;
     }
 
@@ -112,6 +131,9 @@ export class SentimentService {
       .analyze(content)
       .catch(async (error: unknown) => {
         if (isIaUnavailable(error)) {
+          // T3: transport failures and 5xx feed the breaker; the analysis is
+          // skipped as retryable unavailability.
+          await this.breaker.recordFailure();
           await this.markSkipped(
             analysisId,
             payload,
@@ -128,6 +150,10 @@ export class SentimentService {
 
     try {
       const mapped = this.mapResponse(response);
+
+      // T3: only a valid IA response counts as success for the breaker; a
+      // broken contract never alters its state.
+      await this.breaker.recordSuccess();
 
       await this.repo.complete(analysisId, {
         label: mapped.label,

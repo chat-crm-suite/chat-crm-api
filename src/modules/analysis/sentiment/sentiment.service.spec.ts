@@ -3,6 +3,7 @@
 
 import { NotFoundException } from '@nestjs/common';
 
+import type { CircuitBreakerService } from '../ia/circuit-breaker.service';
 import type { KillSwitchService } from '../ia/kill-switch.service';
 import type { SentimentClient } from './sentiment.client';
 import type { SentimentRepository } from './sentiment.repository';
@@ -143,6 +144,9 @@ describe('SentimentService.analyzeMessage availability handling (T1)', () => {
   const markSkipped = jest.fn();
   const analyze = jest.fn();
   const isEnabled = jest.fn();
+  const beforeCall = jest.fn();
+  const recordSuccess = jest.fn();
+  const recordFailure = jest.fn();
   const logger = {
     setContext: jest.fn(),
     info: jest.fn(),
@@ -169,6 +173,11 @@ describe('SentimentService.analyzeMessage availability handling (T1)', () => {
       { analyze } as unknown as SentimentClient,
       logger as never,
       { isEnabled } as unknown as KillSwitchService,
+      {
+        beforeCall,
+        recordSuccess,
+        recordFailure,
+      } as unknown as CircuitBreakerService,
     );
 
   beforeEach(() => {
@@ -183,6 +192,9 @@ describe('SentimentService.analyzeMessage availability handling (T1)', () => {
     markFailed.mockResolvedValue(undefined);
     markSkipped.mockResolvedValue(undefined);
     isEnabled.mockResolvedValue(true);
+    beforeCall.mockResolvedValue(true);
+    recordSuccess.mockResolvedValue(undefined);
+    recordFailure.mockResolvedValue(undefined);
   });
 
   it.each([
@@ -279,6 +291,9 @@ describe('SentimentService.analyzeMessage kill switch (T2)', () => {
   const markSkipped = jest.fn();
   const analyze = jest.fn();
   const isEnabled = jest.fn();
+  const beforeCall = jest.fn();
+  const recordSuccess = jest.fn();
+  const recordFailure = jest.fn();
   const logger = {
     setContext: jest.fn(),
     info: jest.fn(),
@@ -305,6 +320,11 @@ describe('SentimentService.analyzeMessage kill switch (T2)', () => {
       { analyze } as unknown as SentimentClient,
       logger as never,
       { isEnabled } as unknown as KillSwitchService,
+      {
+        beforeCall,
+        recordSuccess,
+        recordFailure,
+      } as unknown as CircuitBreakerService,
     );
 
   beforeEach(() => {
@@ -318,6 +338,9 @@ describe('SentimentService.analyzeMessage kill switch (T2)', () => {
     createProcessing.mockResolvedValue({ id: 'analysis-1' });
     markFailed.mockResolvedValue(undefined);
     markSkipped.mockResolvedValue(undefined);
+    beforeCall.mockResolvedValue(true);
+    recordSuccess.mockResolvedValue(undefined);
+    recordFailure.mockResolvedValue(undefined);
   });
 
   it('skips with kill_switch without calling the IA when disabled', async () => {
@@ -353,6 +376,161 @@ describe('SentimentService.analyzeMessage kill switch (T2)', () => {
     });
 
     expect(analyze).toHaveBeenCalled();
+    expect(markSkipped).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * T3: the circuit breaker sits between the kill switch and the IA call. While
+ * it is open the analysis is skipped as `circuit_breaker` (retryable) without
+ * calling the IA; transport failures and 5xx feed it, while invalid responses
+ * and 4xx never alter its state.
+ */
+describe('SentimentService.analyzeMessage circuit breaker (T3)', () => {
+  const findMessage = jest.fn();
+  const createProcessing = jest.fn();
+  const complete = jest.fn();
+  const markFailed = jest.fn();
+  const markSkipped = jest.fn();
+  const analyze = jest.fn();
+  const isEnabled = jest.fn();
+  const beforeCall = jest.fn();
+  const recordSuccess = jest.fn();
+  const recordFailure = jest.fn();
+  const logger = {
+    setContext: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  };
+
+  const payload = {
+    messageId: 'message-1',
+    content: 'hola',
+    conversationId: 'conversation-1',
+  };
+
+  const build = () =>
+    new SentimentService(
+      {
+        findMessage,
+        createProcessing,
+        complete,
+        markFailed,
+        markSkipped,
+      } as unknown as SentimentRepository,
+      { analyze } as unknown as SentimentClient,
+      logger as never,
+      { isEnabled } as unknown as KillSwitchService,
+      {
+        beforeCall,
+        recordSuccess,
+        recordFailure,
+      } as unknown as CircuitBreakerService,
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findMessage.mockResolvedValue({
+      id: 'message-1',
+      conversationId: 'conversation-1',
+      companyId: 'company-1',
+      body: 'hola',
+    });
+    createProcessing.mockResolvedValue({ id: 'analysis-1' });
+    markFailed.mockResolvedValue(undefined);
+    markSkipped.mockResolvedValue(undefined);
+    isEnabled.mockResolvedValue(true);
+    beforeCall.mockResolvedValue(true);
+    recordSuccess.mockResolvedValue(undefined);
+    recordFailure.mockResolvedValue(undefined);
+  });
+
+  it('checks the kill switch before the circuit breaker', async () => {
+    isEnabled.mockResolvedValue(false);
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(markSkipped).toHaveBeenCalledWith('analysis-1', 'kill_switch');
+    expect(beforeCall).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it('skips as circuit_breaker without calling the IA while open', async () => {
+    beforeCall.mockResolvedValue(false);
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(beforeCall).toHaveBeenCalled();
+    expect(markSkipped).toHaveBeenCalledWith('analysis-1', 'circuit_breaker');
+    expect(analyze).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        analysisId: 'analysis-1',
+        reason: 'circuit_breaker',
+      }),
+      expect.any(String),
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { failure: 'a timeout', error: { name: 'TimeoutError' } },
+    { failure: 'a refused connection', error: { code: 'ECONNREFUSED' } },
+    { failure: 'a 5xx response', error: { response: { status: 503 } } },
+  ])('feeds the breaker on $failure', async ({ error }) => {
+    analyze.mockRejectedValue(error);
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(recordFailure).toHaveBeenCalled();
+    expect(recordSuccess).not.toHaveBeenCalled();
+    expect(markSkipped).toHaveBeenCalledWith('analysis-1', 'ia_unavailable');
+  });
+
+  it('does not feed the breaker on a 4xx response', async () => {
+    analyze.mockRejectedValue(
+      Object.assign(new Error('Request failed with status code 400'), {
+        response: { status: 400 },
+      }),
+    );
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(recordFailure).not.toHaveBeenCalled();
+    expect(recordSuccess).not.toHaveBeenCalled();
+    expect(markFailed).toHaveBeenCalledWith('analysis-1', expect.any(Error));
+  });
+
+  it('does not alter the breaker on an invalid response', async () => {
+    analyze.mockResolvedValue({
+      label: 'ham',
+      probabilities: { POS: 0.5, NEU: 0.3, NEG: 0.2 },
+    });
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(recordFailure).not.toHaveBeenCalled();
+    expect(recordSuccess).not.toHaveBeenCalled();
+    expect(markFailed).toHaveBeenCalledWith('analysis-1', expect.any(Error));
+  });
+
+  it('closes the breaker on a valid response', async () => {
+    analyze.mockResolvedValue({
+      text: 'hola',
+      label: 'POS',
+      probabilities: { POS: 0.9, NEU: 0.05, NEG: 0.05 },
+    });
+
+    await expect(build().analyzeMessage(payload)).resolves.toMatchObject({
+      label: 'positive',
+    });
+
+    expect(recordSuccess).toHaveBeenCalled();
+    expect(recordFailure).not.toHaveBeenCalled();
     expect(markSkipped).not.toHaveBeenCalled();
   });
 });

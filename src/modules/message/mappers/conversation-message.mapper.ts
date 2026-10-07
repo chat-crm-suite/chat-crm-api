@@ -61,6 +61,8 @@ export function toConversationMessagePayload(
       type: message.type,
       mediaUrl: attachment?.storageUrl ?? null,
       attachmentStatus: attachment?.status ?? null,
+      mimeType: attachment?.mimeType ?? null,
+      sizeBytes: attachment?.sizeBytes ?? null,
       content,
     },
   };

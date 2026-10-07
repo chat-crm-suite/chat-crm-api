@@ -31,6 +31,9 @@ export interface ConversationMessagePayload {
     mediaUrl?: string | null;
     /** T3: pending/ready/failed for rows whose file arrives async. */
     attachmentStatus?: AttachmentStatus | null;
+    /** Attachment metadata for the file card (`null` when unknown). */
+    mimeType?: string | null;
+    sizeBytes?: number | null;
     content: {
       body?: string;
       link?: string;

@@ -30,6 +30,7 @@ const attachment = (
     fileName: 'photo.jpg',
     storageUrl: '/uploads/photo.jpg',
     status: 'ready',
+    sizeBytes: 2048,
     ...overrides,
   }) as MessageAttachment;
 
@@ -70,6 +71,8 @@ describe('MessageService.getMessagePayload', () => {
 
     expect(payload?.msg.mediaUrl).toBe('/uploads/photo.jpg');
     expect(payload?.msg.content.filename).toBe('photo.jpg');
+    expect(payload?.msg.mimeType).toBe('image/jpeg');
+    expect(payload?.msg.sizeBytes).toBe(2048);
   });
 
   it('returns null mediaUrl for text without attachments', async () => {
@@ -83,6 +86,8 @@ describe('MessageService.getMessagePayload', () => {
       content: { body: 'hola' },
     });
     expect(payload?.msg.mediaUrl).toBeNull();
+    expect(payload?.msg.mimeType).toBeUndefined();
+    expect(payload?.msg.sizeBytes).toBeUndefined();
   });
 
   it('falls back to the generic mapper for types without strategy', async () => {

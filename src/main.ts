@@ -3,21 +3,29 @@
 
 import cookieParser from 'cookie-parser';
 import { I18nService } from 'nestjs-i18n';
-import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
+import { Logger, LoggerErrorInterceptor, PinoLogger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
 import { ZodValidationExceptionFilter } from './common/filters/zod-validation.filter';
+import { loggerConfig } from './config/logger.config';
 import { setupSwagger } from './docs/openapi';
 import { createNestApp } from './nest-app.factory';
 
 async function bootstrap() {
   // Red de seguridad: un rechazo async no manejado (ej. jobs post-webhook)
   // debe quedar en logs, no tumbar el proceso como ocurrió con ER_DUP_ENTRY.
+  // Usa el logger de la app (misma config, formato y niveles) desde el arranque.
+  const safetyLogger = new PinoLogger(loggerConfig);
+  safetyLogger.setContext('Bootstrap');
+
   process.on('unhandledRejection', (reason) => {
-    console.error('[unhandledRejection]', reason);
+    safetyLogger.error(
+      { err: reason },
+      '[unhandledRejection] Unhandled rejection',
+    );
   });
   process.on('uncaughtException', (error) => {
-    console.error('[uncaughtException]', error);
+    safetyLogger.error({ err: error }, '[uncaughtException] Uncaught exception');
   });
 
   const app = await createNestApp(AppModule);

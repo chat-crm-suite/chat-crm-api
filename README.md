@@ -98,7 +98,7 @@ Pending database migrations run automatically when the API boots.
 | `SETUP_TOKEN` | Required by the first-run setup screen in production |
 
 `./deploy/gen-secrets.sh` fills every secret with a strong random value. Optional variables with defaults:
-`COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `HEALTH_PROBE_TTL_MS`, `HEALTH_IA_TIMEOUT_MS`.
+`COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`, `HEALTH_IA_TIMEOUT_MS`.
 
 ## Scripts
 
@@ -125,7 +125,7 @@ src/
 ├── migrations/     database migrations
 ├── docs/           OpenAPI setup
 └── locales/        i18n messages
-docs/               database schema (DBML) and realtime design
+docs/               database schema (DBML), realtime design and logging conventions
 test/               end-to-end and integration tests
 ```
 
@@ -133,7 +133,8 @@ test/               end-to-end and integration tests
 
 - **API reference** — Swagger UI at `/docs` (enabled outside production, or with `SWAGGER_ENABLED=true`) and
   the committed [`openapi.json`](openapi.json).
-- **Database** — [`docs/database`](docs/database) · **Realtime** — [`docs/realtime`](docs/realtime).
+- **Database** — [`docs/database`](docs/database) · **Realtime** — [`docs/realtime`](docs/realtime) ·
+  **Logging** — [`docs/logging`](docs/logging).
 - **Production deploy** — [`DEPLOY_PROD.md`](DEPLOY_PROD.md) and [`deploy/`](deploy). Every deploy applies
   pending migrations: back up MySQL first.
 

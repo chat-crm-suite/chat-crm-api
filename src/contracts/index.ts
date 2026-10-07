@@ -20,6 +20,7 @@ export * from './channel.contract';
 export * from './company.contract';
 export * from './conversation.contract';
 export * from './customer.contract';
+export * from './ia.contract';
 export * from './member.contract';
 export * from './message.contract';
 export * from './metrics.contract';

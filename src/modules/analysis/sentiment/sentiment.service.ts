@@ -5,9 +5,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
 import type {
+  AnalysisSkipReason,
   ConversationSentiment,
   SentimentLabel,
 } from '../../../contracts/index';
+import { KillSwitchService } from '../ia/kill-switch.service';
 import { SentimentClient } from './sentiment.client';
 import { DEFAULT_SENTIMENT_MODEL } from './sentiment.constants';
 import { IaContractError, isIaUnavailable } from './sentiment.errors';
@@ -29,12 +31,21 @@ type MappedResponse = {
   model: string;
 };
 
+/** T5: every skip is an expected condition and logs at info level. */
+const SKIP_MESSAGES: Record<AnalysisSkipReason, string> = {
+  kill_switch: 'Sentiment analysis skipped: kill switch off',
+  circuit_breaker: 'Sentiment analysis skipped: circuit breaker open',
+  ia_unavailable: 'Sentiment analysis skipped: IA unavailable',
+};
+
 /**
  * Sentiment analysis orchestration: loads the message for company/conversation
  * context (and body fallback), calls the FastAPI client and persists the
  * `analyses` + `sentiment_results` rows. Never throws: IA unavailability marks
  * the analysis `skipped` (reason `ia_unavailable`) and returns null; broken
- * responses or real failures mark it `failed` and also return null.
+ * responses or real failures mark it `failed` and also return null. While the
+ * manual kill switch is off, the analysis is skipped as `kill_switch` before
+ * any IA call.
  */
 @Injectable()
 export class SentimentService {
@@ -42,6 +53,7 @@ export class SentimentService {
     private readonly repo: SentimentRepository,
     private readonly client: SentimentClient,
     private readonly logger: PinoLogger,
+    private readonly killSwitch: KillSwitchService,
   ) {
     this.logger.setContext(SentimentService.name);
   }
@@ -89,11 +101,23 @@ export class SentimentService {
 
     const analysisId = analysis.id;
 
+    // T2: the manual kill switch short-circuits before any IA call. The
+    // analysis is still recorded as skipped, so the omission stays visible.
+    if (!(await this.killSwitch.isEnabled())) {
+      await this.markSkipped(analysisId, payload, conversationId, 'kill_switch');
+      return null;
+    }
+
     const response = await this.client
       .analyze(content)
       .catch(async (error: unknown) => {
         if (isIaUnavailable(error)) {
-          await this.markSkipped(analysisId, payload, conversationId);
+          await this.markSkipped(
+            analysisId,
+            payload,
+            conversationId,
+            'ia_unavailable',
+          );
         } else {
           await this.markFailed(analysisId, error, payload, conversationId);
         }
@@ -126,14 +150,15 @@ export class SentimentService {
     }
   }
 
-  /** T1: expected IA unavailability → `skipped` + info log, never an error. */
+  /** T1/T2: expected unavailability → `skipped` + info log, never an error. */
   private async markSkipped(
     analysisId: string,
     payload: SentimentPayload,
     conversationId: string,
+    reason: AnalysisSkipReason,
   ): Promise<void> {
     await this.repo
-      .markSkipped(analysisId, 'ia_unavailable')
+      .markSkipped(analysisId, reason)
       .catch((markError: unknown) =>
         this.logger.error(
           { err: markError, analysisId },
@@ -146,9 +171,9 @@ export class SentimentService {
         analysisId,
         messageId: payload.messageId,
         conversationId,
-        reason: 'ia_unavailable',
+        reason,
       },
-      'Sentiment analysis skipped: IA unavailable',
+      SKIP_MESSAGES[reason],
     );
   }
 

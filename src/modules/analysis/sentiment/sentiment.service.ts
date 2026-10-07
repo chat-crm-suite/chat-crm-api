@@ -86,20 +86,24 @@ export class SentimentService {
       return null;
     }
 
-    const analysis = await this.repo
-      .createProcessing({
-        companyId,
-        messageId: payload.messageId,
-        conversationId,
-        model: DEFAULT_SENTIMENT_MODEL,
-      })
-      .catch((error: unknown) => {
-        this.logger.error(
-          { err: error, messageId: payload.messageId, conversationId },
-          'Failed to create sentiment analysis',
-        );
-        return null;
-      });
+    // T4: a deferred retry carries its analysisId and reuses that row; only a
+    // fresh analysis creates a new one.
+    const analysis = await (
+      payload.analysisId
+        ? this.repo.startRetry(payload.analysisId)
+        : this.repo.createProcessing({
+            companyId,
+            messageId: payload.messageId,
+            conversationId,
+            model: DEFAULT_SENTIMENT_MODEL,
+          })
+    ).catch((error: unknown) => {
+      this.logger.error(
+        { err: error, messageId: payload.messageId, conversationId },
+        'Failed to create sentiment analysis',
+      );
+      return null;
+    });
     if (!analysis) return null;
 
     const analysisId = analysis.id;

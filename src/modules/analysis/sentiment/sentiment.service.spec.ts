@@ -534,3 +534,113 @@ describe('SentimentService.analyzeMessage circuit breaker (T3)', () => {
     expect(markSkipped).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * T4: a deferred retry arrives with its `analysisId` and must reuse that row
+ * — one row per analysis, never a new one per attempt. When the row moved on
+ * (already retried elsewhere or no longer skipped), the job is a no-op.
+ */
+describe('SentimentService.analyzeMessage deferred retry (T4)', () => {
+  const findMessage = jest.fn();
+  const createProcessing = jest.fn();
+  const startRetry = jest.fn();
+  const complete = jest.fn();
+  const markFailed = jest.fn();
+  const markSkipped = jest.fn();
+  const analyze = jest.fn();
+  const isEnabled = jest.fn();
+  const beforeCall = jest.fn();
+  const recordSuccess = jest.fn();
+  const recordFailure = jest.fn();
+  const logger = {
+    setContext: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  };
+
+  const payload = {
+    messageId: 'message-1',
+    conversationId: 'conversation-1',
+    analysisId: 'analysis-1',
+  };
+
+  const build = () =>
+    new SentimentService(
+      {
+        findMessage,
+        createProcessing,
+        startRetry,
+        complete,
+        markFailed,
+        markSkipped,
+      } as unknown as SentimentRepository,
+      { analyze } as unknown as SentimentClient,
+      logger as never,
+      { isEnabled } as unknown as KillSwitchService,
+      {
+        beforeCall,
+        recordSuccess,
+        recordFailure,
+      } as unknown as CircuitBreakerService,
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findMessage.mockResolvedValue({
+      id: 'message-1',
+      conversationId: 'conversation-1',
+      companyId: 'company-1',
+      body: 'hola',
+    });
+    startRetry.mockResolvedValue({ id: 'analysis-1', retryCount: 1 });
+    createProcessing.mockResolvedValue({ id: 'analysis-1' });
+    markFailed.mockResolvedValue(undefined);
+    markSkipped.mockResolvedValue(undefined);
+    isEnabled.mockResolvedValue(true);
+    beforeCall.mockResolvedValue(true);
+    recordSuccess.mockResolvedValue(undefined);
+    recordFailure.mockResolvedValue(undefined);
+  });
+
+  it('reuses the skipped row instead of creating a new analysis', async () => {
+    analyze.mockResolvedValue({
+      text: 'hola',
+      label: 'POS',
+      probabilities: { POS: 0.9, NEU: 0.05, NEG: 0.05 },
+    });
+
+    await expect(build().analyzeMessage(payload)).resolves.toMatchObject({
+      analysisId: 'analysis-1',
+      messageId: 'message-1',
+    });
+
+    expect(startRetry).toHaveBeenCalledWith('analysis-1');
+    expect(createProcessing).not.toHaveBeenCalled();
+    expect(complete).toHaveBeenCalledWith(
+      'analysis-1',
+      expect.objectContaining({ label: 'positive' }),
+    );
+  });
+
+  it('keeps the same row when the retry is skipped again', async () => {
+    analyze.mockRejectedValue({ code: 'ECONNREFUSED' });
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(markSkipped).toHaveBeenCalledWith('analysis-1', 'ia_unavailable');
+    expect(createProcessing).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the row is no longer retryable', async () => {
+    startRetry.mockResolvedValue(null);
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(createProcessing).not.toHaveBeenCalled();
+    expect(analyze).not.toHaveBeenCalled();
+    expect(markSkipped).not.toHaveBeenCalled();
+    expect(markFailed).not.toHaveBeenCalled();
+  });
+});

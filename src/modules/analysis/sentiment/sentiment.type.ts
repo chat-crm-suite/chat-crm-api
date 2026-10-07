@@ -13,6 +13,8 @@ export type SentimentPayload = {
   messageId: string;
   content?: string | null;
   conversationId?: string;
+  /** T4: set on deferred retries; the existing analysis row is reused. */
+  analysisId?: string | null;
 };
 
 /** Type-specific JSON persisted in `analyses.result`. */

@@ -68,6 +68,14 @@ export class Analysis extends UuidV7Entity {
   @Column({ name: 'skip_reason', type: 'varchar', length: 50, nullable: true })
   skipReason?: AnalysisSkipReason | null;
 
+  /** T4: deferred retry attempts already enqueued (0 = never retried). */
+  @Column({ name: 'retry_count', type: 'int', default: 0 })
+  retryCount: number;
+
+  /** T4: when the next deferred retry is due; null when not retryable or given up. */
+  @Column({ name: 'next_retry_at', type: 'datetime', nullable: true })
+  nextRetryAt?: Date | null;
+
   /** Primary result. */
   @Column({ type: 'varchar', length: 100, nullable: true })
   label?: string | null;

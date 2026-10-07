@@ -362,7 +362,10 @@ Table analyses {
   conversation_id uuid [not null, ref: > conversations.id, note: 'always set: enables per-conversation aggregation']
   type varchar(50) [not null, note: 'sentiment | intent | topic | ... (varchar: new types without enum migration)']
   model varchar(100)
-  status varchar(50) [not null, default: 'pending', note: 'pending | processing | completed | failed (analysis.contract.ts)']
+  status varchar(50) [not null, default: 'pending', note: 'pending | processing | completed | failed | skipped (analysis.contract.ts)']
+  skip_reason varchar(50) [note: 'kill_switch | circuit_breaker | ia_unavailable; only when status=skipped (analysis.contract.ts)']
+  retry_count int [not null, default: 0, note: 'deferred retry attempts already enqueued (T4)']
+  next_retry_at datetime [note: 'when the next deferred retry is due; null when not retryable or given up (T4)']
   label varchar(100) [note: 'primary result']
   confidence decimal(5,4)
   result json [note: 'type-specific payload']

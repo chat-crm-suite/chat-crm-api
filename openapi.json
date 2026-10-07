@@ -43,16 +43,16 @@
         ]
       }
     },
-    "/auth/login": {
+    "/admin/ia/toggle": {
       "post": {
-        "operationId": "AuthController_login",
+        "operationId": "IaAdminController_toggle",
         "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginDto"
+                "$ref": "#/components/schemas/ToggleIaDto"
               }
             }
           }
@@ -62,28 +62,54 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Turn the sentiment IA on or off at runtime",
         "tags": [
-          "Auth"
+          "Admin"
         ]
       }
     },
-    "/auth/logout": {
-      "post": {
-        "operationId": "AuthController_logout",
-        "parameters": [],
+    "/company-members": {
+      "get": {
+        "operationId": "CompanyMemberController_list",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
-          "201": {
+          "200": {
             "description": ""
           }
         },
         "tags": [
-          "Auth"
+          "CompanyMember"
         ]
       }
     },
-    "/auth/me/companies": {
+    "/company-members/current": {
       "get": {
-        "operationId": "AuthController_getCompanies",
+        "operationId": "CompanyMemberController_me",
         "parameters": [],
         "responses": {
           "200": {
@@ -91,13 +117,13 @@
           }
         },
         "tags": [
-          "Auth"
+          "CompanyMember"
         ]
       }
     },
-    "/auth/me": {
+    "/company-members/companies": {
       "get": {
-        "operationId": "AuthController_getProfile",
+        "operationId": "CompanyMemberController_companies",
         "parameters": [],
         "responses": {
           "200": {
@@ -105,7 +131,7 @@
           }
         },
         "tags": [
-          "Auth"
+          "CompanyMember"
         ]
       }
     },
@@ -353,43 +379,47 @@
         ]
       }
     },
-    "/company-members": {
-      "get": {
-        "operationId": "CompanyMemberController_list",
-        "parameters": [
-          {
-            "name": "q",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50,
-              "type": "integer"
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
             "description": ""
           }
         },
         "tags": [
-          "CompanyMember"
+          "Auth"
         ]
       }
     },
-    "/company-members/current": {
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/me/companies": {
       "get": {
-        "operationId": "CompanyMemberController_me",
+        "operationId": "AuthController_getCompanies",
         "parameters": [],
         "responses": {
           "200": {
@@ -397,13 +427,13 @@
           }
         },
         "tags": [
-          "CompanyMember"
+          "Auth"
         ]
       }
     },
-    "/company-members/companies": {
+    "/auth/me": {
       "get": {
-        "operationId": "CompanyMemberController_companies",
+        "operationId": "AuthController_getProfile",
         "parameters": [],
         "responses": {
           "200": {
@@ -411,7 +441,7 @@
           }
         },
         "tags": [
-          "CompanyMember"
+          "Auth"
         ]
       }
     },
@@ -450,6 +480,20 @@
         },
         "tags": [
           "Setup"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "SentimentMetricsController_snapshot",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "SentimentMetrics"
         ]
       }
     },
@@ -1359,21 +1403,15 @@
       }
     },
     "schemas": {
-      "LoginDto": {
+      "ToggleIaDto": {
         "type": "object",
         "properties": {
-          "username": {
-            "type": "string",
-            "minLength": 1
-          },
-          "password": {
-            "type": "string",
-            "minLength": 1
+          "enabled": {
+            "type": "boolean"
           }
         },
         "required": [
-          "username",
-          "password"
+          "enabled"
         ]
       },
       "CreateUserDto": {
@@ -1491,6 +1529,23 @@
             "minLength": 8
           }
         }
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ]
       },
       "CreateSetupDto": {
         "type": "object",

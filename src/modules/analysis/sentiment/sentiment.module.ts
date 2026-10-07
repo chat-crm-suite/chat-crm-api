@@ -15,6 +15,8 @@ import { IaModule } from '../ia/ia.module';
 import { AnalyseMessageHandler } from './commands/handlers/analyse-message.handler';
 import { SentimentClient } from './sentiment.client';
 import { SENTIMENT_QUEUE } from './sentiment.constants';
+import { SentimentMetricsController } from './sentiment-metrics.controller';
+import { SentimentMetricsService } from './sentiment-metrics.service';
 import { SentimentProcessor } from './sentiment.processor';
 import { SentimentRepository } from './sentiment.repository';
 import { SentimentRetryProcessor } from './sentiment-retry.processor';
@@ -37,9 +39,11 @@ import { SENTIMENT_RETRY_QUEUE } from './sentiment-retry.policy';
     HttpModule,
     IaModule,
   ],
+  controllers: [SentimentMetricsController],
   providers: [
     SentimentClient,
     SentimentService,
+    SentimentMetricsService,
     SentimentProcessor,
     SentimentRepository,
     SentimentRetryService,

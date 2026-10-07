@@ -409,6 +409,26 @@ describe('SentimentRepository deferred retry scheduling (T4)', () => {
     ]);
   });
 
+  // T6: `/metrics` reports the retry backlog as recovery debt — every skipped
+  // retryable sentiment analysis still scheduled, overdue or not, excluding
+  // manual skips, hard failures and rows that exhausted the 8 attempts.
+  it('counts the pending retry backlog for metrics', async () => {
+    // The suite shares one sqlite database across tests, so assert the delta.
+    const before = await repository.countPendingRetries();
+    const past = new Date(Date.now() - 60_000);
+    const future = new Date(Date.now() + 60_000);
+    await seedAnalysis({ skipReason: 'ia_unavailable', nextRetryAt: past });
+    await seedAnalysis({ skipReason: 'circuit_breaker', nextRetryAt: future });
+    await seedAnalysis({ skipReason: 'kill_switch', nextRetryAt: null });
+    await seedAnalysis({ status: 'failed', nextRetryAt: past });
+    await seedAnalysis({ status: 'completed', nextRetryAt: past });
+    await seedAnalysis({ retryCount: 8, nextRetryAt: past });
+    await seedAnalysis({ type: 'intent', nextRetryAt: past });
+    await seedAnalysis({ nextRetryAt: null });
+
+    await expect(repository.countPendingRetries()).resolves.toBe(before + 2);
+  });
+
   it('caps the batch', async () => {
     const past = new Date(Date.now() - 60_000);
     await seedAnalysis({ nextRetryAt: past });

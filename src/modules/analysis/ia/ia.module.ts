@@ -37,6 +37,6 @@ import { KillSwitchService } from './kill-switch.service';
     CircuitBreakerService,
     IaAdminService,
   ],
-  exports: [KillSwitchService, CircuitBreakerService],
+  exports: [IA_REDIS, KillSwitchService, CircuitBreakerService],
 })
 export class IaModule {}

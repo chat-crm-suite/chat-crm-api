@@ -9,6 +9,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { CircuitBreakerService } from '../ia/circuit-breaker.service';
 import { KillSwitchService } from '../ia/kill-switch.service';
 import { SENTIMENT_JOB, SENTIMENT_QUEUE } from './sentiment.constants';
+import { SentimentMetricsService } from './sentiment-metrics.service';
 import {
   isRetryableSkipReason,
   retryDelayMs,
@@ -41,6 +42,7 @@ export class SentimentRetryService {
     private readonly logger: PinoLogger,
     private readonly killSwitch: KillSwitchService,
     private readonly breaker: CircuitBreakerService,
+    private readonly metrics: SentimentMetricsService,
   ) {
     this.logger.setContext(SentimentRetryService.name);
   }
@@ -97,6 +99,9 @@ export class SentimentRetryService {
           nextDelay === null ? null : new Date(now.getTime() + nextDelay),
         );
         enqueued += 1;
+
+        // T6: only attempts that really reached the queue feed `/metrics`.
+        await this.metrics.recordRetryEnqueued();
 
         this.logger.info(
           {

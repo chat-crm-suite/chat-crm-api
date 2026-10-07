@@ -6,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
 import type {
+  AnalysisSkipReason,
   ConversationSentiment,
   SentimentLabel,
 } from '../../../contracts/index';
@@ -112,6 +113,21 @@ export class SentimentRepository {
     await this.analyses.update(analysisId, {
       status: 'failed',
       error: message.slice(0, 500),
+    });
+  }
+
+  /**
+   * T1: terminal availability skip. The header keeps the reason; no
+   * `sentiment_results` detail is written, so a skipped analysis can never
+   * masquerade as an analyzed neutral one.
+   */
+  async markSkipped(
+    analysisId: string,
+    reason: AnalysisSkipReason,
+  ): Promise<void> {
+    await this.analyses.update(analysisId, {
+      status: 'skipped',
+      skipReason: reason,
     });
   }
 

@@ -3,6 +3,7 @@
 
 import { NotFoundException } from '@nestjs/common';
 
+import type { SentimentClient } from './sentiment.client';
 import type { SentimentRepository } from './sentiment.repository';
 import { SentimentService } from './sentiment.service';
 
@@ -124,5 +125,139 @@ describe('SentimentService.getConversationSentiment (T4)', () => {
       build().getConversationSentiment('foreign', 'company-1'),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(aggregateConversationSentiment).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * T1: IA unavailability is an expected condition. Transport failures (timeout,
+ * connection refused) and 5xx responses mark the analysis `skipped` with
+ * reason `ia_unavailable` and log at info level, with no sentiment result
+ * persisted. Broken-contract responses still fail loudly at error level.
+ */
+describe('SentimentService.analyzeMessage availability handling (T1)', () => {
+  const findMessage = jest.fn();
+  const createProcessing = jest.fn();
+  const complete = jest.fn();
+  const markFailed = jest.fn();
+  const markSkipped = jest.fn();
+  const analyze = jest.fn();
+  const logger = {
+    setContext: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  };
+
+  const payload = {
+    messageId: 'message-1',
+    content: 'hola',
+    conversationId: 'conversation-1',
+  };
+
+  const build = () =>
+    new SentimentService(
+      {
+        findMessage,
+        createProcessing,
+        complete,
+        markFailed,
+        markSkipped,
+      } as unknown as SentimentRepository,
+      { analyze } as unknown as SentimentClient,
+      logger as never,
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findMessage.mockResolvedValue({
+      id: 'message-1',
+      conversationId: 'conversation-1',
+      companyId: 'company-1',
+      body: 'hola',
+    });
+    createProcessing.mockResolvedValue({ id: 'analysis-1' });
+    markFailed.mockResolvedValue(undefined);
+    markSkipped.mockResolvedValue(undefined);
+  });
+
+  it.each([
+    { failure: 'a timeout', error: { name: 'TimeoutError' } },
+    { failure: 'a refused connection', error: { code: 'ECONNREFUSED' } },
+    { failure: 'a 5xx response', error: { response: { status: 503 } } },
+  ])('skips with ia_unavailable on $failure', async ({ error }) => {
+    analyze.mockRejectedValue(error);
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(markSkipped).toHaveBeenCalledWith('analysis-1', 'ia_unavailable');
+    expect(complete).not.toHaveBeenCalled();
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { response: {} },
+    { response: { label: 'POS' } },
+    {
+      response: {
+        label: 'ham',
+        probabilities: { POS: 0.5, NEU: 0.3, NEG: 0.2 },
+      },
+    },
+    {
+      response: {
+        label: 'POS',
+        probabilities: { POS: 0.9, NEU: 0.05 },
+      },
+    },
+  ])('fails on an invalid IA response (%#)', async ({ response }) => {
+    analyze.mockResolvedValue(response);
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(markFailed).toHaveBeenCalledWith('analysis-1', expect.any(Error));
+    expect(markSkipped).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
+    expect(logger.info).not.toHaveBeenCalled();
+  });
+
+  it('fails (does not skip) on a 4xx response', async () => {
+    analyze.mockRejectedValue(
+      Object.assign(new Error('Request failed with status code 400'), {
+        response: { status: 400 },
+      }),
+    );
+
+    await expect(build().analyzeMessage(payload)).resolves.toBeNull();
+
+    expect(markFailed).toHaveBeenCalledWith('analysis-1', expect.any(Error));
+    expect(markSkipped).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
+    expect(logger.info).not.toHaveBeenCalled();
+  });
+
+  it('completes and maps a valid IA response', async () => {
+    analyze.mockResolvedValue({
+      text: 'hola',
+      label: 'POS',
+      probabilities: { POS: 0.9, NEU: 0.05, NEG: 0.05 },
+    });
+
+    await expect(build().analyzeMessage(payload)).resolves.toMatchObject({
+      messageId: 'message-1',
+      analysisId: 'analysis-1',
+      label: 'positive',
+      probabilities: { pos: 0.9, neu: 0.05, neg: 0.05 },
+    });
+
+    expect(complete).toHaveBeenCalledWith(
+      'analysis-1',
+      expect.objectContaining({ label: 'positive', confidence: 0.9 }),
+    );
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(markSkipped).not.toHaveBeenCalled();
   });
 });

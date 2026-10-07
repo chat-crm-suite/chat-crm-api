@@ -17,15 +17,23 @@ import { SentimentClient } from './sentiment.client';
 import { SENTIMENT_QUEUE } from './sentiment.constants';
 import { SentimentProcessor } from './sentiment.processor';
 import { SentimentRepository } from './sentiment.repository';
+import { SentimentRetryProcessor } from './sentiment-retry.processor';
+import { SentimentRetryService } from './sentiment-retry.service';
 import { SentimentService } from './sentiment.service';
+import { SENTIMENT_RETRY_QUEUE } from './sentiment-retry.policy';
 
 @Module({
   imports: [
     ConfigModule.forFeature(sentimentConfig),
     TypeOrmModule.forFeature([Analysis, SentimentResult, Message]),
-    BullModule.registerQueue({
-      name: SENTIMENT_QUEUE,
-    }),
+    BullModule.registerQueue(
+      {
+        name: SENTIMENT_QUEUE,
+      },
+      {
+        name: SENTIMENT_RETRY_QUEUE,
+      },
+    ),
     HttpModule,
     IaModule,
   ],
@@ -34,6 +42,8 @@ import { SentimentService } from './sentiment.service';
     SentimentService,
     SentimentProcessor,
     SentimentRepository,
+    SentimentRetryService,
+    SentimentRetryProcessor,
     AnalyseMessageHandler,
   ],
   exports: [SentimentService],

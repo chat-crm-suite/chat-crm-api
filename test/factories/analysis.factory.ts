@@ -79,6 +79,9 @@ export const AnalysisFactory = Factory.define<Analysis, AnalysisTransientParams>
     analysis.target = params.target ?? 'message';
     analysis.type = params.type ?? 'sentiment';
     analysis.status = params.status ?? 'completed';
+    analysis.skipReason = params.skipReason ?? null;
+    analysis.retryCount = params.retryCount ?? 0;
+    analysis.nextRetryAt = params.nextRetryAt ?? null;
     analysis.model = params.model ?? 'factory-model';
     analysis.label =
       params.label ??

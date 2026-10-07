@@ -10,7 +10,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
 
-import type { AssignmentReason } from '../../../contracts/index';
+import type { AssignmentReason, MessageType } from '../../../contracts/index';
 import { CompanySettings } from '../../company/entities/company-settings.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { ConversationAssignment } from '../entities/conversation-assignment.entity';
@@ -247,6 +247,7 @@ export class ConversationAssignmentService {
       preview: {
         content: conversation.lastMessage?.body ?? null,
         datetime: conversation.lastMessageAt ?? null,
+        type: conversation.lastMessage?.type ?? null,
       },
       customer: {
         id: conversation.customer?.id,
@@ -282,6 +283,7 @@ export class ConversationAssignmentService {
       .addSelect('conversation.status', 'conversationStatus')
       .addSelect('conversation.lastMessageAt', 'lastMessageAt')
       .addSelect('lastMessage.body', 'lastMessageBody')
+      .addSelect('lastMessage.type', 'lastMessageType')
       .addSelect('customer.id', 'customerId')
       .addSelect('customer.displayName', 'customerDisplayName')
       .addSelect('customer.phoneNumber', 'customerPhone')
@@ -301,6 +303,7 @@ export class ConversationAssignmentService {
         conversationStatus: string;
         lastMessageAt: Date | string | null;
         lastMessageBody: string | null;
+        lastMessageType: string | null;
         customerId: string;
         customerDisplayName: string | null;
         customerPhone: string | null;
@@ -313,6 +316,7 @@ export class ConversationAssignmentService {
       preview: {
         content: row.lastMessageBody ?? null,
         datetime: row.lastMessageAt ?? null,
+        type: (row.lastMessageType as MessageType | null) ?? null,
       },
       customer: {
         id: row.customerId,

@@ -82,6 +82,7 @@ export class ConversationRepository {
       preview: {
         content: conversation.lastMessage?.body ?? null,
         datetime: conversation.lastMessageAt ?? null,
+        type: conversation.lastMessage?.type ?? null,
       },
       customer: {
         id: conversation.customer?.id,

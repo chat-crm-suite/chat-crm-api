@@ -204,6 +204,7 @@ describe('ConversationAssignmentService (e2e)', () => {
     direction: 'inbound' | 'outbound',
     at: Date,
     member?: CompanyMember,
+    overrides: Partial<Pick<Message, 'type' | 'body'>> = {},
   ) => {
     const messages = dataSource.getRepository(Message);
     const message = await messages.save(
@@ -218,6 +219,7 @@ describe('ConversationAssignmentService (e2e)', () => {
         body: 'seed',
         status: direction === 'inbound' ? 'delivered' : 'sent',
         type: 'text',
+        ...overrides,
       }),
     );
 
@@ -662,6 +664,45 @@ describe('ConversationAssignmentService (e2e)', () => {
       expect(result.map((row) => row.id)).toEqual([waiting.id, pending.id]);
       expect(result[0].member?.id).toBe(agent.member.id);
       expect(result[1].member).toBeNull();
+    });
+  });
+
+  describe('list previews', () => {
+    // Media without caption is persisted with `body = NULL`: the preview must
+    // carry the message type so the list can still label the attachment.
+    it('exposes the last-message type when the body is empty', async () => {
+      const { company } = await seedCompany();
+      const image = await seedConversation(company);
+      const text = await seedConversation(company);
+
+      await addLastMessage(
+        image,
+        'inbound',
+        new Date('2026-10-01T10:00:00Z'),
+        undefined,
+        { type: 'image', body: null },
+      );
+      await addLastMessage(text, 'inbound', new Date('2026-10-01T11:00:00Z'));
+
+      const queue = await service.listUnassigned(company.id);
+      const waiting = await service.listNeedsResponse(company.id, 15);
+
+      for (const rows of [queue, waiting]) {
+        const byId = new Map(
+          rows.map((row: { id: string; preview: unknown }) => [
+            row.id,
+            row.preview,
+          ]),
+        );
+        expect(byId.get(image.id)).toMatchObject({
+          content: null,
+          type: 'image',
+        });
+        expect(byId.get(text.id)).toMatchObject({
+          content: 'seed',
+          type: 'text',
+        });
+      }
     });
   });
 });

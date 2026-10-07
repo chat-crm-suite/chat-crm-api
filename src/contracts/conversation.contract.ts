@@ -104,6 +104,8 @@ export const ConversationListItemSchema = z.object({
   preview: z.object({
     content: z.string().nullish(),
     datetime: z.coerce.date().nullish(),
+    /** Last-message kind, so the list can label attachments without the thread. */
+    type: MessageTypeSchema.nullish(),
   }),
   customer: ConversationCustomerSchema,
   status: ConversationStatusSchema,

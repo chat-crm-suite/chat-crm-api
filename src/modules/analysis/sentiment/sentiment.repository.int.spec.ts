@@ -251,4 +251,28 @@ describe('SentimentRepository conversation aggregate (T4)', () => {
       ),
     ).resolves.toBe(false);
   });
+
+  it('marks a skipped analysis with its reason and no sentiment detail', async () => {
+    const { conversation, message } = await seedConversation();
+    const analysis = await repository.createProcessing({
+      companyId: conversation.companyId,
+      messageId: message.id,
+      conversationId: conversation.id,
+      model: 'pysentiment',
+    });
+
+    await repository.markSkipped(analysis.id, 'ia_unavailable');
+
+    const stored = await dataSource
+      .getRepository(Analysis)
+      .findOneByOrFail({ id: analysis.id });
+    expect(stored.status).toBe('skipped');
+    expect(stored.skipReason).toBe('ia_unavailable');
+    expect(stored.completedAt).toBeNull();
+    await expect(
+      dataSource
+        .getRepository(SentimentResult)
+        .countBy({ analysisId: analysis.id }),
+    ).resolves.toBe(0);
+  });
 });

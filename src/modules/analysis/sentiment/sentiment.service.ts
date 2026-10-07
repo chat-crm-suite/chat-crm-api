@@ -10,6 +10,7 @@ import type {
 } from '../../../contracts/index';
 import { SentimentClient } from './sentiment.client';
 import { DEFAULT_SENTIMENT_MODEL } from './sentiment.constants';
+import { IaContractError, isIaUnavailable } from './sentiment.errors';
 import type { SentimentResponse } from './sentiment.interface';
 import {
   SentimentRepository,
@@ -31,8 +32,9 @@ type MappedResponse = {
 /**
  * Sentiment analysis orchestration: loads the message for company/conversation
  * context (and body fallback), calls the FastAPI client and persists the
- * `analyses` + `sentiment_results` rows. Never throws: failures mark the
- * analysis as failed and return null.
+ * `analyses` + `sentiment_results` rows. Never throws: IA unavailability marks
+ * the analysis `skipped` (reason `ia_unavailable`) and returns null; broken
+ * responses or real failures mark it `failed` and also return null.
  */
 @Injectable()
 export class SentimentService {
@@ -69,21 +71,41 @@ export class SentimentService {
       return null;
     }
 
-    let analysisId: string | undefined;
-
-    try {
-      const analysis = await this.repo.createProcessing({
+    const analysis = await this.repo
+      .createProcessing({
         companyId,
         messageId: payload.messageId,
         conversationId,
         model: DEFAULT_SENTIMENT_MODEL,
+      })
+      .catch((error: unknown) => {
+        this.logger.error(
+          { err: error, messageId: payload.messageId, conversationId },
+          'Failed to create sentiment analysis',
+        );
+        return null;
       });
-      analysisId = analysis.id;
+    if (!analysis) return null;
 
-      const response = await this.client.analyze(content);
+    const analysisId = analysis.id;
+
+    const response = await this.client
+      .analyze(content)
+      .catch(async (error: unknown) => {
+        if (isIaUnavailable(error)) {
+          await this.markSkipped(analysisId, payload, conversationId);
+        } else {
+          await this.markFailed(analysisId, error, payload, conversationId);
+        }
+
+        return null;
+      });
+    if (response === null) return null;
+
+    try {
       const mapped = this.mapResponse(response);
 
-      await this.repo.complete(analysis.id, {
+      await this.repo.complete(analysisId, {
         label: mapped.label,
         confidence: mapped.confidence,
         model: mapped.model,
@@ -93,30 +115,62 @@ export class SentimentService {
 
       return {
         messageId: payload.messageId,
-        analysisId: analysis.id,
+        analysisId,
         probabilities: mapped.probabilities,
         label: mapped.label,
         conversationId,
       };
     } catch (error: unknown) {
-      if (analysisId) {
-        await this.repo
-          .markFailed(analysisId, error)
-          .catch((markError: unknown) =>
-            this.logger.error(
-              { err: markError, analysisId },
-              'Failed to mark sentiment analysis as failed',
-            ),
-          );
-      }
-
-      this.logger.error(
-        { err: error, messageId: payload.messageId, conversationId },
-        'Sentiment analysis failed',
-      );
-
+      await this.markFailed(analysisId, error, payload, conversationId);
       return null;
     }
+  }
+
+  /** T1: expected IA unavailability → `skipped` + info log, never an error. */
+  private async markSkipped(
+    analysisId: string,
+    payload: SentimentPayload,
+    conversationId: string,
+  ): Promise<void> {
+    await this.repo
+      .markSkipped(analysisId, 'ia_unavailable')
+      .catch((markError: unknown) =>
+        this.logger.error(
+          { err: markError, analysisId },
+          'Failed to mark sentiment analysis as skipped',
+        ),
+      );
+
+    this.logger.info(
+      {
+        analysisId,
+        messageId: payload.messageId,
+        conversationId,
+        reason: 'ia_unavailable',
+      },
+      'Sentiment analysis skipped: IA unavailable',
+    );
+  }
+
+  private async markFailed(
+    analysisId: string,
+    error: unknown,
+    payload: SentimentPayload,
+    conversationId: string,
+  ): Promise<void> {
+    await this.repo
+      .markFailed(analysisId, error)
+      .catch((markError: unknown) =>
+        this.logger.error(
+          { err: markError, analysisId },
+          'Failed to mark sentiment analysis as failed',
+        ),
+      );
+
+    this.logger.error(
+      { err: error, messageId: payload.messageId, conversationId },
+      'Sentiment analysis failed',
+    );
   }
 
   /**
@@ -149,13 +203,13 @@ export class SentimentService {
   }
 
   private mapResponse(response: SentimentResponse): MappedResponse {
-    const probabilities: SentimentProbabilities = {
-      pos: normalizeScore(response?.probabilities?.POS),
-      neu: normalizeScore(response?.probabilities?.NEU),
-      neg: normalizeScore(response?.probabilities?.NEG),
-    };
-
+    const probabilities = readProbabilities(response?.probabilities);
     const label = normalizeLabel(response?.label);
+
+    if (!label || !probabilities) {
+      throw new IaContractError('Unexpected IA response');
+    }
+
     const confidence =
       label === 'positive'
         ? probabilities.pos
@@ -172,12 +226,11 @@ export class SentimentService {
   }
 }
 
-function normalizeScore(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
-/** Accepts both `POS/NEU/NEG` and the contract's `positive/neutral/negative`. */
-function normalizeLabel(label: unknown): SentimentLabel {
+/**
+ * Accepts both `POS/NEU/NEG` and the contract's `positive/neutral/negative`;
+ * anything else is a broken contract, never a silent neutral.
+ */
+function normalizeLabel(label: unknown): SentimentLabel | null {
   switch (typeof label === 'string' ? label.toUpperCase() : '') {
     case 'POS':
     case 'POSITIVE':
@@ -187,9 +240,23 @@ function normalizeLabel(label: unknown): SentimentLabel {
       return 'negative';
     case 'NEU':
     case 'NEUTRAL':
-    default:
       return 'neutral';
+    default:
+      return null;
   }
+}
+
+function readProbabilities(value: unknown): SentimentProbabilities | null {
+  if (typeof value !== 'object' || value === null) return null;
+
+  const { POS, NEU, NEG } = value as Record<string, unknown>;
+  if (![POS, NEU, NEG].every(isFiniteNumber)) return null;
+
+  return { pos: POS as number, neu: NEU as number, neg: NEG as number };
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
 }
 
 /**

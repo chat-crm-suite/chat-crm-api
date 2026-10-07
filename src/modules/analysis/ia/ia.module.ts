@@ -5,16 +5,20 @@ import { Module } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
 import { CompanyMembersModule } from '../../company-members/company-members.module';
+import {
+  IA_CB_OPTIONS,
+  readCircuitBreakerOptions,
+} from './circuit-breaker.config';
+import { CircuitBreakerService } from './circuit-breaker.service';
 import { IaAdminController } from './ia-admin.controller';
 import { IaAdminService } from './ia-admin.service';
 import { createIaRedis, IA_REDIS } from './ia-redis.provider';
 import { KillSwitchService } from './kill-switch.service';
 
 /**
- * T2: IA availability controls. Provides the Redis-backed kill switch (and,
- * in later tickets, the circuit breaker) plus the admin endpoint that flips
- * it; `KillSwitchService` is exported to the sentiment pipeline and the
- * readiness probe.
+ * T2/T3: IA availability controls. Provides the Redis-backed kill switch and
+ * circuit breaker plus the admin endpoint that flips the switch; both services
+ * are exported to the sentiment pipeline and the readiness probe.
  */
 @Module({
   imports: [CompanyMembersModule],
@@ -25,9 +29,14 @@ import { KillSwitchService } from './kill-switch.service';
       useFactory: (logger: PinoLogger) => createIaRedis(logger),
       inject: [PinoLogger],
     },
+    {
+      provide: IA_CB_OPTIONS,
+      useFactory: () => readCircuitBreakerOptions(),
+    },
     KillSwitchService,
+    CircuitBreakerService,
     IaAdminService,
   ],
-  exports: [KillSwitchService],
+  exports: [KillSwitchService, CircuitBreakerService],
 })
 export class IaModule {}

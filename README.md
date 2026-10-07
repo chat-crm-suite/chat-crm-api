@@ -98,7 +98,9 @@ Pending database migrations run automatically when the API boots.
 | `SETUP_TOKEN` | Required by the first-run setup screen in production |
 
 `./deploy/gen-secrets.sh` fills every secret with a strong random value. Optional variables with defaults:
-`COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`, `HEALTH_IA_TIMEOUT_MS`.
+`COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`, `HEALTH_IA_TIMEOUT_MS`,
+`IA_CB_FAILURE_THRESHOLD`, `IA_CB_FAILURE_WINDOW_MS`, `IA_CB_OPEN_DURATION_MS`, `IA_CB_REOPEN_DURATION_MS`
+(IA circuit breaker tunables, see the spec for defaults).
 
 ## Scripts
 

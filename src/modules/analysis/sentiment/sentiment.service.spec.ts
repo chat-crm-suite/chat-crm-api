@@ -729,21 +729,52 @@ describe('SentimentService.analyzeMessage metrics (T6)', () => {
     recordFailure.mockResolvedValue(undefined);
   });
 
-  it('records a completed analysis with its IA call latency', async () => {
-    analyze.mockResolvedValue({
-      text: 'hola',
-      label: 'POS',
-      probabilities: { POS: 0.9, NEU: 0.05, NEG: 0.05 },
+  it('records the IA call latency and logs the completion', async () => {
+    // The clock only advances inside the IA call: the measured latency is
+    // exactly that gap, not the breaker/complete bookkeeping that follows.
+    let now = 1_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    analyze.mockImplementation(() => {
+      now += 42;
+      return Promise.resolve({
+        text: 'hola',
+        label: 'POS',
+        probabilities: { POS: 0.9, NEU: 0.05, NEG: 0.05 },
+      });
+    });
+    recordSuccess.mockImplementation(() => {
+      now += 1_000;
+      return Promise.resolve();
+    });
+    complete.mockImplementation(() => {
+      now += 1_000;
+      return Promise.resolve();
     });
 
-    await expect(build().analyzeMessage(payload)).resolves.toMatchObject({
-      label: 'positive',
-    });
+    try {
+      await expect(build().analyzeMessage(payload)).resolves.toMatchObject({
+        label: 'positive',
+      });
 
-    expect(metrics.recordCompleted).toHaveBeenCalledTimes(1);
-    expect(metrics.recordCompleted).toHaveBeenCalledWith(expect.any(Number));
-    expect(metrics.recordFailed).not.toHaveBeenCalled();
-    expect(metrics.recordSkipped).not.toHaveBeenCalled();
+      expect(metrics.recordCompleted).toHaveBeenCalledTimes(1);
+      expect(metrics.recordCompleted).toHaveBeenCalledWith(42);
+      expect(logger.info).toHaveBeenCalledWith(
+        {
+          analysisId: 'analysis-1',
+          messageId: 'message-1',
+          conversationId: 'conversation-1',
+          durationMs: 42,
+        },
+        'Sentiment analysis completed',
+      );
+      expect(metrics.recordFailed).not.toHaveBeenCalled();
+      expect(metrics.recordSkipped).not.toHaveBeenCalled();
+    } finally {
+      nowSpy.mockRestore();
+      analyze.mockReset();
+      recordSuccess.mockReset();
+      complete.mockReset();
+    }
   });
 
   it('records a failed analysis on a broken IA contract', async () => {

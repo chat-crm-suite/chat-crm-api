@@ -39,10 +39,15 @@ describe('SentimentProcessor events (T1)', () => {
     jest.clearAllMocks();
   });
 
-  it('does not publish MessageAnalyzedEvent when the analysis was skipped', () => {
+  it('logs a skipped analysis at debug, without publishing the event', () => {
     build().onCompleted(job, null);
 
     expect(publish).not.toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith(
+      { jobId: 'job-1', messageId: 'message-1' },
+      'Sentiment analysis produced no result',
+    );
   });
 
   it('publishes MessageAnalyzedEvent after a completed analysis', () => {

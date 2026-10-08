@@ -31,7 +31,9 @@ export class SentimentProcessor extends WorkerHost {
   @OnWorkerEvent('completed')
   onCompleted(job: SentimentJob, result: SentimentAnalysisResult | null) {
     if (!result) {
-      this.logger.warn(
+      // Expected skips (kill switch, breaker, IA down) already carry their own
+      // info/error log in the service; here it is only step detail.
+      this.logger.debug(
         { jobId: job.id, messageId: job.data.messageId },
         'Sentiment analysis produced no result',
       );

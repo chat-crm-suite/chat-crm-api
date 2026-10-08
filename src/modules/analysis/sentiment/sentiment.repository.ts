@@ -3,7 +3,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 
 import type {
   AnalysisSkipReason,
@@ -157,12 +157,12 @@ export class SentimentRepository {
   }
 
   /**
-   * T4: due deferred retries for the worker. Only sentiment skips caused by
-   * real unavailability are candidates; manual skips, hard failures and rows
-   * that exhausted the 8 attempts never are. Oldest due first, bounded so one
-   * scan can never flood the queue.
+   * T4/T6: the WHERE shared by every "pending deferred retry" question — a
+   * skipped sentiment analysis with a retryable reason, scheduled and with
+   * attempts left. Manual skips, hard failures and rows that exhausted the 8
+   * attempts never qualify.
    */
-  findDueRetries(limit: number, now: Date): Promise<Analysis[]> {
+  private retryCandidates(): SelectQueryBuilder<Analysis> {
     return this.analyses
       .createQueryBuilder('analysis')
       .where('analysis.status = :status', { status: 'skipped' })
@@ -171,10 +171,18 @@ export class SentimentRepository {
         reasons: RETRYABLE_SKIP_REASONS,
       })
       .andWhere('analysis.nextRetryAt IS NOT NULL')
-      .andWhere('analysis.nextRetryAt <= :now', { now })
       .andWhere('analysis.retryCount < :maxAttempts', {
         maxAttempts: MAX_RETRY_ATTEMPTS,
-      })
+      });
+  }
+
+  /**
+   * T4: due deferred retries for the worker — the shared candidates filtered
+   * by due date, oldest first, bounded so one scan can never flood the queue.
+   */
+  findDueRetries(limit: number, now: Date): Promise<Analysis[]> {
+    return this.retryCandidates()
+      .andWhere('analysis.nextRetryAt <= :now', { now })
       .orderBy('analysis.nextRetryAt', 'ASC')
       .take(limit)
       .getMany();
@@ -182,23 +190,11 @@ export class SentimentRepository {
 
   /**
    * T6: recovery debt for `GET /metrics` — every skipped sentiment analysis
-   * still waiting for a deferred retry (retryable reason, scheduled, attempts
-   * not exhausted). Overdue rows count too: they are work the worker has not
-   * picked up yet, not lost work.
+   * still waiting for a deferred retry. Overdue rows count too: they are work
+   * the worker has not picked up yet, not lost work.
    */
   countPendingRetries(): Promise<number> {
-    return this.analyses
-      .createQueryBuilder('analysis')
-      .where('analysis.status = :status', { status: 'skipped' })
-      .andWhere('analysis.type = :type', { type: AnalysisType.SENTIMENT })
-      .andWhere('analysis.skipReason IN (:...reasons)', {
-        reasons: RETRYABLE_SKIP_REASONS,
-      })
-      .andWhere('analysis.nextRetryAt IS NOT NULL')
-      .andWhere('analysis.retryCount < :maxAttempts', {
-        maxAttempts: MAX_RETRY_ATTEMPTS,
-      })
-      .getCount();
+    return this.retryCandidates().getCount();
   }
 
   /**

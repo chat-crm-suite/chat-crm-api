@@ -10,7 +10,11 @@ import {
   ManyToOne,
 } from 'typeorm';
 
-import type { AnalysisStatus, AnalysisTarget } from '../../../contracts/index';
+import type {
+  AnalysisSkipReason,
+  AnalysisStatus,
+  AnalysisTarget,
+} from '../../../contracts/index';
 import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
 import { Conversation } from '../../conversations/entities/conversation.entity';
@@ -59,6 +63,18 @@ export class Analysis extends UuidV7Entity {
 
   @Column({ type: 'varchar', length: 50, default: 'pending' })
   status: AnalysisStatus;
+
+  /** Only set when status=skipped: kill_switch | circuit_breaker | ia_unavailable. */
+  @Column({ name: 'skip_reason', type: 'varchar', length: 50, nullable: true })
+  skipReason?: AnalysisSkipReason | null;
+
+  /** T4: deferred retry attempts already enqueued (0 = never retried). */
+  @Column({ name: 'retry_count', type: 'int', default: 0 })
+  retryCount: number;
+
+  /** T4: when the next deferred retry is due; null when not retryable or given up. */
+  @Column({ name: 'next_retry_at', type: 'datetime', nullable: true })
+  nextRetryAt?: Date | null;
 
   /** Primary result. */
   @Column({ type: 'varchar', length: 100, nullable: true })

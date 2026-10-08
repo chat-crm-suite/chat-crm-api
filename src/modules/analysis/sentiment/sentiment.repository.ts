@@ -3,9 +3,10 @@
 
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 
 import type {
+  AnalysisSkipReason,
   ConversationSentiment,
   SentimentLabel,
 } from '../../../contracts/index';
@@ -14,6 +15,12 @@ import { Message } from '../../message/entities/message.entity';
 import { AnalysisType } from '../analysis.enum';
 import { Analysis } from '../entities/analysis.entity';
 import { SentimentResult } from '../entities/sentiment-result.entity';
+import {
+  isRetryableSkipReason,
+  MAX_RETRY_ATTEMPTS,
+  RETRYABLE_SKIP_REASONS,
+  retryDelayMs,
+} from './sentiment-retry.policy';
 import type {
   SentimentProbabilities,
   SentimentResultPayload,
@@ -77,7 +84,10 @@ export class SentimentRepository {
   }
 
   /** Marks the header completed and inserts its 1:1 sentiment detail. */
-  async complete(analysisId: string, input: CompleteAnalysisInput): Promise<Analysis> {
+  async complete(
+    analysisId: string,
+    input: CompleteAnalysisInput,
+  ): Promise<Analysis> {
     return this.dataSource.transaction(async (manager) => {
       const analysis = await manager.findOneOrFail(Analysis, {
         where: { id: analysisId },
@@ -113,6 +123,115 @@ export class SentimentRepository {
       status: 'failed',
       error: message.slice(0, 500),
     });
+  }
+
+  /**
+   * T1: terminal availability skip. The header keeps the reason; no
+   * `sentiment_results` detail is written, so a skipped analysis can never
+   * masquerade as an analyzed neutral one. T4: a retryable skip also schedules
+   * the next deferred attempt from the persisted `retryCount` (5m → 24h, then
+   * it gives up and `nextRetryAt` stays null).
+   */
+  async markSkipped(
+    analysisId: string,
+    reason: AnalysisSkipReason,
+  ): Promise<void> {
+    await this.analyses.update(analysisId, {
+      status: 'skipped',
+      skipReason: reason,
+      nextRetryAt: await this.nextRetryAtFor(analysisId, reason),
+    });
+  }
+
+  /** T4: when the retry after the stored attempts is due; null when never. */
+  private async nextRetryAtFor(
+    analysisId: string,
+    reason: AnalysisSkipReason,
+  ): Promise<Date | null> {
+    if (!isRetryableSkipReason(reason)) return null;
+
+    const analysis = await this.analyses.findOne({
+      where: { id: analysisId },
+      select: { id: true, retryCount: true },
+    });
+    const delay = retryDelayMs((analysis?.retryCount ?? 0) + 1);
+
+    return delay === null ? null : new Date(Date.now() + delay);
+  }
+
+  /**
+   * T4/T6: the WHERE shared by every "pending deferred retry" question — a
+   * skipped sentiment analysis with a retryable reason, scheduled and with
+   * attempts left. Manual skips, hard failures and rows that exhausted the 8
+   * attempts never qualify.
+   */
+  private retryCandidates(): SelectQueryBuilder<Analysis> {
+    return this.analyses
+      .createQueryBuilder('analysis')
+      .where('analysis.status = :status', { status: 'skipped' })
+      .andWhere('analysis.type = :type', { type: AnalysisType.SENTIMENT })
+      .andWhere('analysis.skipReason IN (:...reasons)', {
+        reasons: RETRYABLE_SKIP_REASONS,
+      })
+      .andWhere('analysis.nextRetryAt IS NOT NULL')
+      .andWhere('analysis.retryCount < :maxAttempts', {
+        maxAttempts: MAX_RETRY_ATTEMPTS,
+      });
+  }
+
+  /**
+   * T4: due deferred retries for the worker — the shared candidates filtered
+   * by due date, oldest first, bounded so one scan can never flood the queue.
+   */
+  findDueRetries(limit: number, now: Date): Promise<Analysis[]> {
+    return this.retryCandidates()
+      .andWhere('analysis.nextRetryAt <= :now', { now })
+      .orderBy('analysis.nextRetryAt', 'ASC')
+      .take(limit)
+      .getMany();
+  }
+
+  /**
+   * T6: recovery debt for `GET /metrics` — every skipped sentiment analysis
+   * still waiting for a deferred retry. Overdue rows count too: they are work
+   * the worker has not picked up yet, not lost work.
+   */
+  countPendingRetries(): Promise<number> {
+    return this.retryCandidates().getCount();
+  }
+
+  /**
+   * T4: moves a due skip to its next attempt — increments `retryCount` and
+   * pre-schedules the following wait (`null` once the enqueued attempt was the
+   * last). The update is a compare-and-set on the scanned attempt count and
+   * status, so two concurrent scans can never consume the same attempt twice.
+   */
+  async scheduleRetryAttempt(
+    analysisId: string,
+    expectedRetryCount: number,
+    nextRetryAt: Date | null,
+  ): Promise<boolean> {
+    const result = await this.analyses.update(
+      { id: analysisId, status: 'skipped', retryCount: expectedRetryCount },
+      { retryCount: expectedRetryCount + 1, nextRetryAt },
+    );
+
+    return (result.affected ?? 0) > 0;
+  }
+
+  /**
+   * T4: flips a skipped row back to `processing` for a retry attempt, clearing
+   * the skip reason. Returns null when the row is no longer skipped, so two
+   * retry jobs for the same analysis can never process it twice.
+   */
+  async startRetry(analysisId: string): Promise<Analysis | null> {
+    const result = await this.analyses.update(
+      { id: analysisId, status: 'skipped' },
+      { status: 'processing', skipReason: null },
+    );
+    if ((result.affected ?? 0) === 0) return null;
+
+    return this.analyses.findOneBy({ id: analysisId });
   }
 
   /**

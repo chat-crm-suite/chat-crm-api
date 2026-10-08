@@ -5,12 +5,17 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
 import type {
+  AnalysisSkipReason,
   ConversationSentiment,
   SentimentLabel,
 } from '../../../contracts/index';
+import { CircuitBreakerService } from '../ia/circuit-breaker.service';
+import { KillSwitchService } from '../ia/kill-switch.service';
 import { SentimentClient } from './sentiment.client';
 import { DEFAULT_SENTIMENT_MODEL } from './sentiment.constants';
+import { IaContractError, isIaUnavailable } from './sentiment.errors';
 import type { SentimentResponse } from './sentiment.interface';
+import { SentimentMetricsService } from './sentiment-metrics.service';
 import {
   SentimentRepository,
   type ConversationSentimentAggregate,
@@ -28,11 +33,22 @@ type MappedResponse = {
   model: string;
 };
 
+/** T5: every skip is an expected condition and logs at info level. */
+const SKIP_MESSAGES: Record<AnalysisSkipReason, string> = {
+  kill_switch: 'Sentiment analysis skipped: kill switch off',
+  circuit_breaker: 'Sentiment analysis skipped: circuit breaker open',
+  ia_unavailable: 'Sentiment analysis skipped: IA unavailable',
+};
+
 /**
  * Sentiment analysis orchestration: loads the message for company/conversation
  * context (and body fallback), calls the FastAPI client and persists the
- * `analyses` + `sentiment_results` rows. Never throws: failures mark the
- * analysis as failed and return null.
+ * `analyses` + `sentiment_results` rows. Never throws: IA unavailability marks
+ * the analysis `skipped` (reason `ia_unavailable`) and returns null; broken
+ * responses or real failures mark it `failed` and also return null. The
+ * decision pipeline is kill switch → circuit breaker → IA call: a manual
+ * disable skips as `kill_switch` and an open breaker skips as
+ * `circuit_breaker`, both before any IA call.
  */
 @Injectable()
 export class SentimentService {
@@ -40,6 +56,9 @@ export class SentimentService {
     private readonly repo: SentimentRepository,
     private readonly client: SentimentClient,
     private readonly logger: PinoLogger,
+    private readonly killSwitch: KillSwitchService,
+    private readonly breaker: CircuitBreakerService,
+    private readonly metrics: SentimentMetricsService,
   ) {
     this.logger.setContext(SentimentService.name);
   }
@@ -69,21 +88,85 @@ export class SentimentService {
       return null;
     }
 
-    let analysisId: string | undefined;
+    // T4: a deferred retry carries its analysisId and reuses that row; only a
+    // fresh analysis creates a new one.
+    const analysis = await (
+      payload.analysisId
+        ? this.repo.startRetry(payload.analysisId)
+        : this.repo.createProcessing({
+            companyId,
+            messageId: payload.messageId,
+            conversationId,
+            model: DEFAULT_SENTIMENT_MODEL,
+          })
+    ).catch((error: unknown) => {
+      this.logger.error(
+        { err: error, messageId: payload.messageId, conversationId },
+        'Failed to create sentiment analysis',
+      );
+      return null;
+    });
+    if (!analysis) return null;
+
+    const analysisId = analysis.id;
+
+    // T2/T3: decision pipeline — kill switch → circuit breaker → IA call.
+    // Both short-circuits still record the analysis as skipped, so omissions
+    // stay visible.
+    if (!(await this.killSwitch.isEnabled())) {
+      await this.markSkipped(
+        analysisId,
+        payload,
+        conversationId,
+        'kill_switch',
+      );
+      return null;
+    }
+
+    if (!(await this.breaker.beforeCall())) {
+      await this.markSkipped(
+        analysisId,
+        payload,
+        conversationId,
+        'circuit_breaker',
+      );
+      return null;
+    }
+
+    const startedAt = Date.now();
+    const response = await this.client
+      .analyze(content)
+      .catch(async (error: unknown) => {
+        if (isIaUnavailable(error)) {
+          // T3: transport failures and 5xx feed the breaker; the analysis is
+          // skipped as retryable unavailability.
+          await this.breaker.recordFailure();
+          await this.markSkipped(
+            analysisId,
+            payload,
+            conversationId,
+            'ia_unavailable',
+          );
+        } else {
+          await this.markFailed(analysisId, error, payload, conversationId);
+        }
+
+        return null;
+      });
+    if (response === null) return null;
+
+    // The metric measures only the IA round-trip, not the persistence that
+    // follows it.
+    const durationMs = Date.now() - startedAt;
 
     try {
-      const analysis = await this.repo.createProcessing({
-        companyId,
-        messageId: payload.messageId,
-        conversationId,
-        model: DEFAULT_SENTIMENT_MODEL,
-      });
-      analysisId = analysis.id;
-
-      const response = await this.client.analyze(content);
       const mapped = this.mapResponse(response);
 
-      await this.repo.complete(analysis.id, {
+      // T3: only a valid IA response counts as success for the breaker; a
+      // broken contract never alters its state.
+      await this.breaker.recordSuccess();
+
+      await this.repo.complete(analysisId, {
         label: mapped.label,
         confidence: mapped.confidence,
         model: mapped.model,
@@ -91,32 +174,85 @@ export class SentimentService {
         result: { probabilities: mapped.probabilities },
       });
 
+      // T5: expected lifecycle completion, carrying the measured IA latency.
+      this.logger.info(
+        {
+          analysisId,
+          messageId: payload.messageId,
+          conversationId,
+          durationMs,
+        },
+        'Sentiment analysis completed',
+      );
+
+      // T6: a completed analysis also samples the IA latency (the call above).
+      await this.metrics.recordCompleted(durationMs);
+
       return {
         messageId: payload.messageId,
-        analysisId: analysis.id,
+        analysisId,
         probabilities: mapped.probabilities,
         label: mapped.label,
         conversationId,
       };
     } catch (error: unknown) {
-      if (analysisId) {
-        await this.repo
-          .markFailed(analysisId, error)
-          .catch((markError: unknown) =>
-            this.logger.error(
-              { err: markError, analysisId },
-              'Failed to mark sentiment analysis as failed',
-            ),
-          );
-      }
-
-      this.logger.error(
-        { err: error, messageId: payload.messageId, conversationId },
-        'Sentiment analysis failed',
-      );
-
+      await this.markFailed(analysisId, error, payload, conversationId);
       return null;
     }
+  }
+
+  /** T1/T2: expected unavailability → `skipped` + info log, never an error. */
+  private async markSkipped(
+    analysisId: string,
+    payload: SentimentPayload,
+    conversationId: string,
+    reason: AnalysisSkipReason,
+  ): Promise<void> {
+    await this.repo
+      .markSkipped(analysisId, reason)
+      .catch((markError: unknown) =>
+        this.logger.error(
+          { err: markError, analysisId },
+          'Failed to mark sentiment analysis as skipped',
+        ),
+      );
+
+    this.logger.info(
+      {
+        analysisId,
+        messageId: payload.messageId,
+        conversationId,
+        reason,
+      },
+      SKIP_MESSAGES[reason],
+    );
+
+    // T6: the omission is visible in `/metrics` per reason.
+    await this.metrics.recordSkipped(reason);
+  }
+
+  private async markFailed(
+    analysisId: string,
+    error: unknown,
+    payload: SentimentPayload,
+    conversationId: string,
+  ): Promise<void> {
+    await this.repo
+      .markFailed(analysisId, error)
+      .catch((markError: unknown) =>
+        this.logger.error(
+          { err: markError, analysisId },
+          'Failed to mark sentiment analysis as failed',
+        ),
+      );
+
+    this.logger.error(
+      { err: error, messageId: payload.messageId, conversationId },
+      'Sentiment analysis failed',
+    );
+
+    // T6: real failures are counted apart from availability skips.
+    await this.metrics.recordFailed();
   }
 
   /**
@@ -149,13 +285,13 @@ export class SentimentService {
   }
 
   private mapResponse(response: SentimentResponse): MappedResponse {
-    const probabilities: SentimentProbabilities = {
-      pos: normalizeScore(response?.probabilities?.POS),
-      neu: normalizeScore(response?.probabilities?.NEU),
-      neg: normalizeScore(response?.probabilities?.NEG),
-    };
-
+    const probabilities = readProbabilities(response?.probabilities);
     const label = normalizeLabel(response?.label);
+
+    if (!label || !probabilities) {
+      throw new IaContractError('Unexpected IA response');
+    }
+
     const confidence =
       label === 'positive'
         ? probabilities.pos
@@ -172,12 +308,11 @@ export class SentimentService {
   }
 }
 
-function normalizeScore(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
-/** Accepts both `POS/NEU/NEG` and the contract's `positive/neutral/negative`. */
-function normalizeLabel(label: unknown): SentimentLabel {
+/**
+ * Accepts both `POS/NEU/NEG` and the contract's `positive/neutral/negative`;
+ * anything else is a broken contract, never a silent neutral.
+ */
+function normalizeLabel(label: unknown): SentimentLabel | null {
   switch (typeof label === 'string' ? label.toUpperCase() : '') {
     case 'POS':
     case 'POSITIVE':
@@ -187,9 +322,23 @@ function normalizeLabel(label: unknown): SentimentLabel {
       return 'negative';
     case 'NEU':
     case 'NEUTRAL':
-    default:
       return 'neutral';
+    default:
+      return null;
   }
+}
+
+function readProbabilities(value: unknown): SentimentProbabilities | null {
+  if (typeof value !== 'object' || value === null) return null;
+
+  const { POS, NEU, NEG } = value as Record<string, unknown>;
+  if (![POS, NEU, NEG].every(isFiniteNumber)) return null;
+
+  return { pos: POS as number, neu: NEU as number, neg: NEG as number };
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
 }
 
 /**

@@ -251,4 +251,247 @@ describe('SentimentRepository conversation aggregate (T4)', () => {
       ),
     ).resolves.toBe(false);
   });
+
+  it('marks a skipped analysis with its reason and no sentiment detail', async () => {
+    const { conversation, message } = await seedConversation();
+    const analysis = await repository.createProcessing({
+      companyId: conversation.companyId,
+      messageId: message.id,
+      conversationId: conversation.id,
+      model: 'pysentiment',
+    });
+
+    await repository.markSkipped(analysis.id, 'ia_unavailable');
+
+    const stored = await dataSource
+      .getRepository(Analysis)
+      .findOneByOrFail({ id: analysis.id });
+    expect(stored.status).toBe('skipped');
+    expect(stored.skipReason).toBe('ia_unavailable');
+    expect(stored.completedAt).toBeNull();
+    await expect(
+      dataSource
+        .getRepository(SentimentResult)
+        .countBy({ analysisId: analysis.id }),
+    ).resolves.toBe(0);
+  });
+});
+
+/**
+ * T4: the deferred-retry schedule lives on the same analysis row. `markSkipped`
+ * sets the wait before the next attempt from the persisted `retryCount`
+ * (5m → 24h), or clears it for manual skips and once the 8-attempt cap is hit.
+ */
+describe('SentimentRepository deferred retry scheduling (T4)', () => {
+  let module: TestingModule;
+  let repository: SentimentRepository;
+  let dataSource: DataSource;
+
+  beforeAll(async () => {
+    module = await Test.createTestingModule({
+      imports: [
+        TypeOrmModule.forRoot(getTestSQLiteConfig(entities)),
+        TypeOrmModule.forFeature([Analysis, SentimentResult, Message]),
+      ],
+      providers: [SentimentRepository],
+    }).compile();
+
+    repository = module.get(SentimentRepository);
+    dataSource = module.get<DataSource>(getDataSourceToken());
+  }, 60_000);
+
+  afterAll(async () => {
+    if (dataSource) await dataSource.destroy();
+    if (module) await module.close();
+  });
+
+  const seedAnalysis = async (
+    overrides: Partial<Analysis> = {},
+  ): Promise<Analysis> => {
+    const conversation = await ConversationFactory.transient({
+      manager: dataSource.manager,
+    }).create();
+    const message = await MessageFactory.transient({
+      manager: dataSource.manager,
+    }).create({
+      conversationId: conversation.id,
+      companyId: conversation.companyId,
+    });
+
+    return AnalysisFactory.transient({ manager: dataSource.manager }).create({
+      conversationId: conversation.id,
+      companyId: conversation.companyId,
+      messageId: message.id,
+      status: 'skipped',
+      skipReason: 'ia_unavailable',
+      ...overrides,
+    });
+  };
+
+  const stored = (id: string): Promise<Analysis> =>
+    dataSource.getRepository(Analysis).findOneByOrFail({ id });
+
+  /** nextRetryAt must be `delayMs` in the future (small clock slack). */
+  const expectScheduledIn = (
+    value: Date | null | undefined,
+    delayMs: number,
+  ): void => {
+    expect(value).toBeInstanceOf(Date);
+    const diff = (value as Date).getTime() - Date.now();
+    expect(diff).toBeGreaterThan(delayMs - 10_000);
+    expect(diff).toBeLessThanOrEqual(delayMs + 10_000);
+  };
+
+  it('schedules the first attempt 5 minutes out on an unavailability skip', async () => {
+    const analysis = await seedAnalysis();
+
+    await repository.markSkipped(analysis.id, 'ia_unavailable');
+
+    const row = await stored(analysis.id);
+    expect(row.retryCount).toBe(0);
+    expectScheduledIn(row.nextRetryAt, 300_000);
+  });
+
+  it('walks the backoff schedule from the persisted attempt count', async () => {
+    const second = await seedAnalysis({ retryCount: 1 });
+    const last = await seedAnalysis({ retryCount: 7 });
+
+    await repository.markSkipped(second.id, 'circuit_breaker');
+    await repository.markSkipped(last.id, 'ia_unavailable');
+
+    expectScheduledIn((await stored(second.id)).nextRetryAt, 900_000);
+    expectScheduledIn((await stored(last.id)).nextRetryAt, 86_400_000);
+  });
+
+  it('never schedules a manual skip', async () => {
+    const analysis = await seedAnalysis();
+
+    await repository.markSkipped(analysis.id, 'kill_switch');
+
+    const row = await stored(analysis.id);
+    expect(row.skipReason).toBe('kill_switch');
+    expect(row.nextRetryAt).toBeNull();
+  });
+
+  it('gives up after the 8th attempt instead of scheduling a 9th', async () => {
+    const analysis = await seedAnalysis({ retryCount: 8 });
+
+    await repository.markSkipped(analysis.id, 'ia_unavailable');
+
+    const row = await stored(analysis.id);
+    expect(row.retryCount).toBe(8);
+    expect(row.nextRetryAt).toBeNull();
+  });
+
+  it('finds only due retryable sentiment skips, oldest first', async () => {
+    const past = new Date(Date.now() - 60_000);
+    const future = new Date(Date.now() + 60_000);
+    const dueFirst = await seedAnalysis({
+      skipReason: 'ia_unavailable',
+      nextRetryAt: past,
+    });
+    const dueSecond = await seedAnalysis({
+      skipReason: 'circuit_breaker',
+      nextRetryAt: new Date(past.getTime() + 1_000),
+    });
+    await seedAnalysis({ nextRetryAt: future });
+    await seedAnalysis({ skipReason: 'kill_switch', nextRetryAt: null });
+    await seedAnalysis({ status: 'failed', nextRetryAt: past });
+    await seedAnalysis({ status: 'completed', nextRetryAt: past });
+    await seedAnalysis({ retryCount: 8, nextRetryAt: past });
+    await seedAnalysis({ type: 'intent', nextRetryAt: past });
+
+    const found = await repository.findDueRetries(100, new Date());
+
+    expect(found.map((analysis) => analysis.id)).toEqual([
+      dueFirst.id,
+      dueSecond.id,
+    ]);
+  });
+
+  // T6: `/metrics` reports the retry backlog as recovery debt — every skipped
+  // retryable sentiment analysis still scheduled, overdue or not, excluding
+  // manual skips, hard failures and rows that exhausted the 8 attempts.
+  it('counts the pending retry backlog for metrics', async () => {
+    // The suite shares one sqlite database across tests, so assert the delta.
+    const before = await repository.countPendingRetries();
+    const past = new Date(Date.now() - 60_000);
+    const future = new Date(Date.now() + 60_000);
+    await seedAnalysis({ skipReason: 'ia_unavailable', nextRetryAt: past });
+    await seedAnalysis({ skipReason: 'circuit_breaker', nextRetryAt: future });
+    await seedAnalysis({ skipReason: 'kill_switch', nextRetryAt: null });
+    await seedAnalysis({ status: 'failed', nextRetryAt: past });
+    await seedAnalysis({ status: 'completed', nextRetryAt: past });
+    await seedAnalysis({ retryCount: 8, nextRetryAt: past });
+    await seedAnalysis({ type: 'intent', nextRetryAt: past });
+    await seedAnalysis({ nextRetryAt: null });
+
+    await expect(repository.countPendingRetries()).resolves.toBe(before + 2);
+  });
+
+  it('caps the batch', async () => {
+    const past = new Date(Date.now() - 60_000);
+    await seedAnalysis({ nextRetryAt: past });
+    await seedAnalysis({ nextRetryAt: past });
+    await seedAnalysis({ nextRetryAt: past });
+
+    await expect(
+      repository.findDueRetries(2, new Date()),
+    ).resolves.toHaveLength(2);
+  });
+
+  it('moves a due row to its next attempt and never double-schedules', async () => {
+    const analysis = await seedAnalysis({ retryCount: 0 });
+    const next = new Date(Date.now() + 900_000);
+
+    await expect(
+      repository.scheduleRetryAttempt(analysis.id, 0, next),
+    ).resolves.toBe(true);
+
+    let row = await stored(analysis.id);
+    expect(row.retryCount).toBe(1);
+    expect(
+      Math.abs((row.nextRetryAt as Date).getTime() - next.getTime()),
+    ).toBeLessThan(1_000);
+
+    await expect(
+      repository.scheduleRetryAttempt(analysis.id, 0, next),
+    ).resolves.toBe(false);
+    row = await stored(analysis.id);
+    expect(row.retryCount).toBe(1);
+  });
+
+  it('clears the schedule at the cap and refuses rows that moved on', async () => {
+    const analysis = await seedAnalysis({ retryCount: 7 });
+
+    await expect(
+      repository.scheduleRetryAttempt(analysis.id, 7, null),
+    ).resolves.toBe(true);
+    expect((await stored(analysis.id)).nextRetryAt).toBeNull();
+
+    const completed = await seedAnalysis({ status: 'completed' });
+    await expect(
+      repository.scheduleRetryAttempt(completed.id, 0, new Date()),
+    ).resolves.toBe(false);
+  });
+
+  it('flips a skipped row back to processing exactly once', async () => {
+    const analysis = await seedAnalysis({ retryCount: 1 });
+
+    const started = await repository.startRetry(analysis.id);
+
+    expect(started).toMatchObject({
+      id: analysis.id,
+      status: 'processing',
+      skipReason: null,
+      retryCount: 1,
+    });
+    await expect(repository.startRetry(analysis.id)).resolves.toBeNull();
+  });
+
+  it('does not start a retry for a row that is not skipped', async () => {
+    const completed = await seedAnalysis({ status: 'completed' });
+
+    await expect(repository.startRetry(completed.id)).resolves.toBeNull();
+  });
 });

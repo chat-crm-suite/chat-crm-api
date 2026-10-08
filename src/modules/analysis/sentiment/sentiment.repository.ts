@@ -84,7 +84,10 @@ export class SentimentRepository {
   }
 
   /** Marks the header completed and inserts its 1:1 sentiment detail. */
-  async complete(analysisId: string, input: CompleteAnalysisInput): Promise<Analysis> {
+  async complete(
+    analysisId: string,
+    input: CompleteAnalysisInput,
+  ): Promise<Analysis> {
     return this.dataSource.transaction(async (manager) => {
       const analysis = await manager.findOneOrFail(Analysis, {
         where: { id: analysisId },

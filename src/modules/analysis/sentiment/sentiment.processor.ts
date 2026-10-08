@@ -9,7 +9,10 @@ import { PinoLogger } from 'nestjs-pino';
 import { MessageAnalyzedEvent } from '../events/message-analyzed.event';
 import { SENTIMENT_QUEUE } from './sentiment.constants';
 import { SentimentService } from './sentiment.service';
-import type { SentimentAnalysisResult, SentimentPayload } from './sentiment.type';
+import type {
+  SentimentAnalysisResult,
+  SentimentPayload,
+} from './sentiment.type';
 
 type SentimentJob = Job<SentimentPayload>;
 

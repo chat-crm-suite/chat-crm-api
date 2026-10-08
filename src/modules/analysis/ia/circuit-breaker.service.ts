@@ -10,6 +10,7 @@ import {
   type CircuitBreakerOptions,
 } from './circuit-breaker.config';
 import { IA_REDIS } from './ia-redis.provider';
+import { safely } from './ia-safety';
 
 /** Logical state of the IA circuit breaker. */
 export type CircuitBreakerState = 'closed' | 'open' | 'half-open';
@@ -41,17 +42,10 @@ export class CircuitBreakerService {
 
   /** Current state for readers (retry worker, metrics, admin). */
   async getState(): Promise<CircuitBreakerState> {
-    return this.safely(
+    return safely(
+      this.logger,
       'closed',
-      async () => {
-        const [state, probe] = await this.redis.mget(
-          CB_STATE_KEY,
-          CB_PROBE_KEY,
-        );
-
-        if (probe) return 'half-open';
-        return state === 'open' ? 'open' : 'closed';
-      },
+      () => this.readState(),
       'Circuit breaker state read failed; treated as closed',
     );
   }
@@ -67,7 +61,8 @@ export class CircuitBreakerService {
    * caller through (half-open) via an atomic `SET NX` probe lock.
    */
   async beforeCall(): Promise<boolean> {
-    return this.safely(
+    return safely(
+      this.logger,
       true,
       async () => {
         const [state, probe, openedAtRaw, durationRaw] = await this.redis.mget(
@@ -125,15 +120,13 @@ export class CircuitBreakerService {
    * it. Failures arriving while already open never extend the cooldown.
    */
   async recordFailure(): Promise<void> {
-    return this.safely(
+    return safely(
+      this.logger,
       undefined,
       async () => {
-        const [state, probe] = await this.redis.mget(
-          CB_STATE_KEY,
-          CB_PROBE_KEY,
-        );
+        const state = await this.readState();
 
-        if (probe) {
+        if (state === 'half-open') {
           await this.redis.del(CB_PROBE_KEY);
           await this.open(this.options.reopenDurationMs);
           this.logger.info(
@@ -185,13 +178,11 @@ export class CircuitBreakerService {
    * resets, so stale failures never trip it once the IA is answering again.
    */
   async recordSuccess(): Promise<void> {
-    return this.safely(
+    return safely(
+      this.logger,
       undefined,
       async () => {
-        const [state, probe] = await this.redis.mget(
-          CB_STATE_KEY,
-          CB_PROBE_KEY,
-        );
+        const state = await this.readState();
 
         await this.redis.del(
           CB_STATE_KEY,
@@ -202,9 +193,9 @@ export class CircuitBreakerService {
           CB_WINDOW_START_KEY,
         );
 
-        if (state === 'open' || probe) {
+        if (state !== 'closed') {
           this.logger.info(
-            { previousState: probe ? 'half-open' : 'open' },
+            { previousState: state },
             'Circuit breaker closed after a successful call',
           );
         }
@@ -214,20 +205,15 @@ export class CircuitBreakerService {
   }
 
   /**
-   * Redis failures never bubble up: reads fall back to the safe default
-   * (`closed`/allowed) and writes are dropped with a warning.
+   * Reads `state` + `probe` in one round-trip and maps them to the logical
+   * state. The probe lock wins over the stored value, so an in-flight probe is
+   * reported as `half-open`.
    */
-  private async safely<T>(
-    fallback: T,
-    action: () => Promise<T>,
-    message: string,
-  ): Promise<T> {
-    try {
-      return await action();
-    } catch (err: unknown) {
-      this.logger.warn({ err }, message);
-      return fallback;
-    }
+  private async readState(): Promise<CircuitBreakerState> {
+    const [state, probe] = await this.redis.mget(CB_STATE_KEY, CB_PROBE_KEY);
+
+    if (probe) return 'half-open';
+    return state === 'open' ? 'open' : 'closed';
   }
 
   /** Stores the `open` state plus the deadline inputs used to allow a probe. */

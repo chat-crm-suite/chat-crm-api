@@ -11,6 +11,7 @@ import {
   type CircuitBreakerState,
 } from '../ia/circuit-breaker.service';
 import { IA_REDIS } from '../ia/ia-redis.provider';
+import { safely } from '../ia/ia-safety';
 import { SentimentRepository } from './sentiment.repository';
 
 /** Counters reset daily: the TTL is set when a key is born, never extended. */
@@ -74,8 +75,9 @@ export class SentimentMetricsService {
     const duration =
       Number.isFinite(durationMs) && durationMs >= 0 ? durationMs : 0;
 
-    await this.safely(
-      'Sentiment metrics: completed count could not be recorded',
+    await safely(
+      this.logger,
+      undefined,
       async () => {
         await Promise.all([
           this.increment(METRICS_KEYS.completed),
@@ -89,30 +91,37 @@ export class SentimentMetricsService {
           ),
         ]);
       },
+      'Sentiment metrics: completed count could not be recorded',
     );
   }
 
   /** One analysis hit a real failure (broken contract, persistence error). */
   async recordFailed(): Promise<void> {
-    await this.safely(
-      'Sentiment metrics: failed count could not be recorded',
+    await safely(
+      this.logger,
+      undefined,
       () => this.increment(METRICS_KEYS.failed),
+      'Sentiment metrics: failed count could not be recorded',
     );
   }
 
   /** One analysis was skipped for an availability reason. */
   async recordSkipped(reason: AnalysisSkipReason): Promise<void> {
-    await this.safely(
-      'Sentiment metrics: skip count could not be recorded',
+    await safely(
+      this.logger,
+      undefined,
       () => this.increment(METRICS_KEYS.skipped[reason]),
+      'Sentiment metrics: skip count could not be recorded',
     );
   }
 
   /** One skipped analysis was re-enqueued by the deferred retry worker. */
   async recordRetryEnqueued(): Promise<void> {
-    await this.safely(
-      'Sentiment metrics: retry enqueue count could not be recorded',
+    await safely(
+      this.logger,
+      undefined,
       () => this.increment(METRICS_KEYS.retryEnqueued),
+      'Sentiment metrics: retry enqueue count could not be recorded',
     );
   }
 
@@ -142,7 +151,7 @@ export class SentimentMetricsService {
   private async readCounters(): Promise<
     Pick<SentimentMetricsSnapshot, 'counts' | 'iaLatencyMs'>
   > {
-    const empty = {
+    const empty: Pick<SentimentMetricsSnapshot, 'counts' | 'iaLatencyMs'> = {
       counts: {
         completed: 0,
         failed: 0,
@@ -156,70 +165,64 @@ export class SentimentMetricsService {
       iaLatencyMs: { last: null, avg: null, samples: 0 },
     };
 
-    try {
-      const [
-        completed,
-        failed,
-        killSwitch,
-        circuitBreaker,
-        iaUnavailable,
-        retryEnqueued,
-        latencyLast,
-        latencySum,
-        latencyCount,
-      ] = await this.redis.mget(
-        METRICS_KEYS.completed,
-        METRICS_KEYS.failed,
-        METRICS_KEYS.skipped.kill_switch,
-        METRICS_KEYS.skipped.circuit_breaker,
-        METRICS_KEYS.skipped.ia_unavailable,
-        METRICS_KEYS.retryEnqueued,
-        METRICS_KEYS.latencyLast,
-        METRICS_KEYS.latencySum,
-        METRICS_KEYS.latencyCount,
-      );
+    return safely(
+      this.logger,
+      empty,
+      async () => {
+        const [
+          completed,
+          failed,
+          killSwitch,
+          circuitBreaker,
+          iaUnavailable,
+          retryEnqueued,
+          latencyLast,
+          latencySum,
+          latencyCount,
+        ] = await this.redis.mget(
+          METRICS_KEYS.completed,
+          METRICS_KEYS.failed,
+          METRICS_KEYS.skipped.kill_switch,
+          METRICS_KEYS.skipped.circuit_breaker,
+          METRICS_KEYS.skipped.ia_unavailable,
+          METRICS_KEYS.retryEnqueued,
+          METRICS_KEYS.latencyLast,
+          METRICS_KEYS.latencySum,
+          METRICS_KEYS.latencyCount,
+        );
 
-      const samples = toCount(latencyCount);
-      const last = toOptionalNumber(latencyLast);
+        const samples = toCount(latencyCount);
+        const last = toOptionalNumber(latencyLast);
 
-      return {
-        counts: {
-          completed: toCount(completed),
-          failed: toCount(failed),
-          skipped: {
-            kill_switch: toCount(killSwitch),
-            circuit_breaker: toCount(circuitBreaker),
-            ia_unavailable: toCount(iaUnavailable),
+        return {
+          counts: {
+            completed: toCount(completed),
+            failed: toCount(failed),
+            skipped: {
+              kill_switch: toCount(killSwitch),
+              circuit_breaker: toCount(circuitBreaker),
+              ia_unavailable: toCount(iaUnavailable),
+            },
+            retryEnqueued: toCount(retryEnqueued),
           },
-          retryEnqueued: toCount(retryEnqueued),
-        },
-        iaLatencyMs: {
-          last,
-          avg: samples > 0 ? round1(toCount(latencySum) / samples) : null,
-          samples,
-        },
-      };
-    } catch (err: unknown) {
-      this.logger.warn(
-        { err },
-        'Sentiment metrics: counters read failed; reporting zeros',
-      );
-
-      return empty;
-    }
+          iaLatencyMs: {
+            last,
+            avg: samples > 0 ? round1(toCount(latencySum) / samples) : null,
+            samples,
+          },
+        };
+      },
+      'Sentiment metrics: counters read failed; reporting zeros',
+    );
   }
 
   private async readRetryBacklog(): Promise<number> {
-    try {
-      return await this.repo.countPendingRetries();
-    } catch (err: unknown) {
-      this.logger.warn(
-        { err },
-        'Sentiment metrics: retry backlog read failed; reporting zero',
-      );
-
-      return 0;
-    }
+    return safely(
+      this.logger,
+      0,
+      () => this.repo.countPendingRetries(),
+      'Sentiment metrics: retry backlog read failed; reporting zero',
+    );
   }
 
   /**
@@ -234,18 +237,6 @@ export class SentimentMetricsService {
   private async addFloat(key: string, value: number): Promise<void> {
     await this.redis.set(key, '0', 'EX', METRICS_TTL_SECONDS, 'NX');
     await this.redis.incrbyfloat(key, value);
-  }
-
-  /** Metrics must never take the analysis down: warn and move on. */
-  private async safely(
-    message: string,
-    action: () => Promise<void>,
-  ): Promise<void> {
-    try {
-      await action();
-    } catch (err: unknown) {
-      this.logger.warn({ err }, message);
-    }
   }
 }
 

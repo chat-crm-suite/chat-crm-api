@@ -6,6 +6,7 @@ import { Redis } from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 
 import { IA_REDIS } from './ia-redis.provider';
+import { safely } from './ia-safety';
 
 /** Redis key of the manual kill switch; absent means the IA is enabled. */
 export const KILL_SWITCH_KEY = 'ia:enabled';
@@ -27,15 +28,12 @@ export class KillSwitchService implements OnModuleDestroy {
 
   /** Hot read: only an explicit `false` disables the IA. */
   async isEnabled(): Promise<boolean> {
-    try {
-      return (await this.redis.get(KILL_SWITCH_KEY)) !== 'false';
-    } catch (err: unknown) {
-      this.logger.warn(
-        { err },
-        'Kill switch read failed; IA treated as enabled',
-      );
-      return true;
-    }
+    return safely(
+      this.logger,
+      true,
+      async () => (await this.redis.get(KILL_SWITCH_KEY)) !== 'false',
+      'Kill switch read failed; IA treated as enabled',
+    );
   }
 
   /** Persists the flag and returns the resulting state. */

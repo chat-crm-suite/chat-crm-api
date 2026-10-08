@@ -100,7 +100,15 @@ event (assigned, unassigned queue, mention, SLA breach...)
 | `typing:{conversationId}:{memberId}`                 | STRING, TTL 5s                          | "typing…" indicator (emit only, never stored in MySQL) | ephemeral                                          |
 | `lock:assign:{conversationId}`                       | `SET NX PX 5000`                        | prevent a double claim or assignment                   | ephemeral                                          |
 | `wa:window:{conversationId}`                         | STRING, TTL = 24h from the last inbound | WA 24h free-text window check                          | `conversations.last_inbound_at`                    |
-| BullMQ `chat`, `message`, `analysis`, `notification` | queues                                  | ingestion, sending, AI, notification fan-out           | —                                                  |
+| `ia:enabled`                                         | STRING `true`/`false`                   | IA kill switch; absent = enabled                       | ephemeral (operator-controlled)                    |
+| `ia:cb:state`                                        | STRING `open`                           | circuit breaker state; absent = closed                 | ephemeral (absent = closed)                        |
+| `ia:cb:openedAt` / `ia:cb:openDuration`              | STRING epoch ms / ms, TTL               | when the breaker opened and its cooldown               | ephemeral                                          |
+| `ia:cb:failures` / `ia:cb:windowStart`               | STRING counter / epoch ms, TTL          | IA failures inside the rolling window                  | ephemeral                                          |
+| `ia:cb:probe`                                        | `SET NX` + TTL                          | single half-open probe lock                            | ephemeral                                          |
+| `ia:metrics:completed` / `failed` / `retry_enqueued` | STRING counters, TTL 24h                | sentiment pipeline counters, reset daily               | ephemeral (window restarts)                        |
+| `ia:metrics:skipped:{reason}`                        | STRING counter, TTL 24h                 | skips per availability reason                          | ephemeral (window restarts)                        |
+| `ia:metrics:latency:last` / `sum` / `count`          | STRING samples, TTL 24h                 | IA latency samples for `/metrics`                      | ephemeral (window restarts)                        |
+| BullMQ `chat`, `message`, `analysis`, `notification`, `sentiment-retry` | queues                  | ingestion, sending, AI, notification fan-out, deferred retries | —                                          |
 
 
 ## 6. Socket events (server → client)

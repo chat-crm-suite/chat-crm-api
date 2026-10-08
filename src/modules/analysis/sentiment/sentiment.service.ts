@@ -155,6 +155,10 @@ export class SentimentService {
       });
     if (response === null) return null;
 
+    // The metric measures only the IA round-trip, not the persistence that
+    // follows it.
+    const durationMs = Date.now() - startedAt;
+
     try {
       const mapped = this.mapResponse(response);
 
@@ -170,8 +174,19 @@ export class SentimentService {
         result: { probabilities: mapped.probabilities },
       });
 
+      // T5: expected lifecycle completion, carrying the measured IA latency.
+      this.logger.info(
+        {
+          analysisId,
+          messageId: payload.messageId,
+          conversationId,
+          durationMs,
+        },
+        'Sentiment analysis completed',
+      );
+
       // T6: a completed analysis also samples the IA latency (the call above).
-      await this.metrics.recordCompleted(Date.now() - startedAt);
+      await this.metrics.recordCompleted(durationMs);
 
       return {
         messageId: payload.messageId,

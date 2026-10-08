@@ -102,7 +102,7 @@ export class CircuitBreakerService {
         );
         if (acquired === null) return false;
 
-        this.logger.debug(
+        this.logger.info(
           { openDurationMs: duration },
           'Circuit breaker half-open: probe allowed',
         );

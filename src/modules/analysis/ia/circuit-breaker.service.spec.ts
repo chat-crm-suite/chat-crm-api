@@ -196,6 +196,10 @@ describe('CircuitBreakerService (T3)', () => {
     jest.advanceTimersByTime(1);
     await expect(service.beforeCall()).resolves.toBe(true);
     await expect(service.getState()).resolves.toBe('half-open');
+    expect(logger.info).toHaveBeenCalledWith(
+      { openDurationMs: CIRCUIT_BREAKER_DEFAULTS.openDurationMs },
+      'Circuit breaker half-open: probe allowed',
+    );
 
     await expect(service.beforeCall()).resolves.toBe(false);
   });

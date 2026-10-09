@@ -9,6 +9,7 @@ import { AttachmentsController } from './attachments.controller';
 import type { AttachmentsService } from './attachments.service';
 
 jest.mock('node:fs', () => ({
+  ...jest.requireActual<typeof import('node:fs')>('node:fs'),
   createReadStream: jest.fn(() => ({ pipe: jest.fn() })),
 }));
 

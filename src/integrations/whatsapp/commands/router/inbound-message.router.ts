@@ -5,42 +5,36 @@ import { Injectable } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
-import type {
-  MessageType,
-  WhatsAppDocumentContent,
-  WhatsAppTextContent,
-} from '@contracts';
 import { ChannelTransmission } from '@modules/channels/channels.service';
 import { ConversationRepository } from '@modules/conversations/conversation.repository';
 import { SaveConversationMessageCommand } from '@modules/conversations/commands/save-conversation-message.command';
+import type { ConversationMessage } from '../../types/conversation-message.types';
 import {
-  AudioContent,
-  ContactContent,
-  ContactPerson,
-  DocumentContent,
-  ImageContent,
-  InteractiveContent,
-  LocationContent,
-  MessageContent,
-  MessageContext,
-  ReactionContent,
-  StickerContent,
-  TextContent,
-  VideoContent,
-} from '../../types/whatsapp.types';
-import { ContentHandlerPort } from './content-handler.port';
+  InboundAudioContent,
+  InboundContactContent,
+  InboundContactPerson,
+  InboundDocumentContent,
+  InboundImageContent,
+  InboundInteractiveContent,
+  InboundLocationContent,
+  InboundMessageContent,
+  InboundMessageContext,
+  InboundReactionContent,
+  InboundStickerContent,
+  InboundTextContent,
+  InboundVideoContent,
+} from '../../types/inbound-message.types';
+import { InboundSaveStrategyPort } from './inbound-save-strategy.port';
 
-interface IncomingPayload {
-  type: MessageType;
-  mediaUrl?: string;
-  externalId?: string;
-  externalMediaId?: string;
-  mimeType?: string;
-  content: WhatsAppTextContent | WhatsAppDocumentContent;
-}
-
+/**
+ * The Inbound Router (glossary): the single type-keyed dispatch that resolves
+ * an inbound message to the save behavior for its content type. Every strategy
+ * hands the router a layer-3 `ConversationMessage` body (`msg`), and the
+ * router owns resolving the customer identity plus the conversation and
+ * enqueuing the save.
+ */
 @Injectable()
-export class MessageContentHandlers {
+export class InboundMessageRouter {
   constructor(
     private readonly conversations: ConversationRepository,
     private readonly commandBus: CommandBus,
@@ -52,8 +46,8 @@ export class MessageContentHandlers {
    * message (v2: `customer_identities` is the canon) and enqueues the save.
    */
   private async saveMessage(
-    context: MessageContext,
-    payload: IncomingPayload,
+    context: InboundMessageContext,
+    message: ConversationMessage['msg'],
     transmission: ChannelTransmission,
   ): Promise<void> {
     const { channel } = transmission;
@@ -67,20 +61,20 @@ export class MessageContentHandlers {
         profileName: context.senderName,
       });
 
-    await this.commandBus.execute(
-      new SaveConversationMessageCommand({
-        msg: payload,
-        room: conversation.id,
-        companyId: channel.companyId,
-        sender: {
-          id: customer.id,
-          type: 'customer',
-        },
-      }),
-    );
+    const payload: ConversationMessage = {
+      room: conversation.id,
+      companyId: channel.companyId,
+      sender: {
+        id: customer.id,
+        type: 'customer',
+      },
+      msg: message,
+    };
+
+    await this.commandBus.execute(new SaveConversationMessageCommand(payload));
   }
 
-  private readonly text: ContentHandlerPort<TextContent> = {
+  private readonly text: InboundSaveStrategyPort<InboundTextContent> = {
     handle: async (content, context, transmission) => {
       await this.saveMessage(
         context,
@@ -97,7 +91,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly image: ContentHandlerPort<ImageContent> = {
+  private readonly image: InboundSaveStrategyPort<InboundImageContent> = {
     handle: async (content, context, transmission) => {
       const media = content.image;
 
@@ -117,7 +111,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly document: ContentHandlerPort<DocumentContent> = {
+  private readonly document: InboundSaveStrategyPort<InboundDocumentContent> = {
     handle: async (content, context, transmission) => {
       const media = content.document;
 
@@ -138,7 +132,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly audio: ContentHandlerPort<AudioContent> = {
+  private readonly audio: InboundSaveStrategyPort<InboundAudioContent> = {
     handle: async (content, context, transmission) => {
       const media = content.audio;
 
@@ -156,7 +150,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly video: ContentHandlerPort<VideoContent> = {
+  private readonly video: InboundSaveStrategyPort<InboundVideoContent> = {
     handle: async (content, context, transmission) => {
       const media = content.video;
 
@@ -177,7 +171,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly sticker: ContentHandlerPort<StickerContent> = {
+  private readonly sticker: InboundSaveStrategyPort<InboundStickerContent> = {
     handle: async (content, context, transmission) => {
       const media = content.sticker;
 
@@ -195,7 +189,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly location: ContentHandlerPort<LocationContent> = {
+  private readonly location: InboundSaveStrategyPort<InboundLocationContent> = {
     handle: async (content, context, transmission) => {
       await this.saveMessage(
         context,
@@ -209,7 +203,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly contact: ContentHandlerPort<ContactContent> = {
+  private readonly contact: InboundSaveStrategyPort<InboundContactContent> = {
     handle: async (content, context, transmission) => {
       await this.saveMessage(
         context,
@@ -223,21 +217,22 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly interactive: ContentHandlerPort<InteractiveContent> = {
-    handle: async (content, context, transmission) => {
-      await this.saveMessage(
-        context,
-        {
-          type: 'interactive',
-          externalId: context.messageId,
-          content: { body: formatInteractive(content.interactive) },
-        },
-        transmission,
-      );
-    },
-  };
+  private readonly interactive: InboundSaveStrategyPort<InboundInteractiveContent> =
+    {
+      handle: async (content, context, transmission) => {
+        await this.saveMessage(
+          context,
+          {
+            type: 'interactive',
+            externalId: context.messageId,
+            content: { body: formatInteractive(content.interactive) },
+          },
+          transmission,
+        );
+      },
+    };
 
-  private readonly reaction: ContentHandlerPort<ReactionContent> = {
+  private readonly reaction: InboundSaveStrategyPort<InboundReactionContent> = {
     handle: async (content, context, transmission) => {
       await this.saveMessage(
         context,
@@ -251,10 +246,11 @@ export class MessageContentHandlers {
     },
   };
 
-  getHandler<K extends MessageContent['type']>(type: K) {
-    const handlers: {
-      [K in MessageContent['type']]?: ContentHandlerPort<
-        Extract<MessageContent, { type: K }>
+  /** The single type-keyed dispatch: content type -> its save strategy. */
+  resolve<K extends InboundMessageContent['type']>(type: K) {
+    const strategies: {
+      [K in InboundMessageContent['type']]?: InboundSaveStrategyPort<
+        Extract<InboundMessageContent, { type: K }>
       >;
     } = {
       text: this.text,
@@ -268,16 +264,16 @@ export class MessageContentHandlers {
       interactive: this.interactive,
       reaction: this.reaction,
     };
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- la correlación K→handler se pierde sin el cast en indexed access genérico
-    return handlers[type] as
-      | ContentHandlerPort<Extract<MessageContent, { type: K }>>
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- la correlación K→strategy se pierde sin el cast en indexed access genérico
+    return strategies[type] as
+      | InboundSaveStrategyPort<Extract<InboundMessageContent, { type: K }>>
       | undefined;
   }
 }
 
 /** Short readable row for location messages. */
 export function formatLocation(
-  location?: LocationContent['location'],
+  location?: InboundLocationContent['location'],
 ): string {
   if (!location) return '📍 Ubicación no disponible';
 
@@ -287,7 +283,7 @@ export function formatLocation(
 }
 
 /** Short readable row for contact cards (one or several people). */
-export function formatContacts(contacts?: ContactPerson[]): string {
+export function formatContacts(contacts?: InboundContactPerson[]): string {
   if (!contacts?.length) return '👤 Contacto no disponible';
 
   return contacts
@@ -304,7 +300,7 @@ export function formatContacts(contacts?: ContactPerson[]): string {
 
 /** Short readable row for button/list replies. */
 export function formatInteractive(
-  interactive?: InteractiveContent['interactive'],
+  interactive?: InboundInteractiveContent['interactive'],
 ): string {
   if (interactive?.button_reply?.title) {
     return `🔘 ${interactive.button_reply.title}`;
@@ -316,6 +312,8 @@ export function formatInteractive(
 }
 
 /** Short readable row for reactions (empty emoji = removed). */
-export function formatReaction(reaction?: ReactionContent['reaction']): string {
+export function formatReaction(
+  reaction?: InboundReactionContent['reaction'],
+): string {
   return reaction?.emoji ? `Reacción: ${reaction.emoji}` : 'Reacción eliminada';
 }

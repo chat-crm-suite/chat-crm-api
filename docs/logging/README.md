@@ -33,7 +33,7 @@ Fields, in the order they appear:
 3. HTTP request lines: `pino-http` binds `req` and the `http` shorthand (`[url, method, statusCode]`)
    before the log object, and puts `res` / `responseTime` inside it.
 4. The correlation fields, always in this canonical order when present:
-   `context`, `analysisId`, `messageId`, `conversationId`, `durationMs`, `reason`.
+   `context`, `analysisId`, `messageId`, `attachmentId`, `mediaId`, `type`, `conversationId`, `durationMs`, `reason`.
 5. Any other fields in the order the call site passed them (e.g. `err`, `responseTime`).
 6. `msg` last.
 
@@ -47,6 +47,9 @@ order. A line is one object terminated by `\n`, so `jq`/log shippers parse it wi
 | `context` | string | Class/service that owns the log (`PinoLogger.setContext`). |
 | `analysisId` | string | `analyses.id` — **the trace**: include it in every log about an analysis, from enqueue to completion, skip or retry. |
 | `messageId` | string | `messages.id` of the message under analysis. |
+| `attachmentId` | string | Inbound attachment id, correlated with its enrichment log. |
+| `mediaId` | string | Provider media id (retry key), correlated with its enrichment log. |
+| `type` | string | Inbound message/attachment type (e.g. `text`, `image`, `order`). |
 | `conversationId` | string | `conversations.id` the message belongs to. |
 | `durationMs` | number | Elapsed milliseconds of the measured operation (e.g. the IA HTTP call). |
 | `reason` | string | Why an analysis was skipped: `kill_switch` \| `circuit_breaker` \| `ia_unavailable`. |

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
+import { attachmentMediaUrl } from '../attachment-url';
 import type { MessageAttachment } from '../entities/message-attachment.entity';
 import type { Message } from '../entities/message.entity';
 import type { ConversationMessagePayload } from '../message.types';
@@ -20,7 +21,12 @@ export function getConversationMessageBase(
   message: Message,
 ): Pick<
   ConversationMessagePayload,
-  'id' | 'conversationId' | 'timestamp' | 'status' | 'clientMessageId' | 'sender'
+  | 'id'
+  | 'conversationId'
+  | 'timestamp'
+  | 'status'
+  | 'clientMessageId'
+  | 'sender'
 > {
   return {
     id: message.id,
@@ -35,7 +41,8 @@ export function getConversationMessageBase(
 /**
  * Generic mapping for message types without a dedicated strategy:
  * `body` for text-only messages; otherwise the first attachment provides the
- * media (`link` = storageUrl, `caption` = body, `filename` = fileName).
+ * media (`link` = our attachments endpoint, `caption` = body, `filename` =
+ * fileName). The provider/storage path is never exposed.
  */
 export function toConversationMessagePayload(
   message: Message,
@@ -43,6 +50,7 @@ export function toConversationMessagePayload(
 ): ConversationMessagePayload {
   const [attachment] = attachments;
   const content: ConversationMessagePayload['msg']['content'] = {};
+  const mediaUrl = attachmentMediaUrl(attachment);
 
   if (message.body) {
     if (attachment) {
@@ -52,14 +60,14 @@ export function toConversationMessagePayload(
     }
   }
 
-  if (attachment?.storageUrl) content.link = attachment.storageUrl;
+  if (mediaUrl) content.link = mediaUrl;
   if (attachment?.fileName) content.filename = attachment.fileName;
 
   return {
     ...getConversationMessageBase(message),
     msg: {
       type: message.type,
-      mediaUrl: attachment?.storageUrl ?? null,
+      mediaUrl,
       attachmentStatus: attachment?.status ?? null,
       mimeType: attachment?.mimeType ?? null,
       sizeBytes: attachment?.sizeBytes ?? null,

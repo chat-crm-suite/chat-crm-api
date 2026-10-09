@@ -9,7 +9,7 @@ import { MessageService } from '@modules/message/message.service';
 import { UpdateMessageStatusCommand } from '@modules/conversations/commands/update-message-status.command';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
 import type { WhatsappInboundEvent } from '../entities/whatsapp-inbound-event.entity';
-import { toParsedMessage } from '../mappers/whatsapp-message.mapper';
+import { toInboundMessage } from '../mappers/inbound-message-parsers.registry';
 import { isDeliveryStatus, toStatusDate, toStatusError } from '../status';
 import { WhatsAppIntakeService } from './whatsapp-intake.service';
 
@@ -67,7 +67,17 @@ export class WhatsAppInboundReplayService implements OnApplicationBootstrap {
             continue;
           }
 
-          const message = toParsedMessage(event.payload, event.phoneNumberId);
+          // Ticket #22: the stored payload carries no contacts, so the sender
+          // name snapshot persisted at intake is passed on rehydrate — the
+          // same message replays the same customer identity and display name
+          // as the live path, including first contact. Rows stored before
+          // the snapshot replay with `undefined` (bare number) and self-heal
+          // on the next live message.
+          const message = toInboundMessage(
+            event.payload,
+            event.phoneNumberId,
+            event.senderName ?? undefined,
+          );
 
           if (!message) {
             this.logger.warn(

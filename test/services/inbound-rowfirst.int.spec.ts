@@ -13,7 +13,7 @@ import {
   CustomerFactory,
   MessageFactory,
 } from '@factories';
-import { MessageContentHandlers } from '@integrations/whatsapp/commands/handlers/message-content.handlers';
+import { InboundMessageRouter } from '@integrations/whatsapp/commands/router/inbound-message.router';
 import { ReceiveWhatsAppMessageCommand } from '@integrations/whatsapp/commands/receive-whatsapp-message.command';
 import { InboundMediaEnrichmentService } from '@integrations/whatsapp/intake/inbound-media-enrichment.service';
 import { WhatsAppInboundReplayService } from '@integrations/whatsapp/intake/whatsapp-inbound-replay.service';
@@ -126,7 +126,7 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
       logger(),
     );
 
-    const handlers = new MessageContentHandlers(
+    const router = new InboundMessageRouter(
       conversationRepository,
       commandBus as never,
       logger(),
@@ -137,8 +137,8 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
       if (command instanceof ReceiveWhatsAppMessageCommand) {
         if (!currentTransmission) throw new Error('No transmission configured');
         const { context, content } = command.message;
-        await handlers
-          .getHandler(content.type)
+        await router
+          .resolve(content.type)
           ?.handle(content, context, currentTransmission);
         return undefined;
       }
@@ -187,6 +187,7 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
       { downloadMedia } as never,
       fanout,
       logger(),
+      { publish: jest.fn() } as never,
     );
   });
 

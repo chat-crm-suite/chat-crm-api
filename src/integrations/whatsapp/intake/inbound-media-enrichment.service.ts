@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 import { Injectable } from '@nestjs/common';
+import { EventBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
 import type { ConversationMessageAttachmentPatch } from '@contracts';
@@ -13,17 +14,39 @@ import { ConversationsService } from '@modules/conversations/conversations.servi
 import { ConversationFanoutService } from '@modules/conversations/realtime/conversation-fanout.service';
 import type { MessageAttachment } from '@modules/message/entities/message-attachment.entity';
 import type { Message } from '@modules/message/entities/message.entity';
+import { attachmentMediaUrl } from '@modules/message/attachment-url';
 import { MessageService } from '@modules/message/message.service';
-import { WhatsAppClient } from '../clients/whatsapp.client';
+import {
+  classifyWhatsAppError,
+  WhatsAppClient,
+} from '../clients/whatsapp.client';
+import { InboundMediaEnrichedEvent } from '../events/inbound-media-enriched.event';
+import { InboundMediaFailedEvent } from '../events/inbound-media-failed.event';
+import type { InboundMediaRef } from '../events/inbound-media-ref';
+import { publishSafely } from '../observability/publish-safely';
+import {
+  ENRICH_MEDIA_TIMEOUT_MS,
+  type EnrichMediaAttempt,
+  isLastAttempt,
+  maxBytesForAttachmentType,
+} from './enrich-media.queue';
 
 /**
- * T3 async enrichment: the message row is saved first with a `pending`
- * attachment carrying the provider media reference; this service downloads
- * the file through the owning channel transmission (version/base URL/token
- * from that channel) and stores it under the company folder. Success flips
- * the attachment to `ready` and emits a patch; any failure flips it to
- * `failed` and emits the failed patch. The message row (body/caption) is
- * never deleted or emptied.
+ * T23 async enrichment worker side: the message row is saved first with a
+ * `pending` attachment carrying the provider media reference; the
+ * `enrich-media` queue job downloads the file through the owning channel
+ * transmission (version/base URL/token from that channel) with a per-type
+ * size limit and a timeout, stores it under the company folder, and flips the
+ * attachment to `ready` (or `failed`, keeping the row and caption) with a
+ * single patch over the fanout path.
+ *
+ * Retry semantics: a retryable transport fault rethrows while the BullMQ
+ * budget still has attempts left, so the job never marks a transient failure
+ * as terminal. Only the last attempt (or a terminal fault, e.g. an oversized
+ * file) settles the attachment as `failed`. A retry over an already settled
+ * attachment is a noop: `findPendingMediaAttachments` no longer sees it and
+ * the compare-and-set transitions return `null`, so no second patch is ever
+ * emitted. The message row (body/caption) is never deleted or emptied.
  */
 @Injectable()
 export class InboundMediaEnrichmentService {
@@ -34,20 +57,46 @@ export class InboundMediaEnrichmentService {
     private readonly client: WhatsAppClient,
     private readonly fanout: ConversationFanoutService,
     private readonly logger: PinoLogger,
+    private readonly eventBus: EventBus,
   ) {
     this.logger.setContext(InboundMediaEnrichmentService.name);
   }
 
-  async enrich(message: Message): Promise<void> {
+  /** T23 worker entry: rehydrate the durable row and enrich its media. */
+  async enrichById(
+    messageId: string,
+    attempt: EnrichMediaAttempt,
+  ): Promise<void> {
+    const message = await this.messages.findById(messageId);
+    if (!message) {
+      this.logger.warn(
+        { messageId },
+        'Inbound media enrichment: saved row no longer exists',
+      );
+      return;
+    }
+
+    await this.enrich(message, attempt);
+  }
+
+  async enrich(
+    message: Message,
+    attempt: EnrichMediaAttempt = { attemptsMade: 0, maxAttempts: 1 },
+  ): Promise<void> {
     const pending = await this.messages.findPendingMediaAttachments(message.id);
+
+    // Settled (or already failed) attachment: an idempotent retry is a noop.
     if (!pending.length) return;
 
     // A failing lookup (decrypt/DB) must settle every pending attachment as
-    // failed; otherwise the row keeps a `pending` attachment forever.
+    // failed; otherwise the row keeps a `pending` attachment forever. A
+    // retryable lookup fault rethrows while the budget has attempts left.
     let transmission: ChannelTransmission | null;
     try {
       transmission = await this.resolveTransmission(message);
     } catch (error: unknown) {
+      if (shouldRetry(error, attempt)) throw error;
+
       for (const attachment of pending) {
         await this.failAttachment(message, attachment, error);
       }
@@ -64,7 +113,7 @@ export class InboundMediaEnrichmentService {
         continue;
       }
 
-      await this.enrichAttachment(message, attachment, transmission);
+      await this.enrichAttachment(message, attachment, transmission, attempt);
     }
   }
 
@@ -83,12 +132,17 @@ export class InboundMediaEnrichmentService {
     message: Message,
     attachment: MessageAttachment,
     transmission: ChannelTransmission,
+    attempt: EnrichMediaAttempt,
   ): Promise<void> {
     try {
       const downloaded = await this.client.downloadMedia(
         transmission,
         attachment.externalMediaId as string,
-        { ext: fileExtension(attachment.fileName) },
+        {
+          ext: fileExtension(attachment.fileName),
+          maxBytes: maxBytesForAttachmentType(attachment.type),
+          timeoutMs: ENRICH_MEDIA_TIMEOUT_MS,
+        },
       );
 
       const saved = await this.messages.markAttachmentReady(attachment.id, {
@@ -101,11 +155,18 @@ export class InboundMediaEnrichmentService {
       if (!saved) return;
 
       this.emitPatch(message, saved);
-      this.logger.debug(
-        { attachmentId: attachment.id, mediaId: attachment.externalMediaId },
-        'Inbound media enriched',
+      publishSafely(
+        this.eventBus,
+        this.logger,
+        new InboundMediaEnrichedEvent(mediaRef(message, attachment)),
+        'Inbound media observability fact could not be published',
+        'error',
       );
     } catch (error: unknown) {
+      // Retryable and still within budget: rethrow so BullMQ schedules the
+      // next attempt instead of settling a transient fault as terminal.
+      if (shouldRetry(error, attempt)) throw error;
+
       await this.failAttachment(message, attachment, error);
     }
   }
@@ -117,25 +178,30 @@ export class InboundMediaEnrichmentService {
   ): Promise<void> {
     const saved = await this.messages.markAttachmentFailed(attachment.id);
 
+    // A concurrent pass already settled it: no second patch.
     if (saved) this.emitPatch(message, saved);
 
-    this.logger.error(
-      {
+    publishSafely(
+      this.eventBus,
+      this.logger,
+      new InboundMediaFailedEvent(
+        mediaRef(message, attachment),
+        classifyWhatsAppError(error).retryable,
         error,
-        attachmentId: attachment.id,
-        mediaId: attachment.externalMediaId,
-      },
-      'Inbound media enrichment failed; row kept with a failed attachment',
+      ),
+      'Inbound media observability fact could not be published',
+      'error',
     );
   }
 
+  /** Emits one attachment patch over the single fanout path (T6). */
   private emitPatch(message: Message, attachment: MessageAttachment): void {
     const patch: ConversationMessageAttachmentPatch = {
       id: message.id,
       conversationId: message.conversationId,
       attachmentId: attachment.id,
       status: attachment.status,
-      url: attachment.storageUrl ?? null,
+      url: attachmentMediaUrl(attachment),
       mimeType: attachment.mimeType ?? null,
       sizeBytes: attachment.sizeBytes ?? null,
       at: new Date(),
@@ -151,6 +217,21 @@ export class InboundMediaEnrichmentService {
       );
     });
   }
+}
+
+/** A retryable transport fault only retries while the budget has attempts. */
+function shouldRetry(error: unknown, attempt: EnrichMediaAttempt): boolean {
+  return !isLastAttempt(attempt) && classifyWhatsAppError(error).retryable;
+}
+
+/** The bounded media correlation clump carried by the enriched/failed facts. */
+function mediaRef(message: Message, attachment: MessageAttachment): InboundMediaRef {
+  return {
+    messageId: message.id,
+    attachmentId: attachment.id,
+    mediaId: attachment.externalMediaId as string,
+    type: attachment.type,
+  };
 }
 
 function fileExtension(fileName?: string): string | undefined {

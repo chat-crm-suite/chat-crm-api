@@ -24,7 +24,6 @@ import {
 import { WebhookQuery } from '../dto/webhook.query.dto';
 import { withReEngagementAction } from '../legacy-error';
 import { WhatsAppService } from '../whatsapp.service';
-import { mapWebhookToMessages } from '../mappers/whatsapp-message.mapper';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
 import { FailWhatsAppMessageCommand } from '@modules/conversations/commands/fail-whatsapp-message.command';
 import {
@@ -32,6 +31,10 @@ import {
   UpdateMessageStatusCommand,
 } from '@modules/conversations/commands/update-message-status.command';
 import { WhatsAppIntakeService } from '../intake/whatsapp-intake.service';
+import { InboundWebhookParserService } from '../intake/inbound-webhook-parser.service';
+import { makeSenderNameLookup } from '../mappers/inbound-message-parsers.registry';
+import type { InboundMessage } from '../types/inbound-message.types';
+import type { WhatsAppWebhookStatus } from '../types/whatsapp-webhook.types';
 import { verifyWhatsAppSignature } from '../security/whatsapp-signature';
 import {
   isDeliveryStatus,
@@ -63,6 +66,7 @@ export class WebhookController {
     private readonly logger: PinoLogger,
     private readonly config: ConfigService,
     private readonly intake: WhatsAppIntakeService,
+    private readonly parser: InboundWebhookParserService,
   ) {
     this.logger.setContext(WebhookController.name);
   }
@@ -107,6 +111,11 @@ export class WebhookController {
       return;
     }
 
+    // Ticket #22 (parse-once): the payload is parsed exactly once up here
+    // through the #21 border, and the single result is shared between
+    // message and status dispatch — never a second parser call per post.
+    const parsed = this.parser.parseWebhook(payload);
+
     // Durable intake: every inbound `wamid` and every status tick is
     // persisted before the 200, so a crash from here on loses nothing (the
     // row is the recovery point). Retried events come back as duplicates and
@@ -114,8 +123,8 @@ export class WebhookController {
     const fresh = await this.persistInboundEvents(payload);
     res.sendStatus(HttpStatus.OK);
 
-    this.dispatchNewMessages(payload, fresh.messages);
-    this.dispatchStatuses(payload, fresh.statuses);
+    this.dispatchNewMessages(parsed.messages, fresh.messages);
+    this.dispatchStatuses(parsed.statuses, fresh.statuses);
   }
 
   /**
@@ -148,7 +157,9 @@ export class WebhookController {
    * Persists one event per raw inbound message (every type, so T2 can replay
    * even the ones this stage still drops) plus one event per delivery-status
    * tick (so T4 can replay a crash-lost `delivered`/`read`/`failed`), and
-   * returns the newly-seen keys.
+   * returns the newly-seen keys. Each message event carries its sender-name
+   * snapshot (ticket #22 parity): the stored raw payload has no contacts, so
+   * the replay path rehydrates the customer display name from the row.
    */
   private async persistInboundEvents(
     payload: WhatsappNotification,
@@ -160,12 +171,14 @@ export class WebhookController {
       for (const { field, value } of entry.changes ?? []) {
         if (field !== 'messages') continue;
 
+        const senderNameOf = makeSenderNameLookup(value.contacts);
         for (const message of value.messages ?? []) {
           if (!message?.id) continue;
           const outcome = await this.intake.persistIfNew({
             wamid: message.id,
             phoneNumberId: value.metadata?.phone_number_id,
             messageType: message.type,
+            senderName: senderNameOf(message.from),
             payload: message,
           });
           if (outcome === 'stored') fresh.messages.add(message.id);
@@ -192,11 +205,9 @@ export class WebhookController {
   }
 
   private dispatchNewMessages(
-    payload: WhatsappNotification,
+    messages: InboundMessage[],
     freshWamids: Set<string>,
   ): void {
-    const { messages } = mapWebhookToMessages(payload);
-
     for (const msg of messages) {
       if (!freshWamids.has(msg.context.messageId)) continue;
       this.executeSafely(
@@ -207,11 +218,9 @@ export class WebhookController {
   }
 
   private dispatchStatuses(
-    payload: WhatsappNotification,
+    statuses: WhatsAppWebhookStatus[],
     freshStatuses: Set<string>,
   ): void {
-    const { statuses } = mapWebhookToMessages(payload);
-
     for (const status of statuses) {
       switch (status.status as unknown as WhatsappNotificationStatusStatus) {
         case WhatsappNotificationStatusStatus.Sent:

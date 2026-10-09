@@ -497,214 +497,12 @@
         ]
       }
     },
-    "/channels": {
+    "/attachments/{attachmentId}": {
       "get": {
-        "operationId": "ChannelsController_list",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "access_token": []
-          }
-        ],
-        "summary": "List the channels of the active company",
-        "tags": [
-          "Channels"
-        ]
-      },
-      "post": {
-        "operationId": "ChannelsController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateChannelDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "access_token": []
-          }
-        ],
-        "summary": "Create a channel",
-        "tags": [
-          "Channels"
-        ]
-      }
-    },
-    "/channels/whatsapp/config": {
-      "get": {
-        "operationId": "ChannelsController_getWhatsAppConfig",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "access_token": []
-          }
-        ],
-        "summary": "Get the WhatsApp channel of the active company",
-        "tags": [
-          "Channels"
-        ]
-      },
-      "patch": {
-        "operationId": "ChannelsController_update",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateChannelDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "access_token": []
-          }
-        ],
-        "summary": "Update the WhatsApp channel",
-        "tags": [
-          "Channels"
-        ]
-      }
-    },
-    "/channels/whatsapp/config/validate": {
-      "get": {
-        "operationId": "ChannelsController_validateConfig",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "access_token": []
-          }
-        ],
-        "summary": "Validate the WhatsApp channel of the active company",
-        "tags": [
-          "Channels"
-        ]
-      }
-    },
-    "/company": {
-      "post": {
-        "operationId": "CompanyController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCompanyDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Company"
-        ]
-      },
-      "get": {
-        "operationId": "CompanyController_findAll",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Company"
-        ]
-      }
-    },
-    "/company/me": {
-      "get": {
-        "operationId": "CompanyController_me",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Company"
-        ]
-      }
-    },
-    "/company/me/assignment-settings": {
-      "get": {
-        "operationId": "CompanyController_assignmentSettings",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Company"
-        ]
-      },
-      "patch": {
-        "operationId": "CompanyController_updateAssignmentSettings",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateAssignmentSettingsDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Company"
-        ]
-      }
-    },
-    "/company/{id}": {
-      "get": {
-        "operationId": "CompanyController_findOne",
+        "operationId": "AttachmentsController_download",
         "parameters": [
           {
-            "name": "id",
+            "name": "attachmentId",
             "required": true,
             "in": "path",
             "schema": {
@@ -718,14 +516,16 @@
           }
         },
         "tags": [
-          "Company"
+          "Attachments"
         ]
-      },
-      "delete": {
-        "operationId": "CompanyController_remove",
+      }
+    },
+    "/attachments/{attachmentId}/signed": {
+      "get": {
+        "operationId": "AttachmentsController_downloadSigned",
         "parameters": [
           {
-            "name": "id",
+            "name": "attachmentId",
             "required": true,
             "in": "path",
             "schema": {
@@ -739,7 +539,7 @@
           }
         },
         "tags": [
-          "Company"
+          "Attachments"
         ]
       }
     },
@@ -1151,6 +951,252 @@
         ]
       }
     },
+    "/channels": {
+      "get": {
+        "operationId": "ChannelsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List the channels of the active company",
+        "tags": [
+          "Channels"
+        ]
+      },
+      "post": {
+        "operationId": "ChannelsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChannelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create a channel",
+        "tags": [
+          "Channels"
+        ]
+      }
+    },
+    "/channels/whatsapp/config": {
+      "get": {
+        "operationId": "ChannelsController_getWhatsAppConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get the WhatsApp channel of the active company",
+        "tags": [
+          "Channels"
+        ]
+      },
+      "patch": {
+        "operationId": "ChannelsController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateChannelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Update the WhatsApp channel",
+        "tags": [
+          "Channels"
+        ]
+      }
+    },
+    "/channels/whatsapp/config/validate": {
+      "get": {
+        "operationId": "ChannelsController_validateConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Validate the WhatsApp channel of the active company",
+        "tags": [
+          "Channels"
+        ]
+      }
+    },
+    "/company": {
+      "post": {
+        "operationId": "CompanyController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCompanyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      },
+      "get": {
+        "operationId": "CompanyController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      }
+    },
+    "/company/me": {
+      "get": {
+        "operationId": "CompanyController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      }
+    },
+    "/company/me/assignment-settings": {
+      "get": {
+        "operationId": "CompanyController_assignmentSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      },
+      "patch": {
+        "operationId": "CompanyController_updateAssignmentSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAssignmentSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      }
+    },
+    "/company/{id}": {
+      "get": {
+        "operationId": "CompanyController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      },
+      "delete": {
+        "operationId": "CompanyController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Company"
+        ]
+      }
+    },
     "/metrics/sentiment/top": {
       "get": {
         "operationId": "MetricsController_sentimentTop",
@@ -1382,6 +1428,20 @@
         },
         "tags": [
           "Webhook"
+        ]
+      }
+    },
+    "/metrics/inbound": {
+      "get": {
+        "operationId": "InboundMetricsController_snapshot",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "InboundMetrics"
         ]
       }
     }
@@ -1667,182 +1727,6 @@
           "company"
         ]
       },
-      "CreateChannelDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "default": "whatsapp",
-            "type": "string",
-            "enum": [
-              "whatsapp",
-              "telegram",
-              "messenger",
-              "instagram",
-              "email",
-              "sms",
-              "webchat"
-            ]
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "externalAccountId": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "displayAddress": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "businessId": {
-            "type": "string"
-          },
-          "accessToken": {
-            "type": "string"
-          },
-          "webhookUrl": {
-            "type": "string"
-          },
-          "apiVersion": {
-            "type": "string",
-            "enum": [
-              "v18.0",
-              "v19.0",
-              "v20.0",
-              "v21.0",
-              "v22.0",
-              "v23.0"
-            ]
-          },
-          "apiBaseUrl": {
-            "type": "string"
-          },
-          "webhookVerifyToken": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "externalAccountId",
-          "accessToken"
-        ]
-      },
-      "UpdateChannelDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "default": "whatsapp",
-            "type": "string",
-            "enum": [
-              "whatsapp",
-              "telegram",
-              "messenger",
-              "instagram",
-              "email",
-              "sms",
-              "webchat"
-            ]
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "externalAccountId": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "displayAddress": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "businessId": {
-            "type": "string"
-          },
-          "accessToken": {
-            "type": "string"
-          },
-          "webhookUrl": {
-            "type": "string"
-          },
-          "apiVersion": {
-            "type": "string",
-            "enum": [
-              "v18.0",
-              "v19.0",
-              "v20.0",
-              "v21.0",
-              "v22.0",
-              "v23.0"
-            ]
-          },
-          "apiBaseUrl": {
-            "type": "string"
-          },
-          "webhookVerifyToken": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "active",
-              "inactive",
-              "error"
-            ]
-          }
-        }
-      },
-      "CreateCompanyDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 255
-          },
-          "email": {
-            "type": "string",
-            "maxLength": 255,
-            "format": "email",
-            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
-          },
-          "phone": {
-            "type": "string",
-            "maxLength": 50
-          },
-          "address": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "active",
-              "inactive",
-              "suspended"
-            ]
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "UpdateAssignmentSettingsDto": {
-        "type": "object",
-        "properties": {
-          "autoAssignEnabled": {
-            "type": "boolean"
-          },
-          "autoAssignMaxOpen": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 9007199254740991
-          },
-          "autoAssignSticky": {
-            "type": "boolean"
-          },
-          "autoAssignNotifySupervisors": {
-            "type": "boolean"
-          }
-        }
-      },
       "AssignConversationDto": {
         "type": "object",
         "properties": {
@@ -2038,6 +1922,182 @@
             "type": "string",
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        }
+      },
+      "CreateChannelDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "default": "whatsapp",
+            "type": "string",
+            "enum": [
+              "whatsapp",
+              "telegram",
+              "messenger",
+              "instagram",
+              "email",
+              "sms",
+              "webchat"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "externalAccountId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "displayAddress": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "webhookUrl": {
+            "type": "string"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v18.0",
+              "v19.0",
+              "v20.0",
+              "v21.0",
+              "v22.0",
+              "v23.0"
+            ]
+          },
+          "apiBaseUrl": {
+            "type": "string"
+          },
+          "webhookVerifyToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "externalAccountId",
+          "accessToken"
+        ]
+      },
+      "UpdateChannelDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "default": "whatsapp",
+            "type": "string",
+            "enum": [
+              "whatsapp",
+              "telegram",
+              "messenger",
+              "instagram",
+              "email",
+              "sms",
+              "webchat"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "externalAccountId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "displayAddress": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "webhookUrl": {
+            "type": "string"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v18.0",
+              "v19.0",
+              "v20.0",
+              "v21.0",
+              "v22.0",
+              "v23.0"
+            ]
+          },
+          "apiBaseUrl": {
+            "type": "string"
+          },
+          "webhookVerifyToken": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "error"
+            ]
+          }
+        }
+      },
+      "CreateCompanyDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "address": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "suspended"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateAssignmentSettingsDto": {
+        "type": "object",
+        "properties": {
+          "autoAssignEnabled": {
+            "type": "boolean"
+          },
+          "autoAssignMaxOpen": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "autoAssignSticky": {
+            "type": "boolean"
+          },
+          "autoAssignNotifySupervisors": {
+            "type": "boolean"
           }
         }
       }

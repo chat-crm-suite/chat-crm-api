@@ -9,21 +9,21 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
-import type {
+import {
   ConversationAccessService,
-  ConversationSocketIdentity,
+  type ConversationSocketIdentity,
 } from '../conversations/realtime/conversation-access.service';
 import { buildAttachmentUrl } from '../message/attachment-url';
 import type { MessageAttachment } from '../message/entities/message-attachment.entity';
 import type { Message } from '../message/entities/message.entity';
 import type { MessageAttachmentContext } from '../message/message.repository';
-import type { MessageService } from '../message/message.service';
+import { MessageService } from '../message/message.service';
 import { isAllowedMime, normalizeMime } from './attachment-mime';
-import type {
-  AttachmentGrant,
+import {
   AttachmentSignatureService,
+  type AttachmentGrant,
 } from './attachment-signature.service';
-import type { AttachmentStorageService } from './attachment-storage.service';
+import { AttachmentStorageService } from './attachment-storage.service';
 
 /** A storage file cleared for delivery, with our own media URL. */
 export interface ResolvedAttachment {

@@ -6,27 +6,15 @@ import type {
   WhatsappNotificationStatus,
 } from '@daweto/whatsapp-api-types';
 
-import type {
-  AudioContent as LegacyAudioContent,
-  ContactContent as LegacyContactContent,
-  ContactPerson as LegacyContactPerson,
-  DocumentContent as LegacyDocumentContent,
-  ImageContent as LegacyImageContent,
-  InteractiveContent as LegacyInteractiveContent,
-  LocationContent as LegacyLocationContent,
-  MessageContent as LegacyMessageContent,
-  ReactionContent as LegacyReactionContent,
-  StickerContent as LegacyStickerContent,
-  TextContent as LegacyTextContent,
-  VideoContent as LegacyVideoContent,
-} from './whatsapp.types';
-
 /**
- * Layer 2 of the inbound domain (ticket #20 expand): the normalized,
+ * Layer 2 of the inbound domain (ticket #26 contract): the normalized,
  * not-yet-stored inbound message — context (channel id, sender, message id
- * and sender name) plus typed content. Canonical new names; the legacy
- * `Message*` / `ParsedMessage` aliases below keep the old surface working.
- * Zero behavior change: structural twins of `whatsapp.types.ts`.
+ * and sender name) plus typed content. Single vocabulary: every content shape
+ * carries the `Inbound` prefix; provider-raw names live in
+ * `whatsapp-webhook.types.ts` and conversation names in
+ * `conversation-message.types.ts`.
+ *
+ * Pure data: no behavior, no provider-prefixed names.
  */
 export interface InboundMessageContext {
   phoneNumberId: string; // Company Phone ID
@@ -35,19 +23,116 @@ export interface InboundMessageContext {
   senderName?: string;
 }
 
-export type InboundTextContent = LegacyTextContent;
-export type InboundImageContent = LegacyImageContent;
-export type InboundDocumentContent = LegacyDocumentContent;
-export type InboundAudioContent = LegacyAudioContent;
-export type InboundVideoContent = LegacyVideoContent;
-export type InboundStickerContent = LegacyStickerContent;
-export type InboundLocationContent = LegacyLocationContent;
-export type InboundContactPerson = LegacyContactPerson;
-export type InboundContactContent = LegacyContactContent;
-export type InboundInteractiveContent = LegacyInteractiveContent;
-export type InboundReactionContent = LegacyReactionContent;
+export interface InboundTextContent {
+  type: 'text';
+  text: {
+    body: string;
+    preview_url?: boolean;
+  };
+}
 
-export type InboundMessageContent = LegacyMessageContent;
+export interface InboundImageContent {
+  type: 'image';
+  image?: {
+    id?: string;
+    caption?: string;
+    sha256?: string;
+    mime_type?: string;
+  };
+}
+
+export interface InboundDocumentContent {
+  type: 'document';
+  document?: {
+    id: string;
+    caption: string;
+    filename: string;
+    sha256: string;
+    mime_type: string;
+  };
+}
+
+export interface InboundAudioContent {
+  type: 'audio';
+  audio?: {
+    id: string;
+    mime_type: string;
+  };
+}
+
+export interface InboundVideoContent {
+  type: 'video';
+  video?: {
+    id: string;
+    caption?: string;
+    filename?: string;
+    sha256?: string;
+    mime_type?: string;
+  };
+}
+
+export interface InboundStickerContent {
+  type: 'sticker';
+  sticker?: {
+    id: string;
+    animated?: boolean;
+    sha256?: string;
+    mime_type?: string;
+  };
+}
+
+export interface InboundLocationContent {
+  type: 'location';
+  location?: {
+    latitude: number;
+    longitude: number;
+    name?: string;
+    address?: string;
+    url?: string;
+  };
+}
+
+export interface InboundContactPerson {
+  name?: {
+    formatted_name?: string;
+    first_name?: string;
+    last_name?: string;
+  };
+  phones?: Array<{ phone?: string; type?: string; wa_id?: string }>;
+  emails?: Array<{ email?: string }>;
+  org?: { company?: string };
+}
+
+export interface InboundContactContent {
+  type: 'contact';
+  contacts?: InboundContactPerson[];
+}
+
+export interface InboundInteractiveContent {
+  type: 'interactive';
+  interactive?: {
+    type?: string;
+    button_reply?: { id?: string; title?: string };
+    list_reply?: { id?: string; title?: string; description?: string };
+  };
+}
+
+export interface InboundReactionContent {
+  type: 'reaction';
+  reaction?: { message_id?: string; emoji?: string };
+}
+
+export type InboundMessageContent =
+  | InboundTextContent
+  | InboundImageContent
+  | InboundDocumentContent
+  | InboundAudioContent
+  | InboundVideoContent
+  | InboundStickerContent
+  | InboundLocationContent
+  | InboundContactContent
+  | InboundInteractiveContent
+  | InboundReactionContent;
 
 export interface InboundMessage {
   context: InboundMessageContext;
@@ -99,21 +184,3 @@ export interface InboundDiscard {
   type: string;
   reason: InboundDiscardReason;
 }
-
-// --- Legacy aliases (old names keep working via the new surface) ---
-
-export type MessageContext = InboundMessageContext;
-export type TextContent = InboundTextContent;
-export type ImageContent = InboundImageContent;
-export type DocumentContent = InboundDocumentContent;
-export type AudioContent = InboundAudioContent;
-export type VideoContent = InboundVideoContent;
-export type StickerContent = InboundStickerContent;
-export type LocationContent = InboundLocationContent;
-export type ContactPerson = InboundContactPerson;
-export type ContactContent = InboundContactContent;
-export type InteractiveContent = InboundInteractiveContent;
-export type ReactionContent = InboundReactionContent;
-export type MessageContent = InboundMessageContent;
-export type ParsedMessage = InboundMessage;
-export type WebhookResult = InboundWebhookResult;

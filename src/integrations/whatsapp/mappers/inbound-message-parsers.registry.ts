@@ -22,18 +22,11 @@ import type {
   WhatsAppWebhookError,
   WhatsAppWebhookStatus,
 } from '../types/whatsapp-webhook.types';
-import {
-  mapWebhookToMessages,
-  toParsedMessage,
-} from './whatsapp-message.mapper';
 
 /**
  * Single type-keyed inbound parser registry (ticket #21 strict, Strategy
  * with functions). Each entry validates its required fields and discards
- * (`undefined`) when essentials are missing — never invented defaults. No
- * caller migrates in this ticket — later tickets point the router at
- * `parseInboundMessage` / `mapInboundWebhookToMessages` and delete the old
- * names.
+ * (`undefined`) when essentials are missing — never invented defaults.
  *
  * Pure translation: no awaits, no repositories, no loggers.
  */
@@ -50,7 +43,7 @@ const nonEmptyString = (value: unknown): value is string =>
 /**
  * Strict text parser (ticket #21): a missing, empty or blank body is a
  * discard — never an invented `{ body: '' }`. Valid bodies pass through
- * untouched, so the output matches the legacy mapper exactly.
+ * untouched.
  */
 const parseText: InboundMessageParser = (message) => {
   if (!isRecord(message)) return undefined;
@@ -65,7 +58,7 @@ const parseText: InboundMessageParser = (message) => {
 /**
  * Strict image parser (ticket #21): media without its provider id is a
  * discard. Valid payloads pass through untouched (caption, mime_type and
- * any other provider field survive, exactly like the legacy mapper).
+ * any other provider field survive).
  */
 const parseImage: InboundMessageParser = (message) => {
   if (!isRecord(message)) return undefined;
@@ -146,8 +139,8 @@ const parseContacts: InboundMessageParser = (message) => {
 };
 
 /**
- * Strict legacy-button parser: at least the payload or the text must be
- * present — both missing is a discard, never a reply with empty id/title.
+ * Strict provider legacy-button parser: at least the payload or the text must
+ * be present — both missing is a discard, never a reply with empty id/title.
  */
 const parseButton: InboundMessageParser = (message) => {
   if (!isRecord(message)) return undefined;
@@ -203,9 +196,7 @@ const parseReaction: InboundMessageParser = (message) => {
 /**
  * Single type-keyed inbound parser registry (ticket #21 strict, Strategy
  * with functions). Each entry validates its required fields and discards
- * (`undefined`) when essentials are missing — never invented defaults. The
- * legacy mapper file stays untouched until ticket #26; parity for valid
- * payloads is pinned by `inbound-message-parsers.registry.spec.ts`.
+ * (`undefined`) when essentials are missing — never invented defaults.
  *
  * Pure translation: no awaits, no repositories, no loggers.
  */
@@ -307,7 +298,7 @@ export const describeInboundDiscard = (
 /**
  * Rehydrates a single message stored by the durable intake into the
  * normalized shape. Replay never re-parses a webhook: the stored payload is
- * the source of truth. Mirrors `toParsedMessage` (same guard, same context).
+ * the source of truth. Same guard and context as the live parse path.
  */
 export const toInboundMessage = (
   message: unknown,
@@ -351,15 +342,13 @@ const toContactMap = (
 export type InboundDiscardListener = (discard: InboundDiscard) => void;
 
 /**
- * New webhook entry point beside `mapWebhookToMessages`: each message
- * resolves through the strict registry, and every discard is reported once
- * through `onDiscard` (id, type, reason) for the publishing border.
+ * Single webhook entry point: each message resolves through the strict
+ * registry, and every discard is reported once through `onDiscard` (id, type,
+ * reason) for the publishing border.
  *
  * Defensive by construction: a foreign body, a missing entry list, entries
  * without changes, values without metadata or channel id, and non-object
- * messages all degrade to empty or omitted — never a TypeError. Parity with
- * the legacy output for well-formed webhooks is pinned by
- * `inbound-message-parsers.registry.spec.ts`.
+ * messages all degrade to empty or omitted — never a TypeError.
  */
 export const mapInboundWebhookToMessages = (
   body: unknown,
@@ -470,6 +459,3 @@ const channelDiscardOf = (raw: unknown): InboundDiscard => {
     reason: 'missing-channel-id',
   };
 };
-
-/** Legacy entry points keep working; prefer the `Inbound` names above. */
-export { mapWebhookToMessages, toParsedMessage };

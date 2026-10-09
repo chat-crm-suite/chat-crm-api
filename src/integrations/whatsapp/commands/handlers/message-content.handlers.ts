@@ -14,20 +14,20 @@ import { ChannelTransmission } from '../../../../modules/channels/channels.servi
 import { ConversationRepository } from '../../../../modules/conversations/conversation.repository';
 import { SaveConversationMessageCommand } from '../../../../modules/conversations/commands/save-conversation-message.command';
 import {
-  AudioContent,
-  ContactContent,
-  ContactPerson,
-  DocumentContent,
-  ImageContent,
-  InteractiveContent,
-  LocationContent,
-  MessageContent,
-  MessageContext,
-  ReactionContent,
-  StickerContent,
-  TextContent,
-  VideoContent,
-} from '../../types/whatsapp.types';
+  InboundAudioContent,
+  InboundContactContent,
+  InboundContactPerson,
+  InboundDocumentContent,
+  InboundImageContent,
+  InboundInteractiveContent,
+  InboundLocationContent,
+  InboundMessageContent,
+  InboundMessageContext,
+  InboundReactionContent,
+  InboundStickerContent,
+  InboundTextContent,
+  InboundVideoContent,
+} from '../../types/inbound-message.types';
 import { ContentHandlerPort } from './content-handler.port';
 
 interface IncomingPayload {
@@ -52,7 +52,7 @@ export class MessageContentHandlers {
    * message (v2: `customer_identities` is the canon) and enqueues the save.
    */
   private async saveMessage(
-    context: MessageContext,
+    context: InboundMessageContext,
     payload: IncomingPayload,
     transmission: ChannelTransmission,
   ): Promise<void> {
@@ -80,7 +80,7 @@ export class MessageContentHandlers {
     );
   }
 
-  private readonly text: ContentHandlerPort<TextContent> = {
+  private readonly text: ContentHandlerPort<InboundTextContent> = {
     handle: async (content, context, transmission) => {
       await this.saveMessage(
         context,
@@ -97,7 +97,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly image: ContentHandlerPort<ImageContent> = {
+  private readonly image: ContentHandlerPort<InboundImageContent> = {
     handle: async (content, context, transmission) => {
       const media = content.image;
 
@@ -117,7 +117,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly document: ContentHandlerPort<DocumentContent> = {
+  private readonly document: ContentHandlerPort<InboundDocumentContent> = {
     handle: async (content, context, transmission) => {
       const media = content.document;
 
@@ -138,7 +138,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly audio: ContentHandlerPort<AudioContent> = {
+  private readonly audio: ContentHandlerPort<InboundAudioContent> = {
     handle: async (content, context, transmission) => {
       const media = content.audio;
 
@@ -156,7 +156,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly video: ContentHandlerPort<VideoContent> = {
+  private readonly video: ContentHandlerPort<InboundVideoContent> = {
     handle: async (content, context, transmission) => {
       const media = content.video;
 
@@ -177,7 +177,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly sticker: ContentHandlerPort<StickerContent> = {
+  private readonly sticker: ContentHandlerPort<InboundStickerContent> = {
     handle: async (content, context, transmission) => {
       const media = content.sticker;
 
@@ -195,7 +195,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly location: ContentHandlerPort<LocationContent> = {
+  private readonly location: ContentHandlerPort<InboundLocationContent> = {
     handle: async (content, context, transmission) => {
       await this.saveMessage(
         context,
@@ -209,7 +209,7 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly contact: ContentHandlerPort<ContactContent> = {
+  private readonly contact: ContentHandlerPort<InboundContactContent> = {
     handle: async (content, context, transmission) => {
       await this.saveMessage(
         context,
@@ -223,21 +223,22 @@ export class MessageContentHandlers {
     },
   };
 
-  private readonly interactive: ContentHandlerPort<InteractiveContent> = {
-    handle: async (content, context, transmission) => {
-      await this.saveMessage(
-        context,
-        {
-          type: 'interactive',
-          externalId: context.messageId,
-          content: { body: formatInteractive(content.interactive) },
-        },
-        transmission,
-      );
-    },
-  };
+  private readonly interactive: ContentHandlerPort<InboundInteractiveContent> =
+    {
+      handle: async (content, context, transmission) => {
+        await this.saveMessage(
+          context,
+          {
+            type: 'interactive',
+            externalId: context.messageId,
+            content: { body: formatInteractive(content.interactive) },
+          },
+          transmission,
+        );
+      },
+    };
 
-  private readonly reaction: ContentHandlerPort<ReactionContent> = {
+  private readonly reaction: ContentHandlerPort<InboundReactionContent> = {
     handle: async (content, context, transmission) => {
       await this.saveMessage(
         context,
@@ -251,10 +252,10 @@ export class MessageContentHandlers {
     },
   };
 
-  getHandler<K extends MessageContent['type']>(type: K) {
+  getHandler<K extends InboundMessageContent['type']>(type: K) {
     const handlers: {
-      [K in MessageContent['type']]?: ContentHandlerPort<
-        Extract<MessageContent, { type: K }>
+      [K in InboundMessageContent['type']]?: ContentHandlerPort<
+        Extract<InboundMessageContent, { type: K }>
       >;
     } = {
       text: this.text,
@@ -270,14 +271,14 @@ export class MessageContentHandlers {
     };
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- la correlación K→handler se pierde sin el cast en indexed access genérico
     return handlers[type] as
-      | ContentHandlerPort<Extract<MessageContent, { type: K }>>
+      | ContentHandlerPort<Extract<InboundMessageContent, { type: K }>>
       | undefined;
   }
 }
 
 /** Short readable row for location messages. */
 export function formatLocation(
-  location?: LocationContent['location'],
+  location?: InboundLocationContent['location'],
 ): string {
   if (!location) return '📍 Ubicación no disponible';
 
@@ -287,7 +288,7 @@ export function formatLocation(
 }
 
 /** Short readable row for contact cards (one or several people). */
-export function formatContacts(contacts?: ContactPerson[]): string {
+export function formatContacts(contacts?: InboundContactPerson[]): string {
   if (!contacts?.length) return '👤 Contacto no disponible';
 
   return contacts
@@ -304,7 +305,7 @@ export function formatContacts(contacts?: ContactPerson[]): string {
 
 /** Short readable row for button/list replies. */
 export function formatInteractive(
-  interactive?: InteractiveContent['interactive'],
+  interactive?: InboundInteractiveContent['interactive'],
 ): string {
   if (interactive?.button_reply?.title) {
     return `🔘 ${interactive.button_reply.title}`;
@@ -316,6 +317,8 @@ export function formatInteractive(
 }
 
 /** Short readable row for reactions (empty emoji = removed). */
-export function formatReaction(reaction?: ReactionContent['reaction']): string {
+export function formatReaction(
+  reaction?: InboundReactionContent['reaction'],
+): string {
   return reaction?.emoji ? `Reacción: ${reaction.emoji}` : 'Reacción eliminada';
 }

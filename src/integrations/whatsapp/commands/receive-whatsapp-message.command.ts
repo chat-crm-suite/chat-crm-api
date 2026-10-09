@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { ParsedMessage } from "../types/whatsapp.types";
+import type { InboundMessage } from '../types/inbound-message.types';
 
 export class ReceiveWhatsAppMessageCommand {
-  constructor(
-    public readonly message: ParsedMessage
-  ) { }
+  constructor(public readonly message: InboundMessage) {}
 }

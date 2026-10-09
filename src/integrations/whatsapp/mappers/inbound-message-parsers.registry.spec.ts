@@ -15,17 +15,12 @@ import {
   parseInboundMessage,
   toInboundMessage,
 } from './inbound-message-parsers.registry';
-import {
-  mapWebhookToMessages,
-  toParsedMessage,
-} from './whatsapp-message.mapper';
 
 /**
- * Ticket #20 (expand, zero behavior change): the new three-layer domain
- * (Webhook -> Inbound -> Message) and the single type-keyed parser registry
- * live beside the old names. No caller migrates here, so this spec pins
- * parity: every current inbound type resolves through the new registry to
- * the same output as today.
+ * The three-layer domain (Webhook -> Inbound -> Message) and the single
+ * type-keyed parser registry (ticket #26 contract): every current inbound
+ * type resolves through the registry to its normalized content, and unknown
+ * or invalid payloads are discarded.
  *
  * Seam under test: pure parser registry
  * (`parseInboundMessage` / `toInboundMessage` /
@@ -247,7 +242,7 @@ const FIXTURES: Array<{
   },
 ];
 
-describe('inbound parser registry parity (ticket #20 expand)', () => {
+describe('inbound parser registry (ticket #26 contract)', () => {
   it('exposes the three domain layers as importable types', () => {
     // Layer 1 (provider-raw webhook) -> layer 2 (normalized inbound) ->
     // layer 3 (persisted conversation message). Type-only: a missing layer
@@ -268,20 +263,17 @@ describe('inbound parser registry parity (ticket #20 expand)', () => {
   });
 
   it.each(FIXTURES.map((f) => [f.name, f] as const))(
-    'parseInboundMessage matches the legacy output for %s',
+    'parseInboundMessage resolves %s through the registry',
     (_name, { raw, expectedContent }) => {
       const fresh = parseInboundMessage(raw, { ...CTX });
 
       expect(fresh).toBeDefined();
       expect(fresh?.context).toEqual({ ...CTX });
       expect(fresh?.content).toMatchObject(expectedContent);
-      expect(fresh).toEqual(
-        toParsedMessage(raw, CTX.phoneNumberId, CTX.senderName),
-      );
     },
   );
 
-  it('drops unknown provider types through the registry like today', () => {
+  it('drops unknown provider types through the registry', () => {
     const raw = {
       id: 'wamid-1',
       from: '15551234567',
@@ -291,29 +283,22 @@ describe('inbound parser registry parity (ticket #20 expand)', () => {
 
     expect(parseInboundMessage(raw, { ...CTX })).toBeUndefined();
     expect(
-      toParsedMessage(raw, CTX.phoneNumberId, CTX.senderName),
-    ).toBeUndefined();
-    expect(mapInboundWebhookToMessages(notification([raw])).messages).toEqual(
-      mapWebhookToMessages(notification([raw])).messages,
-    );
-    expect(
       mapInboundWebhookToMessages(notification([raw])).messages,
     ).toHaveLength(0);
   });
 
   it.each(FIXTURES.map((f) => [f.name, f] as const))(
-    'mapInboundWebhookToMessages matches the legacy webhook output for %s',
-    (_name, { raw }) => {
-      const payload = notification([{ ...raw }]);
+    'mapInboundWebhookToMessages resolves %s through the single pass',
+    (_name, { raw, expectedContent }) => {
+      const { messages } = mapInboundWebhookToMessages(notification([raw]));
 
-      expect(mapInboundWebhookToMessages(payload)).toEqual(
-        mapWebhookToMessages(payload),
-      );
-      expect(mapInboundWebhookToMessages(payload).messages).toHaveLength(1);
+      expect(messages).toHaveLength(1);
+      expect(messages[0].context).toEqual({ ...CTX });
+      expect(messages[0].content).toMatchObject(expectedContent);
     },
   );
 
-  it('toInboundMessage rehydrates a stored payload like the legacy path', () => {
+  it('toInboundMessage rehydrates a stored payload into the inbound shape', () => {
     const stored = {
       id: 'wamid-1',
       from: '15551234567',
@@ -322,10 +307,15 @@ describe('inbound parser registry parity (ticket #20 expand)', () => {
       text: { body: 'hola' },
     };
 
-    expect(toInboundMessage(stored, 'phone-1', 'Alice')).toEqual(
-      toParsedMessage(stored, 'phone-1', 'Alice'),
-    );
+    expect(toInboundMessage(stored, 'phone-1', 'Alice')).toEqual({
+      context: {
+        phoneNumberId: 'phone-1',
+        from: '15551234567',
+        messageId: 'wamid-1',
+        senderName: 'Alice',
+      },
+      content: { type: 'text', text: { body: 'hola' } },
+    });
     expect(toInboundMessage(null, 'phone-1')).toBeUndefined();
-    expect(toParsedMessage(null, 'phone-1')).toBeUndefined();
   });
 });

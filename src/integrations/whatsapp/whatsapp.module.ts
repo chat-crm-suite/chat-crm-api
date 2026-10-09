@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 import { HttpModule } from '@nestjs/axios';
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -18,6 +19,8 @@ import { SendAgentMessageHandler } from './commands/handlers/send-agent-message.
 import { SendWhatsAppMessageHandler } from './commands/handlers/send-whatsapp-message.handler';
 import { WebhookController } from './controllers/index';
 import { WhatsappInboundEvent } from './entities/whatsapp-inbound-event.entity';
+import { ENRICH_MEDIA_QUEUE } from './intake/enrich-media.queue';
+import { EnrichMediaProcessor } from './intake/enrich-media.processor';
 import { InboundMediaEnrichmentHandler } from './intake/inbound-media-enrichment.handler';
 import { InboundMediaEnrichmentService } from './intake/inbound-media-enrichment.service';
 import { InboundMessageSavedHandler } from './intake/inbound-message-saved.handler';
@@ -34,6 +37,7 @@ import { WhatsAppService } from './whatsapp.service';
       isGlobal: true,
     }),
     TypeOrmModule.forFeature([Channel, WhatsappInboundEvent]),
+    BullModule.registerQueue({ name: ENRICH_MEDIA_QUEUE }),
     HttpModule,
     ChannelsModule,
     ConversationsModule,
@@ -49,6 +53,7 @@ import { WhatsAppService } from './whatsapp.service';
     InboundWebhookParserService,
     InboundMediaEnrichmentService,
     InboundMediaEnrichmentHandler,
+    EnrichMediaProcessor,
     WhatsAppClient,
     ReceiveWhatsAppMessageHandler,
     MessageContentHandlers,

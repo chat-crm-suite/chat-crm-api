@@ -217,6 +217,11 @@ export class MessageService {
     return this.repo.findByExternalId(externalId);
   }
 
+  /** T23: the enrich-media worker rehydrates the saved row by id. */
+  findById(messageId: string): Promise<Message | null> {
+    return this.repo.findById(messageId);
+  }
+
   /**
    * T5: Graph answered the send with a wamid: the pending row becomes `sent`
    * and keeps the provider id. A row already moved returns `null`.

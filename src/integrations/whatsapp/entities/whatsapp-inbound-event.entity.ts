@@ -47,6 +47,16 @@ export class WhatsappInboundEvent extends UuidV7Entity {
   @Column({ name: 'message_type', type: 'varchar', length: 32, nullable: true })
   messageType?: string | null;
 
+  /**
+   * Sender profile-name snapshot (`contacts[].profile.name`) taken at intake.
+   * The raw stored payload carries no contacts, so without this snapshot a
+   * crash-replayed first contact would resolve the customer as a bare number.
+   * Null for rows stored before the snapshot (they self-heal on the next
+   * live message).
+   */
+  @Column({ name: 'sender_name', type: 'varchar', length: 255, nullable: true })
+  senderName?: string | null;
+
   /** Raw inbound message payload, as delivered by Meta. */
   @Column({ type: 'json' })
   payload: Record<string, unknown>;

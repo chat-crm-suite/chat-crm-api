@@ -17,6 +17,12 @@ export interface InboundEventInput {
   kind?: string;
   phoneNumberId?: string | null;
   messageType?: string | null;
+  /**
+   * Sender profile-name snapshot for live/replay parity (ticket #22): the
+   * stored raw payload carries no contacts, so the replay path rehydrates
+   * the customer display name from here.
+   */
+  senderName?: string | null;
   payload: unknown;
 }
 
@@ -47,6 +53,7 @@ export class WhatsAppIntakeService {
       row.kind = input.kind ?? 'message';
       row.phoneNumberId = input.phoneNumberId ?? null;
       row.messageType = input.messageType ?? null;
+      row.senderName = input.senderName ?? null;
       row.payload = input.payload as Record<string, unknown>;
       row.status = 'pending';
       await this.events.save(row);

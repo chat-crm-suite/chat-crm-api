@@ -7,6 +7,7 @@ import type { WhatsappNotification } from '@daweto/whatsapp-api-types';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
 import { FailWhatsAppMessageCommand } from '../../../modules/conversations/commands/fail-whatsapp-message.command';
 import { UpdateMessageStatusCommand } from '../../../modules/conversations/commands/update-message-status.command';
+import { mapInboundWebhookToMessages } from '../mappers/inbound-message-parsers.registry';
 import { WebhookController } from './webhook.controller';
 
 /**
@@ -40,6 +41,7 @@ describe('WebhookController (T1 durable intake)', () => {
   let configGet: jest.Mock;
   let persistIfNew: jest.Mock;
   let markReplayed: jest.Mock;
+  let parseWebhook: jest.Mock;
   let logger: {
     debug: jest.Mock;
     error: jest.Mock;
@@ -81,6 +83,12 @@ describe('WebhookController (T1 durable intake)', () => {
     configGet = jest.fn().mockReturnValue('test-app-secret');
     persistIfNew = jest.fn().mockResolvedValue('stored');
     markReplayed = jest.fn().mockResolvedValue(undefined);
+    // Ticket #22 (parse-once): the controller parses through the #21 border
+    // once per post. The fake delegates to the real pure parser (no bus, no
+    // logging) so dispatch behavior stays honest while calls stay countable.
+    parseWebhook = jest.fn((body: unknown) =>
+      mapInboundWebhookToMessages(body),
+    );
     logger = {
       debug: jest.fn(),
       error: jest.fn(),
@@ -94,6 +102,7 @@ describe('WebhookController (T1 durable intake)', () => {
       logger as never,
       { get: configGet } as never,
       { persistIfNew, markReplayed } as never,
+      { parseWebhook } as never,
     );
   });
 
@@ -116,6 +125,69 @@ describe('WebhookController (T1 durable intake)', () => {
     const dispatched = commandExecute.mock
       .calls[0][0] as ReceiveWhatsAppMessageCommand;
     expect(dispatched.message.context.messageId).toBe('wamid-test-1');
+  });
+
+  it('parses the payload exactly once per post and shares it', async () => {
+    const res = response();
+
+    await controller.receiveMessage(
+      textPayload(),
+      request(TEXT_PAYLOAD, TEXT_SIGNATURE) as never,
+      res as never,
+    );
+
+    expect(parseWebhook).toHaveBeenCalledTimes(1);
+    expect(parseWebhook).toHaveBeenCalledWith(expect.objectContaining({}));
+    expect(commandExecute).toHaveBeenCalledWith(
+      expect.any(ReceiveWhatsAppMessageCommand),
+    );
+  });
+
+  it('persists the sender-name snapshot with the durable event', async () => {
+    const res = response();
+
+    await controller.receiveMessage(
+      textPayload(),
+      request(TEXT_PAYLOAD, TEXT_SIGNATURE) as never,
+      res as never,
+    );
+
+    expect(persistIfNew).toHaveBeenCalledWith(
+      expect.objectContaining({ wamid: 'wamid-test-1', senderName: 'Alice' }),
+    );
+  });
+
+  it('dispatches the live message with the contact-snapshot name', async () => {
+    const res = response();
+
+    await controller.receiveMessage(
+      textPayload(),
+      request(TEXT_PAYLOAD, TEXT_SIGNATURE) as never,
+      res as never,
+    );
+
+    const dispatched = commandExecute.mock
+      .calls[0][0] as ReceiveWhatsAppMessageCommand;
+    expect(dispatched.message.context).toMatchObject({
+      messageId: 'wamid-test-1',
+      from: '15551234567',
+      senderName: 'Alice',
+    });
+  });
+
+  it('parses a duplicate post once but dispatches nothing', async () => {
+    persistIfNew.mockResolvedValue('duplicate');
+    const res = response();
+
+    await controller.receiveMessage(
+      textPayload(),
+      request(TEXT_PAYLOAD, TEXT_SIGNATURE) as never,
+      res as never,
+    );
+
+    expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
+    expect(parseWebhook).toHaveBeenCalledTimes(1);
+    expect(commandExecute).not.toHaveBeenCalled();
   });
 
   it('answers 200 only after the event is durable', async () => {

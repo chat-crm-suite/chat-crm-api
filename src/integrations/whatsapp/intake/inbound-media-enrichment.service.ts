@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 import { Injectable } from '@nestjs/common';
+import { EventBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
 import type { ConversationMessageAttachmentPatch } from '../../../contracts/index';
@@ -18,6 +19,8 @@ import {
   classifyWhatsAppError,
   WhatsAppClient,
 } from '../clients/whatsapp.client';
+import { InboundMediaEnrichedEvent } from '../events/inbound-media-enriched.event';
+import { InboundMediaFailedEvent } from '../events/inbound-media-failed.event';
 import {
   ENRICH_MEDIA_TIMEOUT_MS,
   type EnrichMediaAttempt,
@@ -51,6 +54,7 @@ export class InboundMediaEnrichmentService {
     private readonly client: WhatsAppClient,
     private readonly fanout: ConversationFanoutService,
     private readonly logger: PinoLogger,
+    private readonly eventBus: EventBus,
   ) {
     this.logger.setContext(InboundMediaEnrichmentService.name);
   }
@@ -148,9 +152,13 @@ export class InboundMediaEnrichmentService {
       if (!saved) return;
 
       this.emitPatch(message, saved);
-      this.logger.debug(
-        { attachmentId: attachment.id, mediaId: attachment.externalMediaId },
-        'Inbound media enriched',
+      this.publish(
+        new InboundMediaEnrichedEvent(
+          message.id,
+          attachment.id,
+          attachment.externalMediaId as string,
+          attachment.type,
+        ),
       );
     } catch (error: unknown) {
       // Retryable and still within budget: rethrow so BullMQ schedules the
@@ -171,14 +179,38 @@ export class InboundMediaEnrichmentService {
     // A concurrent pass already settled it: no second patch.
     if (saved) this.emitPatch(message, saved);
 
-    this.logger.error(
-      {
+    this.publish(
+      new InboundMediaFailedEvent(
+        message.id,
+        attachment.id,
+        attachment.externalMediaId as string,
+        attachment.type,
+        classifyWhatsAppError(error).retryable,
         error,
-        attachmentId: attachment.id,
-        mediaId: attachment.externalMediaId,
-      },
-      'Inbound media enrichment failed; row kept with a failed attachment',
+      ),
     );
+  }
+
+  /**
+   * Publishes one domain fact for the log handlers and the metrics subscriber
+   * (ticket #24), never letting a handler failure bubble into enrichment. The
+   * row is already durable either way.
+   */
+  private publish(event: object): void {
+    try {
+      void Promise.resolve(this.eventBus.publish(event as never)).catch(
+        (error: unknown) =>
+          this.logger.error(
+            { error },
+            'Inbound media observability fact could not be published',
+          ),
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        { error },
+        'Inbound media observability fact could not be published',
+      );
+    }
   }
 
   private emitPatch(message: Message, attachment: MessageAttachment): void {

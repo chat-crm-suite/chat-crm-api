@@ -4,14 +4,16 @@
 import type { WhatsappNotification } from '@daweto/whatsapp-api-types';
 
 import { InboundMessageDiscardedEvent } from '../events/inbound-message-discarded.event';
+import { InboundMessageReceivedEvent } from '../events/inbound-message-received.event';
 import { InboundWebhookParserService } from './inbound-webhook-parser.service';
 
 /**
  * Ticket #21 (publishing border): pure parsers never log or publish — this
  * thin service wraps them with the event bus. Every discard publishes
- * exactly one discard fact (message id, type, reason); structural
- * degradation (missing entry, metadata or channel id) warns instead of
- * throwing, so the webhook is always answered without a 500.
+ * exactly one discard fact (message id, type, reason); every normalized
+ * message publishes exactly one received fact; structural degradation
+ * (missing entry, metadata or channel id) warns instead of throwing, so the
+ * webhook is always answered without a 500.
  *
  * Seam under test: `InboundWebhookParserService.parseWebhook` with a mocked
  * `EventBus` (`publish: jest.fn()`) and a mocked logger. Behavior is
@@ -53,13 +55,13 @@ const valueWith = (
 
 describe('InboundWebhookParserService (ticket #21 border)', () => {
   let publish: jest.Mock;
-  let published: InboundMessageDiscardedEvent[];
+  let published: unknown[];
   let warn: jest.Mock;
   let service: InboundWebhookParserService;
 
   beforeEach(() => {
     published = [];
-    publish = jest.fn((event: InboundMessageDiscardedEvent) => {
+    publish = jest.fn((event: unknown) => {
       published.push(event);
     });
     warn = jest.fn();
@@ -69,7 +71,7 @@ describe('InboundWebhookParserService (ticket #21 border)', () => {
     );
   });
 
-  it('returns parsed messages publishing nothing for a valid webhook', () => {
+  it('publishes exactly one received fact per normalized message', () => {
     const result = service.parseWebhook(
       webhookWith(valueWith([textMessage()], { ...METADATA })),
     );
@@ -80,7 +82,9 @@ describe('InboundWebhookParserService (ticket #21 border)', () => {
       phoneNumberId: 'phone-1',
       senderName: 'Alice',
     });
-    expect(publish).not.toHaveBeenCalled();
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(published[0]).toBeInstanceOf(InboundMessageReceivedEvent);
+    expect(published[0]).toMatchObject({ messageId: 'wamid-1', type: 'text' });
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -112,18 +116,25 @@ describe('InboundWebhookParserService (ticket #21 border)', () => {
     expect(result.messages.map((m) => m.context.messageId)).toEqual([
       'wamid-ok',
     ]);
-    expect(publish).toHaveBeenCalledTimes(2);
-    expect(published[0]).toBeInstanceOf(InboundMessageDiscardedEvent);
-    expect(published[0]).toMatchObject({
+    const discards = published.filter(
+      (event) => event instanceof InboundMessageDiscardedEvent,
+    );
+    const received = published.filter(
+      (event) => event instanceof InboundMessageReceivedEvent,
+    );
+    expect(discards).toHaveLength(2);
+    expect(discards[0]).toMatchObject({
       messageId: 'wamid-empty',
       type: 'text',
       reason: 'missing-text-body',
     });
-    expect(published[1]).toMatchObject({
+    expect(discards[1]).toMatchObject({
       messageId: 'wamid-order',
       type: 'order',
       reason: 'unknown-type',
     });
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({ messageId: 'wamid-ok', type: 'text' });
   });
 
   it('warns and answers empty when the entry list is missing', () => {

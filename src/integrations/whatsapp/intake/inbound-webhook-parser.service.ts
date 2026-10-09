@@ -6,6 +6,7 @@ import { EventBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
 import { InboundMessageDiscardedEvent } from '../events/inbound-message-discarded.event';
+import { InboundMessageReceivedEvent } from '../events/inbound-message-received.event';
 import {
   mapInboundWebhookToMessages,
   type InboundDiscardListener,
@@ -55,11 +56,22 @@ export class InboundWebhookParserService {
     const result = mapInboundWebhookToMessages(body, collect);
 
     for (const fact of discarded) {
-      this.eventBus.publish(
+      this.publish(
         new InboundMessageDiscardedEvent(
           fact.messageId,
           fact.type,
           fact.reason,
+        ),
+      );
+    }
+    // Every normalized message is a received fact (ticket #24 metrics), so a
+    // text/image/... entering the pipeline is countable by type; the discard
+    // facts above count what never made it through.
+    for (const message of result.messages) {
+      this.publish(
+        new InboundMessageReceivedEvent(
+          message.context.messageId,
+          message.content.type,
         ),
       );
     }
@@ -77,5 +89,27 @@ export class InboundWebhookParserService {
     }
 
     return result;
+  }
+
+  /**
+   * Publishes one observability fact without ever letting a handler's failure
+   * bubble into the webhook answer (ticket #24: handlers never throw, and this
+   * border stays defensive anyway). The controller is answered 200 regardless.
+   */
+  private publish(event: object): void {
+    try {
+      void Promise.resolve(this.eventBus.publish(event as never)).catch(
+        (error: unknown) =>
+          this.logger.warn(
+            { error },
+            'Inbound observability fact could not be published',
+          ),
+      );
+    } catch (error: unknown) {
+      this.logger.warn(
+        { error },
+        'Inbound observability fact could not be published',
+      );
+    }
   }
 }

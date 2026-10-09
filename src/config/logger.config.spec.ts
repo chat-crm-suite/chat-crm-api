@@ -105,6 +105,26 @@ describe('logger configuration (T5)', () => {
 
       expect(Object.keys(ordered)).toEqual(['messageId', 'zeta', 'alpha']);
     });
+
+    it('orders the inbound correlation fields (media ids and type) stably', () => {
+      const ordered = formatter({ NODE_ENV: 'production' })({
+        reason: 'missing-media-id',
+        type: 'image',
+        mediaId: 'media-1',
+        attachmentId: 'att-1',
+        messageId: 'wamid-1',
+        context: 'InboundDiscardLogHandler',
+      });
+
+      expect(Object.keys(ordered)).toEqual([
+        'context',
+        'messageId',
+        'attachmentId',
+        'mediaId',
+        'type',
+        'reason',
+      ]);
+    });
   });
 
   describe('production output', () => {

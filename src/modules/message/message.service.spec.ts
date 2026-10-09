@@ -24,6 +24,7 @@ const attachment = (
   overrides: Partial<MessageAttachment> = {},
 ): MessageAttachment =>
   ({
+    id: 'att-1',
     messageId: 'msg-1',
     type: 'image',
     mimeType: 'image/jpeg',
@@ -58,7 +59,7 @@ describe('MessageService.getMessagePayload', () => {
       conversationId: 'conv-1',
       msg: {
         type: 'image',
-        mediaUrl: '/uploads/photo.jpg',
+        mediaUrl: '/attachments/att-1',
       },
     });
   });
@@ -69,7 +70,7 @@ describe('MessageService.getMessagePayload', () => {
 
     const payload = await service.getMessagePayload('msg-1');
 
-    expect(payload?.msg.mediaUrl).toBe('/uploads/photo.jpg');
+    expect(payload?.msg.mediaUrl).toBe('/attachments/att-1');
     expect(payload?.msg.content.filename).toBe('photo.jpg');
     expect(payload?.msg.mimeType).toBe('image/jpeg');
     expect(payload?.msg.sizeBytes).toBe(2048);
@@ -97,7 +98,7 @@ describe('MessageService.getMessagePayload', () => {
     const payload = await service.getMessagePayload('msg-1');
 
     expect(payload?.msg.type).toBe('audio');
-    expect(payload?.msg.mediaUrl).toBe('/uploads/photo.jpg');
+    expect(payload?.msg.mediaUrl).toBe('/attachments/att-1');
   });
 
   it('exposes the attachment status for a failed media row', async () => {
@@ -122,7 +123,12 @@ describe('MessageService.getMessagePayload', () => {
   it('maps an audio row to the unchanged broadcast shape with mediaUrl', async () => {
     findById.mockResolvedValue(message({ type: 'audio', body: null }));
     findAttachmentsByMessageIds.mockResolvedValue([
-      attachment({ type: 'audio', mimeType: 'audio/ogg', storageUrl: '/uploads/a.ogg', fileName: 'a.ogg' }),
+      attachment({
+        type: 'audio',
+        mimeType: 'audio/ogg',
+        storageUrl: '/uploads/a.ogg',
+        fileName: 'a.ogg',
+      }),
     ]);
 
     const payload = await service.getMessagePayload('msg-1');
@@ -130,7 +136,7 @@ describe('MessageService.getMessagePayload', () => {
     expect(payload).toMatchObject({
       id: 'msg-1',
       conversationId: 'conv-1',
-      msg: { type: 'audio', mediaUrl: '/uploads/a.ogg', content: {} },
+      msg: { type: 'audio', mediaUrl: '/attachments/att-1', content: {} },
     });
     expect(Object.keys(payload as object).sort()).toEqual([
       'clientMessageId',

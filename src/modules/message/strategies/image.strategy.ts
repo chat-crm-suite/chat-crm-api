@@ -6,6 +6,7 @@ import type {
   WhatsAppMediaContent,
   WhatsAppPayload,
 } from '../../../integrations/whatsapp/interfaces/whatsapp-message.interface';
+import { attachmentMediaUrl } from '../attachment-url';
 import type { MessageAttachment } from '../entities/message-attachment.entity';
 import type { Message } from '../entities/message.entity';
 import { getConversationMessageBase } from '../mappers/conversation-message.mapper';
@@ -41,7 +42,7 @@ export class ImageMessageStrategy implements MessageStrategy {
       ...getConversationMessageBase(message),
       msg: {
         type: 'image',
-        mediaUrl: attachment?.storageUrl ?? null,
+        mediaUrl: attachmentMediaUrl(attachment),
         attachmentStatus: attachment?.status ?? null,
         mimeType: attachment?.mimeType ?? null,
         sizeBytes: attachment?.sizeBytes ?? null,

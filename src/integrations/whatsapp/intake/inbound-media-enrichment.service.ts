@@ -13,6 +13,7 @@ import { ConversationsService } from '../../../modules/conversations/conversatio
 import { ConversationFanoutService } from '../../../modules/conversations/realtime/conversation-fanout.service';
 import type { MessageAttachment } from '../../../modules/message/entities/message-attachment.entity';
 import type { Message } from '../../../modules/message/entities/message.entity';
+import { attachmentMediaUrl } from '../../../modules/message/attachment-url';
 import { MessageService } from '../../../modules/message/message.service';
 import {
   classifyWhatsAppError,
@@ -187,7 +188,7 @@ export class InboundMediaEnrichmentService {
       conversationId: message.conversationId,
       attachmentId: attachment.id,
       status: attachment.status,
-      url: attachment.storageUrl ?? null,
+      url: attachmentMediaUrl(attachment),
       mimeType: attachment.mimeType ?? null,
       sizeBytes: attachment.sizeBytes ?? null,
       at: new Date(),

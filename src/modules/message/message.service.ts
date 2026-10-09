@@ -19,6 +19,7 @@ import type { MessageAttachment } from './entities/message-attachment.entity';
 import type { Message } from './entities/message.entity';
 import { toConversationMessagePayload } from './mappers/conversation-message.mapper';
 import { MessageRepository } from './message.repository';
+import type { MessageAttachmentContext } from './message.repository';
 import type { ConversationMessagePayload } from './message.types';
 import { MESSAGE_STRATEGY_REGISTRY } from './strategies/strategy.registry';
 
@@ -262,6 +263,13 @@ export class MessageService {
   /** T3: attachments of a saved row still waiting for their media file. */
   findPendingMediaAttachments(messageId: string): Promise<MessageAttachment[]> {
     return this.repo.findPendingMediaAttachments(messageId);
+  }
+
+  /** T25: attachment + owning message, for the private attachments endpoint. */
+  findAttachmentContext(
+    attachmentId: string,
+  ): Promise<MessageAttachmentContext | null> {
+    return this.repo.findAttachmentContext(attachmentId);
   }
 
   /** T3: stores the downloaded file data on a pending attachment. */

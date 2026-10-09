@@ -46,6 +46,12 @@ export interface SaveMessageData {
   attachments?: SaveMessageAttachment[];
 }
 
+/** T25: attachment plus the message that owns it (company + conversation). */
+export interface MessageAttachmentContext {
+  attachment: MessageAttachment;
+  message: Message;
+}
+
 @Injectable()
 export class MessageRepository {
   constructor(
@@ -317,6 +323,28 @@ export class MessageRepository {
       },
       order: { createdAt: 'ASC' },
     });
+  }
+
+  /**
+   * T25: resolve one attachment with the message that owns it, so the
+   * attachments endpoint can scope access to the message's conversation and
+   * company without trusting client input.
+   */
+  async findAttachmentContext(
+    attachmentId: string,
+  ): Promise<MessageAttachmentContext | null> {
+    const attachment = await this.attachments.findOne({
+      where: { id: attachmentId },
+    });
+    if (!attachment) return null;
+
+    const message = await this.messages.findOne({
+      where: { id: attachment.messageId },
+      select: { id: true, conversationId: true, companyId: true },
+    });
+    if (!message) return null;
+
+    return { attachment, message };
   }
 
   /**

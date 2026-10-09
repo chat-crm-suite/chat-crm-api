@@ -3,6 +3,7 @@
 
 import { Module } from '@nestjs/common';
 import { AnalysisModule } from './analysis/analysis.module';
+import { AttachmentsModule } from './attachments/attachments.module';
 import { ChannelsModule } from './channels/channels.module';
 import { CompanyModule } from './company/company.module';
 import { CompanyMembersModule } from './company-members/company-members.module';
@@ -16,6 +17,7 @@ import { UsersModule } from './users/users.module';
 
 export {
   AnalysisModule,
+  AttachmentsModule,
   ChannelsModule,
   CompanyModule,
   CompanyMembersModule,
@@ -30,6 +32,7 @@ export {
 
 export const modules = [
   AnalysisModule,
+  AttachmentsModule,
   ChannelsModule,
   CompanyModule,
   CompanyMembersModule,

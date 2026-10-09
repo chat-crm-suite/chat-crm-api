@@ -110,7 +110,10 @@ function wireReadyMedia(
   client: ReturnType<typeof build>['client'],
 ) {
   messages.findPendingMediaAttachments.mockResolvedValue([attachment()]);
-  conversations.findOne.mockResolvedValue({ id: 'conv-1', channelId: 'chan-1' });
+  conversations.findOne.mockResolvedValue({
+    id: 'conv-1',
+    channelId: 'chan-1',
+  });
   channels.getTransmissionByChannelId.mockResolvedValue(transmission);
   client.downloadMedia.mockResolvedValue({
     fileUrl: '/uploads/co-1/media-1.jpg',
@@ -156,7 +159,7 @@ describe('InboundMediaEnrichmentService (T23)', () => {
         conversationId: 'conv-1',
         attachmentId: 'att-1',
         status: 'ready',
-        url: '/uploads/co-1/media-1.jpg',
+        url: '/attachments/att-1',
         mimeType: 'image/jpeg',
         sizeBytes: 10,
       }),
@@ -310,7 +313,8 @@ describe('InboundMediaEnrichmentService (T23)', () => {
   });
 
   it('fails every pending attachment when the lookup throws on the last attempt', async () => {
-    const { service, messages, conversations, client, fanout, logger } = build();
+    const { service, messages, conversations, client, fanout, logger } =
+      build();
     messages.findPendingMediaAttachments.mockResolvedValue([attachment()]);
     conversations.findOne.mockRejectedValue(new Error('decrypt failed'));
     messages.markAttachmentFailed.mockResolvedValue(

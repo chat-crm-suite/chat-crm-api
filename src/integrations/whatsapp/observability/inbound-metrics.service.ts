@@ -8,8 +8,13 @@ import { Redis } from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 
 import { safely } from '../../../modules/analysis/ia/ia-safety';
+import type { AttachmentType } from '../../../contracts/index';
 import { ENRICH_MEDIA_QUEUE } from '../intake/enrich-media.queue';
 import { WhatsAppIntakeService } from '../intake/whatsapp-intake.service';
+import type {
+  InboundContentType,
+  InboundDiscardReason,
+} from '../types/inbound-message.types';
 import { INBOUND_METRICS_REDIS } from './inbound-metrics.redis';
 
 /** Counters reset daily: the TTL is set when a hash is born, never extended. */
@@ -62,11 +67,14 @@ export class InboundMetricsService {
     this.logger.setContext(InboundMetricsService.name);
   }
 
-  recordReceived(type: string): Promise<void> {
+  recordReceived(type: InboundContentType): Promise<void> {
     return this.bump(INBOUND_METRICS_KEYS.received, type, 'received count');
   }
 
-  recordDiscarded(type: string, reason: string): Promise<void> {
+  recordDiscarded(
+    type: string,
+    reason: InboundDiscardReason,
+  ): Promise<void> {
     return Promise.all([
       this.bump(
         INBOUND_METRICS_KEYS.discardedByType,
@@ -81,7 +89,7 @@ export class InboundMetricsService {
     ]).then(() => undefined);
   }
 
-  recordMediaEnriched(type: string): Promise<void> {
+  recordMediaEnriched(type: AttachmentType): Promise<void> {
     return this.bump(
       INBOUND_METRICS_KEYS.mediaEnriched,
       type,
@@ -89,7 +97,7 @@ export class InboundMetricsService {
     );
   }
 
-  recordMediaFailed(type: string): Promise<void> {
+  recordMediaFailed(type: AttachmentType): Promise<void> {
     return this.bump(
       INBOUND_METRICS_KEYS.mediaFailed,
       type,

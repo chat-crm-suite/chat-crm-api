@@ -32,6 +32,7 @@ import {
 } from '../../../modules/conversations/commands/update-message-status.command';
 import { WhatsAppIntakeService } from '../intake/whatsapp-intake.service';
 import { InboundWebhookParserService } from '../intake/inbound-webhook-parser.service';
+import { makeSenderNameLookup } from '../mappers/inbound-message-parsers.registry';
 import type { InboundMessage } from '../types/inbound-message.types';
 import type { WhatsAppWebhookStatus } from '../types/whatsapp-webhook.types';
 import { verifyWhatsAppSignature } from '../security/whatsapp-signature';
@@ -112,7 +113,7 @@ export class WebhookController {
 
     // Ticket #22 (parse-once): the payload is parsed exactly once up here
     // through the #21 border, and the single result is shared between
-    // message and status dispatch — never a second mapper call per post.
+    // message and status dispatch — never a second parser call per post.
     const parsed = this.parser.parseWebhook(payload);
 
     // Durable intake: every inbound `wamid` and every status tick is
@@ -170,7 +171,7 @@ export class WebhookController {
       for (const { field, value } of entry.changes ?? []) {
         if (field !== 'messages') continue;
 
-        const senderNameOf = senderNamesByWaId(value);
+        const senderNameOf = makeSenderNameLookup(value.contacts);
         for (const message of value.messages ?? []) {
           if (!message?.id) continue;
           const outcome = await this.intake.persistIfNew({
@@ -308,25 +309,3 @@ export class WebhookController {
     });
   }
 }
-
-/**
- * Ticket #22 parity: `wa_id -> profile.name` lookup over one change value,
- * mirroring the #21 border's contact map. The intake persists the snapshot
- * beside the raw message because the stored payload carries no contacts.
- */
-const senderNamesByWaId = (value: {
-  contacts?: Array<{
-    wa_id?: unknown;
-    profile?: { name?: unknown } | null;
-  }> | null;
-}): ((from?: unknown) => string | undefined) => {
-  const names = new Map<string, string>();
-  for (const contact of value.contacts ?? []) {
-    const name = contact?.profile?.name;
-    if (typeof contact?.wa_id === 'string' && typeof name === 'string') {
-      names.set(contact.wa_id, name);
-    }
-  }
-  return (from?: unknown) =>
-    typeof from === 'string' ? names.get(from) : undefined;
-};

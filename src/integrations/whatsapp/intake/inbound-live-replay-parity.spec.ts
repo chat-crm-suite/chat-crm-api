@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 import { HttpStatus } from '@nestjs/common';
+import { createHmac } from 'crypto';
 import type { WhatsappNotification } from '@daweto/whatsapp-api-types';
 
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
@@ -135,5 +136,114 @@ describe('Inbound live/replay parity (ticket #22)', () => {
       senderName: 'Alice',
     });
     expect(replayed.message.content).toEqual(live.command.message.content);
+  });
+
+  it('omits the same message on both paths when the channel id is missing', async () => {
+    const raw = JSON.stringify({
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: '123',
+          changes: [
+            {
+              field: 'messages',
+              value: {
+                messaging_product: 'whatsapp',
+                metadata: { display_phone_number: '15550001111' },
+                messages: [
+                  {
+                    id: 'wamid-no-channel-1',
+                    from: '15551234567',
+                    timestamp: '1760000000',
+                    type: 'text',
+                    text: { body: 'hola' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const signature = `sha256=${createHmac('sha256', 'test-app-secret')
+      .update(raw)
+      .digest('hex')}`;
+
+    // Live: the border discards the message for lack of a channel id, so
+    // nothing is ever dispatched.
+    const liveCommands: unknown[] = [];
+    const live = new WebhookController(
+      { verifyToken: jest.fn() } as never,
+      {
+        execute: jest.fn((command: unknown) => {
+          liveCommands.push(command);
+          return Promise.resolve(undefined);
+        }),
+      } as never,
+      nullLogger() as never,
+      { get: jest.fn().mockReturnValue('test-app-secret') } as never,
+      {
+        persistIfNew: jest.fn().mockResolvedValue('stored' as const),
+        markReplayed: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      {
+        parseWebhook: jest.fn((body: unknown) =>
+          mapInboundWebhookToMessages(body),
+        ),
+      } as never,
+    );
+
+    const res = { sendStatus: jest.fn() };
+    await live.receiveMessage(
+      JSON.parse(raw) as WhatsappNotification,
+      {
+        headers: { 'x-hub-signature-256': signature },
+        rawBody: Buffer.from(raw, 'utf8'),
+      } as never,
+      res as never,
+    );
+
+    expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
+    expect(
+      liveCommands.filter((c) => c instanceof ReceiveWhatsAppMessageCommand),
+    ).toHaveLength(0);
+
+    // Replay: the stored row carries no channel id, so the rehydration omits it
+    // exactly like the live path — no ghost command the live border would drop.
+    const replayCommands: unknown[] = [];
+    const service = new WhatsAppInboundReplayService(
+      {
+        listPending: jest.fn().mockResolvedValue([
+          {
+            wamid: 'wamid-no-channel-1',
+            kind: 'message',
+            phoneNumberId: undefined,
+            messageType: 'text',
+            status: 'pending',
+            payload: {
+              id: 'wamid-no-channel-1',
+              from: '15551234567',
+              timestamp: '1760000000',
+              type: 'text',
+              text: { body: 'hola' },
+            },
+          },
+        ]),
+        markReplayed: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      { findByExternalId: jest.fn().mockResolvedValue(null) } as never,
+      {
+        execute: jest.fn((command: unknown) => {
+          replayCommands.push(command);
+          return Promise.resolve(undefined);
+        }),
+      } as never,
+      nullLogger() as never,
+    );
+
+    await expect(service.replayPending()).resolves.toBe(0);
+    expect(
+      replayCommands.filter((c) => c instanceof ReceiveWhatsAppMessageCommand),
+    ).toHaveLength(0);
   });
 });

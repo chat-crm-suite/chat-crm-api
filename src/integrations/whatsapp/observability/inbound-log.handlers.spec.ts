@@ -64,7 +64,12 @@ describe('Inbound media enriched log handler (ticket #24)', () => {
     const handler = new InboundMediaEnrichedLogHandler(log as never);
 
     handler.handle(
-      new InboundMediaEnrichedEvent('msg-1', 'att-1', 'media-1', 'image'),
+      new InboundMediaEnrichedEvent({
+        messageId: 'msg-1',
+        attachmentId: 'att-1',
+        mediaId: 'media-1',
+        type: 'image',
+      }),
     );
 
     expect(log.debug).toHaveBeenCalledWith(
@@ -87,7 +92,12 @@ describe('Inbound media enriched log handler (ticket #24)', () => {
 
     expect(() =>
       handler.handle(
-        new InboundMediaEnrichedEvent('msg-1', 'att-1', 'media-1', 'image'),
+        new InboundMediaEnrichedEvent({
+        messageId: 'msg-1',
+        attachmentId: 'att-1',
+        mediaId: 'media-1',
+        type: 'image',
+      }),
       ),
     ).not.toThrow();
   });
@@ -100,10 +110,12 @@ describe('Inbound media failed log handler (ticket #24)', () => {
 
     handler.handle(
       new InboundMediaFailedEvent(
-        'msg-1',
-        'att-1',
-        'media-1',
-        'video',
+        {
+          messageId: 'msg-1',
+          attachmentId: 'att-1',
+          mediaId: 'media-1',
+          type: 'video',
+        },
         true,
         new Error('graph 500'),
       ),
@@ -129,10 +141,12 @@ describe('Inbound media failed log handler (ticket #24)', () => {
 
     handler.handle(
       new InboundMediaFailedEvent(
-        'msg-1',
-        'att-1',
-        'media-1',
-        'image',
+        {
+          messageId: 'msg-1',
+          attachmentId: 'att-1',
+          mediaId: 'media-1',
+          type: 'image',
+        },
         false,
         new Error('media too large'),
       ),
@@ -162,10 +176,12 @@ describe('Inbound media failed log handler (ticket #24)', () => {
     expect(() =>
       handler.handle(
         new InboundMediaFailedEvent(
-          'msg-1',
-          'att-1',
-          'media-1',
-          'image',
+          {
+            messageId: 'msg-1',
+            attachmentId: 'att-1',
+            mediaId: 'media-1',
+            type: 'image',
+          },
           false,
           new Error('boom'),
         ),

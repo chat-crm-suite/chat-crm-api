@@ -65,7 +65,12 @@ describe('Inbound metrics subscriber (ticket #24)', () => {
       metrics as unknown as InboundMetricsService,
       logger() as never,
     ).handle(
-      new InboundMediaEnrichedEvent('msg-1', 'att-1', 'media-1', 'video'),
+      new InboundMediaEnrichedEvent({
+        messageId: 'msg-1',
+        attachmentId: 'att-1',
+        mediaId: 'media-1',
+        type: 'video',
+      }),
     );
 
     expect(metrics.recordMediaEnriched).toHaveBeenCalledWith('video');
@@ -78,10 +83,12 @@ describe('Inbound metrics subscriber (ticket #24)', () => {
       logger() as never,
     ).handle(
       new InboundMediaFailedEvent(
-        'msg-1',
-        'att-1',
-        'media-1',
-        'image',
+        {
+          messageId: 'msg-1',
+          attachmentId: 'att-1',
+          mediaId: 'media-1',
+          type: 'image',
+        },
         true,
         new Error('graph 500'),
       ),

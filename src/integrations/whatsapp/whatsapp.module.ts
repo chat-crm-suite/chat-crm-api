@@ -14,11 +14,12 @@ import { Channel } from '../../modules/channels/entities/channel.entity';
 import { ConversationsModule } from '../../modules/conversations/conversations.module';
 import { MessageModule } from '../../modules/message/message.module';
 import { WhatsAppClient } from './clients/whatsapp.client';
-import { MessageContentHandlers } from './commands/handlers/message-content.handlers';
+import { InboundMessageRouter } from './commands/router/inbound-message.router';
 import { ReceiveWhatsAppMessageHandler } from './commands/handlers/receive-whatsapp-message.handler';
 import { SendAgentMessageHandler } from './commands/handlers/send-agent-message.handler';
 import { SendWhatsAppMessageHandler } from './commands/handlers/send-whatsapp-message.handler';
 import { WebhookController } from './controllers/index';
+import { InboundMetricsController } from './observability/inbound-metrics.controller';
 import { WhatsappInboundEvent } from './entities/whatsapp-inbound-event.entity';
 import { ENRICH_MEDIA_QUEUE } from './intake/enrich-media.queue';
 import { EnrichMediaProcessor } from './intake/enrich-media.processor';
@@ -60,7 +61,7 @@ import { WhatsAppService } from './whatsapp.service';
     ConversationsModule,
     MessageModule,
   ],
-  controllers: [WebhookController],
+  controllers: [WebhookController, InboundMetricsController],
   providers: [
     WhatsAppService,
     AgentMessageSender,
@@ -73,7 +74,7 @@ import { WhatsAppService } from './whatsapp.service';
     EnrichMediaProcessor,
     WhatsAppClient,
     ReceiveWhatsAppMessageHandler,
-    MessageContentHandlers,
+    InboundMessageRouter,
     SendAgentMessageHandler,
     SendWhatsAppMessageHandler,
     // Ticket #24: event-based observability (logs + metrics).

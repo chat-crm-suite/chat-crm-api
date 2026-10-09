@@ -4,7 +4,7 @@
 import { SaveConversationMessageCommand } from '../../../../modules/conversations/commands/save-conversation-message.command';
 import type { ConversationMessageDto } from '../../../../modules/conversations/dto/conversation-message.dto';
 import type { ChannelTransmission } from '../../../../modules/channels/channels.service';
-import { MessageContentHandlers } from './message-content.handlers';
+import { InboundMessageRouter } from './inbound-message.router';
 
 /**
  * T3 row-first persist: every known inbound type reaches the save command as
@@ -46,13 +46,13 @@ function build() {
     warn: jest.fn(),
     setContext: jest.fn(),
   };
-  const handlers = new MessageContentHandlers(
+  const router = new InboundMessageRouter(
     conversations as never,
     commandBus as never,
     logger as never,
   );
 
-  return { handlers, conversations, commandBus, logger };
+  return { router, conversations, commandBus, logger };
 }
 
 const savedPayload = (
@@ -65,11 +65,11 @@ const savedPayload = (
     : undefined;
 };
 
-describe('MessageContentHandlers (T3 pending media reference)', () => {
+describe('InboundMessageRouter (T3 pending media reference)', () => {
   it('persists an audio message as a row with its media reference (no download)', async () => {
-    const { handlers, commandBus } = build();
+    const { router, commandBus } = build();
 
-    await handlers.getHandler('audio')?.handle(
+    await router.resolve('audio')?.handle(
       {
         type: 'audio',
         audio: { id: 'media-audio-1', mime_type: 'audio/ogg; codecs=opus' },
@@ -95,9 +95,9 @@ describe('MessageContentHandlers (T3 pending media reference)', () => {
   });
 
   it('persists an image with caption and media reference', async () => {
-    const { handlers, commandBus } = build();
+    const { router, commandBus } = build();
 
-    await handlers.getHandler('image')?.handle(
+    await router.resolve('image')?.handle(
       {
         type: 'image',
         image: { id: 'media-img-1', caption: 'mira', mime_type: 'image/jpeg' },
@@ -118,9 +118,9 @@ describe('MessageContentHandlers (T3 pending media reference)', () => {
   });
 
   it('persists a document with filename and caption', async () => {
-    const { handlers, commandBus } = build();
+    const { router, commandBus } = build();
 
-    await handlers.getHandler('document')?.handle(
+    await router.resolve('document')?.handle(
       {
         type: 'document',
         document: {
@@ -149,9 +149,9 @@ describe('MessageContentHandlers (T3 pending media reference)', () => {
   });
 
   it('persists a video with caption and filename', async () => {
-    const { handlers, commandBus } = build();
+    const { router, commandBus } = build();
 
-    await handlers.getHandler('video')?.handle(
+    await router.resolve('video')?.handle(
       {
         type: 'video',
         video: {
@@ -179,9 +179,9 @@ describe('MessageContentHandlers (T3 pending media reference)', () => {
   });
 
   it('persists a sticker as a media row with its reference', async () => {
-    const { handlers, commandBus } = build();
+    const { router, commandBus } = build();
 
-    await handlers.getHandler('sticker')?.handle(
+    await router.resolve('sticker')?.handle(
       {
         type: 'sticker',
         sticker: { id: 'media-sticker-1', mime_type: 'image/webp' },
@@ -200,9 +200,9 @@ describe('MessageContentHandlers (T3 pending media reference)', () => {
   });
 
   it('persists the row even when the media has no reference at all', async () => {
-    const { handlers, commandBus } = build();
+    const { router, commandBus } = build();
 
-    await handlers.getHandler('image')?.handle(
+    await router.resolve('image')?.handle(
       { type: 'image', image: { caption: 'foto sin archivo' } },
       context(),
       transmission(),
@@ -218,9 +218,9 @@ describe('MessageContentHandlers (T3 pending media reference)', () => {
   });
 
   it('persists a location as a short readable row', async () => {
-    const { handlers, commandBus } = build();
+    const { router, commandBus } = build();
 
-    await handlers.getHandler('location')?.handle(
+    await router.resolve('location')?.handle(
       {
         type: 'location',
         location: {
@@ -245,9 +245,9 @@ describe('MessageContentHandlers (T3 pending media reference)', () => {
   });
 
   it('persists a contact card as a short readable row', async () => {
-    const { handlers, commandBus } = build();
+    const { router, commandBus } = build();
 
-    await handlers.getHandler('contact')?.handle(
+    await router.resolve('contact')?.handle(
       {
         type: 'contact',
         contacts: [
@@ -270,9 +270,9 @@ describe('MessageContentHandlers (T3 pending media reference)', () => {
   });
 
   it('persists a button reply as a short readable row', async () => {
-    const { handlers, commandBus } = build();
+    const { router, commandBus } = build();
 
-    await handlers.getHandler('interactive')?.handle(
+    await router.resolve('interactive')?.handle(
       {
         type: 'interactive',
         interactive: {
@@ -290,9 +290,9 @@ describe('MessageContentHandlers (T3 pending media reference)', () => {
   });
 
   it('persists a reaction as a short readable row', async () => {
-    const { handlers, commandBus } = build();
+    const { router, commandBus } = build();
 
-    await handlers.getHandler('reaction')?.handle(
+    await router.resolve('reaction')?.handle(
       {
         type: 'reaction',
         reaction: { message_id: 'wamid-target-1', emoji: '👍' },

@@ -50,12 +50,7 @@ export class InboundMediaEnrichedLogHandler
   handle(event: InboundMediaEnrichedEvent): void {
     try {
       this.logger.debug(
-        {
-          messageId: event.messageId,
-          attachmentId: event.attachmentId,
-          mediaId: event.mediaId,
-          type: event.type,
-        },
+        { ...event.ref },
         'Inbound media enriched',
       );
     } catch {
@@ -74,10 +69,7 @@ export class InboundMediaFailedLogHandler
 
   handle(event: InboundMediaFailedEvent): void {
     const fields = {
-      messageId: event.messageId,
-      attachmentId: event.attachmentId,
-      mediaId: event.mediaId,
-      type: event.type,
+      ...event.ref,
       retryable: event.retryable,
     };
 

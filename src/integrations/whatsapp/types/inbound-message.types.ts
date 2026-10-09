@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 import type {
-  WhatsappNotificationError,
-  WhatsappNotificationStatus,
-} from '@daweto/whatsapp-api-types';
+  WhatsAppWebhookError,
+  WhatsAppWebhookStatus,
+} from './whatsapp-webhook.types';
 
 /**
  * Layer 2 of the inbound domain (ticket #26 contract): the normalized,
@@ -134,6 +134,13 @@ export type InboundMessageContent =
   | InboundInteractiveContent
   | InboundReactionContent;
 
+/**
+ * The normalized content discriminant. Deliberately distinct from
+ * {@link InboundMessageType}: the raw provider type is `contacts`, while its
+ * normalized content is `contact` (same for legacy `button` -> `interactive`).
+ */
+export type InboundContentType = InboundMessageContent['type'];
+
 export interface InboundMessage {
   context: InboundMessageContext;
   content: InboundMessageContent;
@@ -155,8 +162,8 @@ export type InboundMessageType =
 
 export interface InboundWebhookResult {
   messages: InboundMessage[];
-  statuses: WhatsappNotificationStatus[];
-  errors: WhatsappNotificationError[];
+  statuses: WhatsAppWebhookStatus[];
+  errors: WhatsAppWebhookError[];
 }
 
 /**
@@ -181,6 +188,10 @@ export type InboundDiscardReason =
 /** The discard fact the publishing border emits per discarded message. */
 export interface InboundDiscard {
   messageId: string;
+  /**
+   * Raw provider type, deliberately a free string: an unknown type that never
+   * reached the parser registry must still name itself in the discard fact.
+   */
   type: string;
   reason: InboundDiscardReason;
 }

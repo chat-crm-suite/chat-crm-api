@@ -22,6 +22,7 @@ import type {
   WhatsAppWebhookError,
   WhatsAppWebhookStatus,
 } from '../types/whatsapp-webhook.types';
+import { isRecord, nonEmptyString } from '../types/guards';
 
 /**
  * Single type-keyed inbound parser registry (ticket #21 strict, Strategy
@@ -33,12 +34,6 @@ import type {
 export type InboundMessageParser = (
   message: unknown,
 ) => InboundMessageContent | undefined;
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-const nonEmptyString = (value: unknown): value is string =>
-  typeof value === 'string' && value.trim().length > 0;
 
 /**
  * Strict text parser (ticket #21): a missing, empty or blank body is a
@@ -274,37 +269,21 @@ export const parseInboundMessage = (
 };
 
 /**
- * Pure discard description: why `parseInboundMessage` would drop this raw
- * message, with its id and type for correlation. `undefined` when the
- * message parses — there is no discard to report. No logging, no bus: the
- * publishing border owns those effects.
- */
-export const describeInboundDiscard = (
-  message: unknown,
-): InboundDiscard | undefined => {
-  const outcome = runParser(message);
-  if ('content' in outcome) return undefined;
-  if (!isRecord(message)) {
-    return { messageId: 'unknown', type: 'unknown', reason: outcome.discard };
-  }
-  const { id } = message;
-  return {
-    messageId: nonEmptyString(id) ? id : 'unknown',
-    type: typeNameOf(message),
-    reason: outcome.discard,
-  };
-};
-
-/**
  * Rehydrates a single message stored by the durable intake into the
  * normalized shape. Replay never re-parses a webhook: the stored payload is
  * the source of truth. Same guard and context as the live parse path.
+ *
+ * The channel id (`phoneNumberId`) is required, exactly like the live border:
+ * a stored row without it is omitted the same way the live path discards it
+ * (`missing-channel-id`), so replay can never produce a ghost the live path
+ * would have rejected.
  */
 export const toInboundMessage = (
   message: unknown,
   phoneNumberId?: string | null,
   senderName?: string,
 ): InboundMessage | undefined => {
+  if (!nonEmptyString(phoneNumberId)) return undefined;
   if (
     !message ||
     typeof message !== 'object' ||
@@ -317,7 +296,7 @@ export const toInboundMessage = (
 
   const stored = message as { id: string; from: string };
   const context: InboundMessageContext = {
-    phoneNumberId: phoneNumberId ?? '',
+    phoneNumberId,
     from: stored.from,
     messageId: stored.id,
     senderName,
@@ -326,6 +305,7 @@ export const toInboundMessage = (
   return parseInboundMessage(message, context);
 };
 
+/** `wa_id -> contact` map over one webhook `contacts` list. */
 const toContactMap = (
   contacts: unknown[],
 ): Record<string, WhatsAppWebhookContact> =>
@@ -337,6 +317,20 @@ const toContactMap = (
       )
       .map((c): [string, WhatsAppWebhookContact] => [c.wa_id, c]),
   );
+
+/**
+ * Ticket #22 parity: `wa_id -> profile.name` lookup over a webhook `contacts`
+ * list. Shared by the live border and the intake persistence, so both read
+ * the contact snapshot through one implementation.
+ */
+export const makeSenderNameLookup = (
+  contacts: unknown,
+): ((from?: unknown) => string | undefined) => {
+  const byWaId = toContactMap(Array.isArray(contacts) ? contacts : []);
+
+  return (from?: unknown) =>
+    typeof from === 'string' ? byWaId[from]?.profile?.name : undefined;
+};
 
 /** One discard fact per discarded message; pure parsers never call it. */
 export type InboundDiscardListener = (discard: InboundDiscard) => void;
@@ -402,9 +396,7 @@ export const mapInboundWebhookToMessages = (
         continue;
       }
 
-      const contacts = toContactMap(
-        Array.isArray(value.contacts) ? value.contacts : [],
-      );
+      const senderNameOf = makeSenderNameLookup(value.contacts);
       for (const raw of rawMessages) {
         if (!isRecord(raw)) {
           notify({
@@ -428,7 +420,7 @@ export const mapInboundWebhookToMessages = (
           phoneNumberId,
           from,
           messageId: id,
-          senderName: contacts[from]?.profile?.name,
+          senderName: senderNameOf(from),
         };
         const outcome = runParser(raw);
         if ('discard' in outcome) {

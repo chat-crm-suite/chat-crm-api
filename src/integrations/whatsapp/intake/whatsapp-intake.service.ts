@@ -1,15 +1,26 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 
 import { isDuplicateKeyError } from '../../../lib/helpers/query-error.helper';
 import { WhatsappInboundEvent } from '../entities/whatsapp-inbound-event.entity';
 
 export type IntakeOutcome = 'stored' | 'duplicate';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Time-based purge window for `replayed` intake events (ticket #19 spec
+ * decision: "durable replayed events get a time-based purge"). A replayed row
+ * is only recovery material until it is acknowledged, and `pending` rows are
+ * never touched. Configurable through `WHATSAPP_INTAKE_REPLAY_RETENTION_DAYS`.
+ */
+export const INBOUND_REPLAY_RETENTION_MS =
+  (Number(process.env.WHATSAPP_INTAKE_REPLAY_RETENTION_DAYS) || 7) * DAY_MS;
 
 export interface InboundEventInput {
   wamid: string;
@@ -32,12 +43,23 @@ export interface InboundEventInput {
  * status tick never collides with the message event of the same wamid.
  */
 @Injectable()
-export class WhatsAppIntakeService {
+export class WhatsAppIntakeService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(WhatsappInboundEvent)
     private readonly events: Repository<WhatsappInboundEvent>,
     private readonly logger: PinoLogger,
   ) {}
+
+  /**
+   * Boot housekeeping: drop replayed rows past their retention window so the
+   * durable store only ever holds live recovery material. Best-effort: a
+   * failed purge warns and never blocks startup.
+   */
+  onApplicationBootstrap(): void {
+    void this.purgeReplayed().catch((error: unknown) =>
+      this.logger.warn({ error }, 'Inbound intake purge failed'),
+    );
+  }
 
   async persistIfNew(input: InboundEventInput): Promise<IntakeOutcome> {
     if (!input.wamid) {
@@ -96,5 +118,31 @@ export class WhatsAppIntakeService {
       { wamid, kind, status: 'pending' },
       { status: 'replayed' },
     );
+  }
+
+  /**
+   * Purges `replayed` events whose last touch is older than the retention
+   * window, returning how many rows were deleted. `pending` events are never
+   * purged: they are still recovery material. The window defaults to
+   * {@link INBOUND_REPLAY_RETENTION_MS} and is overridable per call.
+   */
+  async purgeReplayed(
+    retentionMs = INBOUND_REPLAY_RETENTION_MS,
+  ): Promise<number> {
+    const cutoff = new Date(Date.now() - retentionMs);
+    const result = await this.events.delete({
+      status: 'replayed',
+      updatedAt: LessThan(cutoff),
+    });
+    const purged = result.affected ?? 0;
+
+    if (purged > 0) {
+      this.logger.debug(
+        { purged, cutoff },
+        'Purged replayed inbound intake events',
+      );
+    }
+
+    return purged;
   }
 }

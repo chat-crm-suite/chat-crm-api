@@ -3,10 +3,8 @@
 
 import type {
   WhatsappNotification,
-  WhatsappNotificationChange,
   WhatsappNotificationContact,
   WhatsappNotificationError,
-  WhatsappNotificationMessage,
   WhatsappNotificationStatus,
 } from '@daweto/whatsapp-api-types';
 
@@ -17,8 +15,6 @@ import type {
  * change: no caller migrates in this ticket.
  */
 export type WhatsAppWebhook = WhatsappNotification;
-export type WhatsAppWebhookChange = WhatsappNotificationChange;
 export type WhatsAppWebhookContact = WhatsappNotificationContact;
-export type WhatsAppWebhookMessage = WhatsappNotificationMessage;
 export type WhatsAppWebhookStatus = WhatsappNotificationStatus;
 export type WhatsAppWebhookError = WhatsappNotificationError;

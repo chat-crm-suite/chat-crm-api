@@ -182,10 +182,12 @@ describe('InboundMediaEnrichmentService (T23)', () => {
     );
     expect(eventBus.publish).toHaveBeenCalledWith(
       expect.objectContaining({
-        messageId: 'msg-1',
-        attachmentId: 'att-1',
-        mediaId: 'media-1',
-        type: 'image',
+        ref: {
+          messageId: 'msg-1',
+          attachmentId: 'att-1',
+          mediaId: 'media-1',
+          type: 'image',
+        },
       }),
     );
   });
@@ -239,10 +241,12 @@ describe('InboundMediaEnrichmentService (T23)', () => {
     );
     expect(eventBus.publish).toHaveBeenCalledWith(
       expect.objectContaining({
-        messageId: 'msg-1',
-        attachmentId: 'att-1',
-        mediaId: 'media-1',
-        type: 'image',
+        ref: {
+          messageId: 'msg-1',
+          attachmentId: 'att-1',
+          mediaId: 'media-1',
+          type: 'image',
+        },
         retryable: true,
       }),
     );
@@ -289,8 +293,12 @@ describe('InboundMediaEnrichmentService (T23)', () => {
     expect(fanout.emitAttachmentPatch).toHaveBeenCalledTimes(1);
     expect(eventBus.publish).toHaveBeenCalledWith(
       expect.objectContaining({
-        attachmentId: 'att-1',
-        mediaId: 'media-1',
+        ref: {
+          messageId: 'msg-1',
+          attachmentId: 'att-1',
+          mediaId: 'media-1',
+          type: 'image',
+        },
         retryable: false,
       }),
     );

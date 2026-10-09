@@ -3,9 +3,11 @@
 
 import type { WhatsappNotification } from '@daweto/whatsapp-api-types';
 
-import type { InboundMessageContext } from '../types/inbound-message.types';
+import type {
+  InboundDiscard,
+  InboundMessageContext,
+} from '../types/inbound-message.types';
 import {
-  describeInboundDiscard,
   mapInboundWebhookToMessages,
   parseInboundMessage,
 } from './inbound-message-parsers.registry';
@@ -394,38 +396,58 @@ describe('malformed webhook degradation (ticket #21)', () => {
 });
 
 describe('discard facts (ticket #21)', () => {
-  it('reports no discard for a valid message', () => {
-    expect(describeInboundDiscard(textMessage())).toBeUndefined();
+  const collectDiscards = (
+    messages: unknown[],
+    metadata?: unknown,
+  ): { parsed: unknown[]; seen: InboundDiscard[] } => {
+    const seen: InboundDiscard[] = [];
+    const { messages: parsed } = mapInboundWebhookToMessages(
+      webhookWith(messageValue(messages, metadata)),
+      (fact) => seen.push(fact),
+    );
+
+    return { parsed, seen };
+  };
+
+  it('notifies no discard for a valid message', () => {
+    const { parsed, seen } = collectDiscards([textMessage()], {
+      ...METADATA,
+    });
+
+    expect(parsed).toHaveLength(1);
+    expect(seen).toEqual([]);
   });
 
-  it('reports unknown provider types with their type', () => {
-    expect(describeInboundDiscard(base({ type: 'order' }))).toEqual({
-      messageId: 'wamid-1',
-      type: 'order',
-      reason: 'unknown-type',
+  it('notifies unknown provider types with their type', () => {
+    const { parsed, seen } = collectDiscards([base({ type: 'order' })], {
+      ...METADATA,
     });
+
+    expect(parsed).toEqual([]);
+    expect(seen).toEqual([
+      { messageId: 'wamid-1', type: 'order', reason: 'unknown-type' },
+    ]);
   });
 
-  it('reports the per-type reason for invalid payloads', () => {
-    expect(
-      describeInboundDiscard(base({ type: 'text', text: { body: '' } })),
-    ).toEqual({
-      messageId: 'wamid-1',
-      type: 'text',
-      reason: 'missing-text-body',
-    });
-    expect(describeInboundDiscard(base({ type: 'image', image: {} }))).toEqual({
-      messageId: 'wamid-1',
-      type: 'image',
-      reason: 'missing-media-id',
-    });
-    expect(
-      describeInboundDiscard(base({ type: 'location', location: {} })),
-    ).toEqual({
-      messageId: 'wamid-1',
-      type: 'location',
-      reason: 'missing-location-coordinates',
-    });
+  it('notifies the per-type reason for invalid payloads', () => {
+    const { seen } = collectDiscards(
+      [
+        base({ type: 'text', text: { body: '' } }),
+        base({ id: 'wamid-img', type: 'image', image: {} }),
+        base({ id: 'wamid-loc', type: 'location', location: {} }),
+      ],
+      { ...METADATA },
+    );
+
+    expect(seen).toEqual([
+      { messageId: 'wamid-1', type: 'text', reason: 'missing-text-body' },
+      { messageId: 'wamid-img', type: 'image', reason: 'missing-media-id' },
+      {
+        messageId: 'wamid-loc',
+        type: 'location',
+        reason: 'missing-location-coordinates',
+      },
+    ]);
   });
 
   it('notifies one fact per discarded message through the webhook border', () => {

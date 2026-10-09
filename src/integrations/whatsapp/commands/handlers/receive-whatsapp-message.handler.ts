@@ -6,14 +6,14 @@ import { PinoLogger } from 'nestjs-pino';
 
 import { ReceiveWhatsAppMessageCommand } from '../receive-whatsapp-message.command';
 import { WhatsAppService } from '../../whatsapp.service';
-import { MessageContentHandlers } from './message-content.handlers';
+import { InboundMessageRouter } from '../router/inbound-message.router';
 
 @CommandHandler(ReceiveWhatsAppMessageCommand)
 export class ReceiveWhatsAppMessageHandler
   implements ICommandHandler<ReceiveWhatsAppMessageCommand>
 {
   constructor(
-    private readonly contentHandlers: MessageContentHandlers,
+    private readonly router: InboundMessageRouter,
     private readonly service: WhatsAppService,
     private readonly logger: PinoLogger,
   ) {
@@ -39,8 +39,6 @@ export class ReceiveWhatsAppMessageHandler
       { channelId: transmission.channel.id },
       'Load WhatsApp channel',
     );
-    await this.contentHandlers
-      .getHandler(content.type)
-      ?.handle(content, context, transmission);
+    await this.router.resolve(content.type)?.handle(content, context, transmission);
   }
 }

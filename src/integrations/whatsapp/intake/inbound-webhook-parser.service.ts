@@ -15,9 +15,8 @@ import type {
   InboundDiscard,
   InboundWebhookResult,
 } from '../types/inbound-message.types';
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+import { isRecord } from '../types/guards';
+import { publishSafely } from '../observability/publish-safely';
 
 /**
  * Thin parse-and-publish border (ticket #21): wraps the pure strict parsers
@@ -56,23 +55,29 @@ export class InboundWebhookParserService {
     const result = mapInboundWebhookToMessages(body, collect);
 
     for (const fact of discarded) {
-      this.publish(
+      publishSafely(
+        this.eventBus,
+        this.logger,
         new InboundMessageDiscardedEvent(
           fact.messageId,
           fact.type,
           fact.reason,
         ),
+        'Inbound observability fact could not be published',
       );
     }
     // Every normalized message is a received fact (ticket #24 metrics), so a
     // text/image/... entering the pipeline is countable by type; the discard
     // facts above count what never made it through.
     for (const message of result.messages) {
-      this.publish(
+      publishSafely(
+        this.eventBus,
+        this.logger,
         new InboundMessageReceivedEvent(
           message.context.messageId,
           message.content.type,
         ),
+        'Inbound observability fact could not be published',
       );
     }
     const channelSkips = discarded.filter(
@@ -89,27 +94,5 @@ export class InboundWebhookParserService {
     }
 
     return result;
-  }
-
-  /**
-   * Publishes one observability fact without ever letting a handler's failure
-   * bubble into the webhook answer (ticket #24: handlers never throw, and this
-   * border stays defensive anyway). The controller is answered 200 regardless.
-   */
-  private publish(event: object): void {
-    try {
-      void Promise.resolve(this.eventBus.publish(event as never)).catch(
-        (error: unknown) =>
-          this.logger.warn(
-            { error },
-            'Inbound observability fact could not be published',
-          ),
-      );
-    } catch (error: unknown) {
-      this.logger.warn(
-        { error },
-        'Inbound observability fact could not be published',
-      );
-    }
   }
 }

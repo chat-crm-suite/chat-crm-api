@@ -22,6 +22,8 @@ import {
 } from '../clients/whatsapp.client';
 import { InboundMediaEnrichedEvent } from '../events/inbound-media-enriched.event';
 import { InboundMediaFailedEvent } from '../events/inbound-media-failed.event';
+import type { InboundMediaRef } from '../events/inbound-media-ref';
+import { publishSafely } from '../observability/publish-safely';
 import {
   ENRICH_MEDIA_TIMEOUT_MS,
   type EnrichMediaAttempt,
@@ -153,13 +155,12 @@ export class InboundMediaEnrichmentService {
       if (!saved) return;
 
       this.emitPatch(message, saved);
-      this.publish(
-        new InboundMediaEnrichedEvent(
-          message.id,
-          attachment.id,
-          attachment.externalMediaId as string,
-          attachment.type,
-        ),
+      publishSafely(
+        this.eventBus,
+        this.logger,
+        new InboundMediaEnrichedEvent(mediaRef(message, attachment)),
+        'Inbound media observability fact could not be published',
+        'error',
       );
     } catch (error: unknown) {
       // Retryable and still within budget: rethrow so BullMQ schedules the
@@ -180,40 +181,20 @@ export class InboundMediaEnrichmentService {
     // A concurrent pass already settled it: no second patch.
     if (saved) this.emitPatch(message, saved);
 
-    this.publish(
+    publishSafely(
+      this.eventBus,
+      this.logger,
       new InboundMediaFailedEvent(
-        message.id,
-        attachment.id,
-        attachment.externalMediaId as string,
-        attachment.type,
+        mediaRef(message, attachment),
         classifyWhatsAppError(error).retryable,
         error,
       ),
+      'Inbound media observability fact could not be published',
+      'error',
     );
   }
 
-  /**
-   * Publishes one domain fact for the log handlers and the metrics subscriber
-   * (ticket #24), never letting a handler failure bubble into enrichment. The
-   * row is already durable either way.
-   */
-  private publish(event: object): void {
-    try {
-      void Promise.resolve(this.eventBus.publish(event as never)).catch(
-        (error: unknown) =>
-          this.logger.error(
-            { error },
-            'Inbound media observability fact could not be published',
-          ),
-      );
-    } catch (error: unknown) {
-      this.logger.error(
-        { error },
-        'Inbound media observability fact could not be published',
-      );
-    }
-  }
-
+  /** Emits one attachment patch over the single fanout path (T6). */
   private emitPatch(message: Message, attachment: MessageAttachment): void {
     const patch: ConversationMessageAttachmentPatch = {
       id: message.id,
@@ -241,6 +222,16 @@ export class InboundMediaEnrichmentService {
 /** A retryable transport fault only retries while the budget has attempts. */
 function shouldRetry(error: unknown, attempt: EnrichMediaAttempt): boolean {
   return !isLastAttempt(attempt) && classifyWhatsAppError(error).retryable;
+}
+
+/** The bounded media correlation clump carried by the enriched/failed facts. */
+function mediaRef(message: Message, attachment: MessageAttachment): InboundMediaRef {
+  return {
+    messageId: message.id,
+    attachmentId: attachment.id,
+    mediaId: attachment.externalMediaId as string,
+    type: attachment.type,
+  };
 }
 
 function fileExtension(fileName?: string): string | undefined {

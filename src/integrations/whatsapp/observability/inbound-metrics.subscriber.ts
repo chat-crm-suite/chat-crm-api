@@ -77,10 +77,10 @@ export class InboundMediaEnrichedMetricsHandler
 
   async handle(event: InboundMediaEnrichedEvent): Promise<void> {
     try {
-      await this.metrics.recordMediaEnriched(event.type);
+      await this.metrics.recordMediaEnriched(event.ref.type);
     } catch (error: unknown) {
       this.logger.warn(
-        { error, type: event.type },
+        { error, type: event.ref.type },
         'Inbound metrics: enriched media count failed',
       );
     }
@@ -100,10 +100,10 @@ export class InboundMediaFailedMetricsHandler
 
   async handle(event: InboundMediaFailedEvent): Promise<void> {
     try {
-      await this.metrics.recordMediaFailed(event.type);
+      await this.metrics.recordMediaFailed(event.ref.type);
     } catch (error: unknown) {
       this.logger.warn(
-        { error, type: event.type },
+        { error, type: event.ref.type },
         'Inbound metrics: failed media count failed',
       );
     }

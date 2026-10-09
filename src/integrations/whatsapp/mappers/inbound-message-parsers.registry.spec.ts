@@ -318,4 +318,18 @@ describe('inbound parser registry (ticket #26 contract)', () => {
     });
     expect(toInboundMessage(null, 'phone-1')).toBeUndefined();
   });
+
+  it('omits a stored payload without a channel id, like the live border', () => {
+    const stored = {
+      id: 'wamid-1',
+      from: '15551234567',
+      timestamp: '1760000000',
+      type: 'text',
+      text: { body: 'hola' },
+    };
+
+    expect(toInboundMessage(stored, undefined)).toBeUndefined();
+    expect(toInboundMessage(stored, '')).toBeUndefined();
+    expect(toInboundMessage(stored, null)).toBeUndefined();
+  });
 });

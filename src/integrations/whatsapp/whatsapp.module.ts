@@ -7,6 +7,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PinoLogger } from 'nestjs-pino';
 
 import { ChannelsModule } from '../../modules/channels/channels.module';
 import { Channel } from '../../modules/channels/entities/channel.entity';
@@ -27,6 +28,22 @@ import { InboundMessageSavedHandler } from './intake/inbound-message-saved.handl
 import { InboundWebhookParserService } from './intake/inbound-webhook-parser.service';
 import { WhatsAppInboundReplayService } from './intake/whatsapp-inbound-replay.service';
 import { WhatsAppIntakeService } from './intake/whatsapp-intake.service';
+import {
+  InboundDiscardLogHandler,
+  InboundMediaEnrichedLogHandler,
+  InboundMediaFailedLogHandler,
+} from './observability/inbound-log.handlers';
+import {
+  createInboundMetricsRedis,
+  INBOUND_METRICS_REDIS,
+} from './observability/inbound-metrics.redis';
+import { InboundMetricsService } from './observability/inbound-metrics.service';
+import {
+  InboundDiscardedMetricsHandler,
+  InboundMediaEnrichedMetricsHandler,
+  InboundMediaFailedMetricsHandler,
+  InboundReceivedMetricsHandler,
+} from './observability/inbound-metrics.subscriber';
 import { AgentMessageSender } from './outbound/agent-message-sender.service';
 import { WhatsAppService } from './whatsapp.service';
 
@@ -59,6 +76,20 @@ import { WhatsAppService } from './whatsapp.service';
     MessageContentHandlers,
     SendAgentMessageHandler,
     SendWhatsAppMessageHandler,
+    // Ticket #24: event-based observability (logs + metrics).
+    {
+      provide: INBOUND_METRICS_REDIS,
+      useFactory: (logger: PinoLogger) => createInboundMetricsRedis(logger),
+      inject: [PinoLogger],
+    },
+    InboundMetricsService,
+    InboundDiscardLogHandler,
+    InboundMediaEnrichedLogHandler,
+    InboundMediaFailedLogHandler,
+    InboundReceivedMetricsHandler,
+    InboundDiscardedMetricsHandler,
+    InboundMediaEnrichedMetricsHandler,
+    InboundMediaFailedMetricsHandler,
   ],
   exports: [WhatsAppService],
 })

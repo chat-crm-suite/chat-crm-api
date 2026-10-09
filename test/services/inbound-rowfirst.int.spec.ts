@@ -187,6 +187,7 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
       { downloadMedia } as never,
       fanout,
       logger(),
+      { publish: jest.fn() } as never,
     );
   });
 

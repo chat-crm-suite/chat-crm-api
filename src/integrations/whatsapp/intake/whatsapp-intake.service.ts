@@ -79,6 +79,11 @@ export class WhatsAppIntakeService {
     });
   }
 
+  /** Ticket #24 gauge: how many intake events still await a replay. */
+  countPending(): Promise<number> {
+    return this.events.count({ where: { status: 'pending' } });
+  }
+
   /**
    * Consumes one pending event (T2): once its conversation row (or applied
    * status) exists, it must never be replayed again. Idempotent: an

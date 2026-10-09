@@ -15,6 +15,8 @@ import {
   WhatsAppMediaTooLargeError,
   type WhatsAppClient,
 } from '../clients/whatsapp.client';
+import { InboundMediaEnrichedEvent } from '../events/inbound-media-enriched.event';
+import { InboundMediaFailedEvent } from '../events/inbound-media-failed.event';
 import { InboundMediaEnrichmentService } from './inbound-media-enrichment.service';
 import {
   ENRICH_MEDIA_ATTEMPTS,
@@ -89,6 +91,7 @@ function build() {
     warn: jest.fn(),
     setContext: jest.fn(),
   };
+  const eventBus = { publish: jest.fn() };
 
   const service = new InboundMediaEnrichmentService(
     messages as unknown as MessageService,
@@ -97,9 +100,19 @@ function build() {
     client as unknown as WhatsAppClient,
     fanout as unknown as ConversationFanoutService,
     logger as never,
+    eventBus as never,
   );
 
-  return { service, messages, conversations, channels, client, fanout, logger };
+  return {
+    service,
+    messages,
+    conversations,
+    channels,
+    client,
+    fanout,
+    logger,
+    eventBus,
+  };
 }
 
 /** Wires a successful download; callers tweak the pieces they exercise. */
@@ -133,7 +146,7 @@ describe('InboundMediaEnrichmentService (T23)', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('stores the downloaded media and emits exactly one ready patch', async () => {
-    const { service, messages, conversations, channels, client, fanout } =
+    const { service, messages, conversations, channels, client, fanout, eventBus } =
       build();
     wireReadyMedia(messages, conversations, channels, client);
 
@@ -164,6 +177,17 @@ describe('InboundMediaEnrichmentService (T23)', () => {
         sizeBytes: 10,
       }),
     );
+    expect(eventBus.publish).toHaveBeenCalledWith(
+      expect.any(InboundMediaEnrichedEvent),
+    );
+    expect(eventBus.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: 'msg-1',
+        attachmentId: 'att-1',
+        mediaId: 'media-1',
+        type: 'image',
+      }),
+    );
   });
 
   it('bounds the download by the attachment type size limit', async () => {
@@ -183,7 +207,7 @@ describe('InboundMediaEnrichmentService (T23)', () => {
   });
 
   it('marks failed with one failed patch and keeps the row on exhaustion', async () => {
-    const { service, messages, conversations, channels, client, fanout } =
+    const { service, messages, conversations, channels, client, fanout, eventBus } =
       build();
     messages.findPendingMediaAttachments.mockResolvedValue([attachment()]);
     conversations.findOne.mockResolvedValue({
@@ -210,6 +234,18 @@ describe('InboundMediaEnrichmentService (T23)', () => {
         url: null,
       }),
     );
+    expect(eventBus.publish).toHaveBeenCalledWith(
+      expect.any(InboundMediaFailedEvent),
+    );
+    expect(eventBus.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: 'msg-1',
+        attachmentId: 'att-1',
+        mediaId: 'media-1',
+        type: 'image',
+        retryable: true,
+      }),
+    );
   });
 
   it('rethrows a retryable fault before the last attempt so BullMQ retries', async () => {
@@ -232,7 +268,7 @@ describe('InboundMediaEnrichmentService (T23)', () => {
   });
 
   it('fails immediately on a terminal fault even on the first attempt', async () => {
-    const { service, messages, conversations, channels, client, fanout } =
+    const { service, messages, conversations, channels, client, fanout, eventBus } =
       build();
     messages.findPendingMediaAttachments.mockResolvedValue([attachment()]);
     conversations.findOne.mockResolvedValue({
@@ -251,6 +287,13 @@ describe('InboundMediaEnrichmentService (T23)', () => {
 
     expect(messages.markAttachmentFailed).toHaveBeenCalledWith('att-1');
     expect(fanout.emitAttachmentPatch).toHaveBeenCalledTimes(1);
+    expect(eventBus.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachmentId: 'att-1',
+        mediaId: 'media-1',
+        retryable: false,
+      }),
+    );
   });
 
   it('is a noop when the attachment is already settled (idempotent retry)', async () => {
@@ -313,7 +356,7 @@ describe('InboundMediaEnrichmentService (T23)', () => {
   });
 
   it('fails every pending attachment when the lookup throws on the last attempt', async () => {
-    const { service, messages, conversations, client, fanout, logger } =
+    const { service, messages, conversations, client, fanout, eventBus } =
       build();
     messages.findPendingMediaAttachments.mockResolvedValue([attachment()]);
     conversations.findOne.mockRejectedValue(new Error('decrypt failed'));
@@ -326,7 +369,9 @@ describe('InboundMediaEnrichmentService (T23)', () => {
     expect(client.downloadMedia).not.toHaveBeenCalled();
     expect(messages.markAttachmentFailed).toHaveBeenCalledWith('att-1');
     expect(fanout.emitAttachmentPatch).toHaveBeenCalledTimes(1);
-    expect(logger.error).toHaveBeenCalled();
+    expect(eventBus.publish).toHaveBeenCalledWith(
+      expect.any(InboundMediaFailedEvent),
+    );
   });
 
   it('rethrows a retryable lookup failure before the last attempt', async () => {

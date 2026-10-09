@@ -4,7 +4,7 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
-import type { Message } from '../../../../modules/message/entities/message.entity';
+import type { Message } from '@modules/message/entities/message.entity';
 import { AgentMessageSender } from '../../outbound/agent-message-sender.service';
 import { SendAgentMessageCommand } from '../send-agent-message.command';
 

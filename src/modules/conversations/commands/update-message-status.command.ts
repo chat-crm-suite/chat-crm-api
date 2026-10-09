@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import type { MessageStatus } from '../../../contracts/index';
+import type { MessageStatus } from '@contracts';
 
 /** Meta delivery states T4 persists; `pending` is local and `played` is unused. */
 export type DeliveryStatus = Extract<

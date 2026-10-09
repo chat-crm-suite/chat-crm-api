@@ -3,7 +3,7 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { ConversationSentimentSchema } from '../../../contracts/index';
+import { ConversationSentimentSchema } from '@contracts';
 
 export class ConversationSentimentDto extends createZodDto(
   ConversationSentimentSchema,

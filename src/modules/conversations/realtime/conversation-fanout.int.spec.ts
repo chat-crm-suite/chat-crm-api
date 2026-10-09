@@ -4,9 +4,9 @@
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, DataSourceOptions, EntityTarget, IsNull } from 'typeorm';
 
-import type { MemberRole } from '../../../contracts/index';
-import { ConversationSocketEvent } from '../../../contracts/index';
-import * as Entities from '../../../entities/index';
+import type { MemberRole } from '@contracts';
+import { ConversationSocketEvent } from '@contracts';
+import * as Entities from '@entities';
 import { Channel } from '../../channels/entities/channel.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { CompanySettings } from '../../company/entities/company-settings.entity';
@@ -19,7 +19,7 @@ import { User } from '../../users/entities/user.entity';
 import {
   getTestConfig,
   truncateAllTables,
-} from '../../../../test/helpers/test-database.helper';
+} from '@helpers/test-database.helper';
 import { ConversationAssignmentNotifier } from '../assignment/conversation-assignment.notifier';
 import { ConversationAssignmentService } from '../assignment/conversation-assignment.service';
 import { AssignmentOutcome } from '../assignment/assignment.types';

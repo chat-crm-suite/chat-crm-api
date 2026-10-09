@@ -13,7 +13,7 @@ import {
   SentimentResultFactory,
 } from '@factories';
 
-import { getTestSQLiteConfig } from '../../../../test/helpers/test-database.helper';
+import { getTestSQLiteConfig } from '@helpers/test-database.helper';
 import { Message } from '../../message/entities/message.entity';
 import { Analysis } from '../entities/analysis.entity';
 import { SentimentResult } from '../entities/sentiment-result.entity';

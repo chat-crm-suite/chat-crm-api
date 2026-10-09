@@ -5,31 +5,31 @@ import { ForbiddenException } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, DataSourceOptions, EntityTarget, IsNull } from 'typeorm';
 
-import type { MemberRole, MemberStatus } from '../src/contracts/index';
-import { ConversationSocketEvent } from '../src/contracts/index';
-import * as Entities from '../src/entities/index';
-import { Channel } from '../src/modules/channels/entities/channel.entity';
-import { CompanyMember } from '../src/modules/company-members/entities/company-member.entity';
-import { CompanySettings } from '../src/modules/company/entities/company-settings.entity';
-import { Company } from '../src/modules/company/entities/company.entity';
-import { AssignmentOutcome } from '../src/modules/conversations/assignment/assignment.types';
+import type { MemberRole, MemberStatus } from '@contracts';
+import { ConversationSocketEvent } from '@contracts';
+import * as Entities from '@entities';
+import { Channel } from '@modules/channels/entities/channel.entity';
+import { CompanyMember } from '@modules/company-members/entities/company-member.entity';
+import { CompanySettings } from '@modules/company/entities/company-settings.entity';
+import { Company } from '@modules/company/entities/company.entity';
+import { AssignmentOutcome } from '@modules/conversations/assignment/assignment.types';
 import {
   ASSIGNED_NOTIFICATION_TITLE,
   ConversationAssignmentNotifier,
   UNASSIGNED_NOTIFICATION_TITLE,
-} from '../src/modules/conversations/assignment/conversation-assignment.notifier';
-import { ConversationAssignmentService } from '../src/modules/conversations/assignment/conversation-assignment.service';
-import { ConversationRepository } from '../src/modules/conversations/conversation.repository';
-import { ConversationsService } from '../src/modules/conversations/conversations.service';
-import { ConversationAssignment } from '../src/modules/conversations/entities/conversation-assignment.entity';
-import { Conversation } from '../src/modules/conversations/entities/conversation.entity';
-import type { ConversationGateway } from '../src/modules/conversations/gateways/conversation.gateway';
-import { Customer } from '../src/modules/customers/entities/customer.entity';
-import type { MessageService } from '../src/modules/message/message.service';
-import { Message } from '../src/modules/message/entities/message.entity';
-import { Notification } from '../src/modules/notifications/entities/notification.entity';
-import { NotificationsService } from '../src/modules/notifications/notifications.service';
-import { User } from '../src/modules/users/entities/user.entity';
+} from '@modules/conversations/assignment/conversation-assignment.notifier';
+import { ConversationAssignmentService } from '@modules/conversations/assignment/conversation-assignment.service';
+import { ConversationRepository } from '@modules/conversations/conversation.repository';
+import { ConversationsService } from '@modules/conversations/conversations.service';
+import { ConversationAssignment } from '@modules/conversations/entities/conversation-assignment.entity';
+import { Conversation } from '@modules/conversations/entities/conversation.entity';
+import type { ConversationGateway } from '@modules/conversations/gateways/conversation.gateway';
+import { Customer } from '@modules/customers/entities/customer.entity';
+import type { MessageService } from '@modules/message/message.service';
+import { Message } from '@modules/message/entities/message.entity';
+import { Notification } from '@modules/notifications/entities/notification.entity';
+import { NotificationsService } from '@modules/notifications/notifications.service';
+import { User } from '@modules/users/entities/user.entity';
 import { getTestConfig, truncateAllTables } from './helpers/test-database.helper';
 
 const entities = Object.values(Entities) as EntityTarget<unknown>[];

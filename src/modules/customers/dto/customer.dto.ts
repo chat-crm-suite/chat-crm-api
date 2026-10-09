@@ -6,7 +6,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   CreateCustomerSchema,
   UpdateCustomerSchema,
-} from '../../../contracts/index';
+} from '@contracts';
 
 export class CreateCustomerDto extends createZodDto(CreateCustomerSchema) {}
 

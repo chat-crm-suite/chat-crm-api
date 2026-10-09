@@ -12,8 +12,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import type { CustomerSource } from '../../../contracts/index';
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import type { CustomerSource } from '@contracts';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { PipelineStage } from './pipeline-stage.entity';

@@ -4,16 +4,16 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
-import type { ConversationMessageAttachmentPatch } from '../../../contracts/index';
+import type { ConversationMessageAttachmentPatch } from '@contracts';
 import {
   ChannelsService,
   type ChannelTransmission,
-} from '../../../modules/channels/channels.service';
-import { ConversationsService } from '../../../modules/conversations/conversations.service';
-import { ConversationFanoutService } from '../../../modules/conversations/realtime/conversation-fanout.service';
-import type { MessageAttachment } from '../../../modules/message/entities/message-attachment.entity';
-import type { Message } from '../../../modules/message/entities/message.entity';
-import { MessageService } from '../../../modules/message/message.service';
+} from '@modules/channels/channels.service';
+import { ConversationsService } from '@modules/conversations/conversations.service';
+import { ConversationFanoutService } from '@modules/conversations/realtime/conversation-fanout.service';
+import type { MessageAttachment } from '@modules/message/entities/message-attachment.entity';
+import type { Message } from '@modules/message/entities/message.entity';
+import { MessageService } from '@modules/message/message.service';
 import { WhatsAppClient } from '../clients/whatsapp.client';
 
 /**

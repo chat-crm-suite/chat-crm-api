@@ -11,7 +11,7 @@ import {
 } from './sentiment.constants';
 import { SentimentResponse as Response } from './sentiment.interface';
 import type { ConfigType } from '@nestjs/config';
-import sentimentConfig from '../../../config/sentiment.config';
+import sentimentConfig from '@config/sentiment.config';
 
 @Injectable()
 export class SentimentClient {

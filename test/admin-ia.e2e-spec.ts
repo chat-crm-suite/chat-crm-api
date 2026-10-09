@@ -16,17 +16,17 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource, EntityTarget } from 'typeorm';
 
-import { AuthModule } from '../src/auth/auth.module';
-import { clsConfig } from '../src/config/cls.config';
-import { i18nConfig } from '../src/config/i18n.config';
-import { loggerConfig } from '../src/config/logger.config';
-import type { MemberRole } from '../src/contracts/index';
-import * as Entities from '../src/entities/index';
-import { IaModule } from '../src/modules/analysis/ia/ia.module';
-import { KillSwitchService } from '../src/modules/analysis/ia/kill-switch.service';
-import { CompanyMember } from '../src/modules/company-members/entities/company-member.entity';
-import { Company } from '../src/modules/company/entities/company.entity';
-import { User } from '../src/modules/users/entities/user.entity';
+import { AuthModule } from '@auth/auth.module';
+import { clsConfig } from '@config/cls.config';
+import { i18nConfig } from '@config/i18n.config';
+import { loggerConfig } from '@config/logger.config';
+import type { MemberRole } from '@contracts';
+import * as Entities from '@entities';
+import { IaModule } from '@modules/analysis/ia/ia.module';
+import { KillSwitchService } from '@modules/analysis/ia/kill-switch.service';
+import { CompanyMember } from '@modules/company-members/entities/company-member.entity';
+import { Company } from '@modules/company/entities/company.entity';
+import { User } from '@modules/users/entities/user.entity';
 import { getTestConfig } from './helpers/test-database.helper';
 
 const entities = Object.values(Entities) as EntityTarget<unknown>[];

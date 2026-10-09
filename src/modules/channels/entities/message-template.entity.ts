@@ -11,8 +11,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import type { TemplateCategory, TemplateStatus } from '../../../contracts/index';
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import type { TemplateCategory, TemplateStatus } from '@contracts';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
 import { Channel } from './channel.entity';
 

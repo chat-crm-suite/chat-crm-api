@@ -9,7 +9,7 @@ import {
   ConversationSocketEvent,
   type ConversationMessageAttachmentPatch,
   type ConversationMessageStatusPatch,
-} from '../../../contracts/index';
+} from '@contracts';
 import type { ConversationMessagePayload } from '../../message/message.types';
 import { ConversationGateway } from '../gateways/conversation.gateway';
 import { ConversationAccessService } from './conversation-access.service';

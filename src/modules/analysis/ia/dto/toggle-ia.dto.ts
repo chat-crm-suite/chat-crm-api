@@ -3,6 +3,6 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { IaToggleSchema } from '../../../../contracts/index';
+import { IaToggleSchema } from '@contracts';
 
 export class ToggleIaDto extends createZodDto(IaToggleSchema) {}

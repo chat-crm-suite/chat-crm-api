@@ -5,8 +5,8 @@ import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
-import { MessageService } from '../../../modules/message/message.service';
-import { UpdateMessageStatusCommand } from '../../../modules/conversations/commands/update-message-status.command';
+import { MessageService } from '@modules/message/message.service';
+import { UpdateMessageStatusCommand } from '@modules/conversations/commands/update-message-status.command';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
 import type { WhatsappInboundEvent } from '../entities/whatsapp-inbound-event.entity';
 import { toParsedMessage } from '../mappers/whatsapp-message.mapper';

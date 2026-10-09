@@ -113,7 +113,7 @@ export class ChannelsService {
       dto.apiBaseUrl !== undefined ||
       dto.webhookUrl !== undefined
     ) {
-      const current = (channel.settings ?? {}) as Record<string, unknown>;
+      const current = (channel.settings ?? {});
       patch.settings = {
         ...current,
         ...(dto.apiVersion !== undefined ? { apiVersion: dto.apiVersion } : {}),
@@ -210,7 +210,7 @@ export class ChannelsService {
   }
 
   private sanitize(channel: Channel): ChannelResponse {
-    const settings = (channel.settings ?? {}) as Record<string, unknown>;
+    const settings = (channel.settings ?? {});
 
     let businessId: string | null = null;
     try {

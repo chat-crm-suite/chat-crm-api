@@ -9,7 +9,7 @@ import { CompanySettings } from '../../company/entities/company-settings.entity'
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { Conversation } from '../entities/conversation.entity';
-import { ConversationSocketEvent } from '../../../contracts/index';
+import { ConversationSocketEvent } from '@contracts';
 import { ConversationGateway } from '../gateways/conversation.gateway';
 
 export const ASSIGNED_NOTIFICATION_TITLE = 'Nuevo chat asignado';

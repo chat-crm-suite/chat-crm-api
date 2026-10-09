@@ -8,7 +8,7 @@ import type {
   AnalysisSkipReason,
   ConversationSentiment,
   SentimentLabel,
-} from '../../../contracts/index';
+} from '@contracts';
 import { CircuitBreakerService } from '../ia/circuit-breaker.service';
 import { KillSwitchService } from '../ia/kill-switch.service';
 import { SentimentClient } from './sentiment.client';

@@ -4,8 +4,8 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
-import { toMessageStatusPatch } from '../../../message/mappers/message-status-patch.mapper';
-import { MessageService } from '../../../message/message.service';
+import { toMessageStatusPatch } from '@modules/message/mappers/message-status-patch.mapper';
+import { MessageService } from '@modules/message/message.service';
 import { ConversationFanoutService } from '../../realtime/conversation-fanout.service';
 import { UpdateMessageStatusCommand } from '../update-message-status.command';
 

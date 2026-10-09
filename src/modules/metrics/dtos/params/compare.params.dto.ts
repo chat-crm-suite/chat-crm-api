@@ -3,6 +3,6 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { CompareParamsSchema } from '../../../../contracts/index';
+import { CompareParamsSchema } from '@contracts';
 
 export class CompareParams extends createZodDto(CompareParamsSchema) {}

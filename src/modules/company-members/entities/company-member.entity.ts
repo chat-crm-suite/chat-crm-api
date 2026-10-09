@@ -11,8 +11,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import type { MemberRole, MemberStatus } from '../../../contracts/index';
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import type { MemberRole, MemberStatus } from '@contracts';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
 

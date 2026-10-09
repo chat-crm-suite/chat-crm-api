@@ -4,7 +4,7 @@
 import { Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
-import { bullmqConfig } from '../../../config/bullmq.config';
+import { bullmqConfig } from '@config/bullmq.config';
 import { HealthCheck, HealthStatus } from '../health.enum';
 import { HealthCheckResult } from '../health.interface';
 import { HealthProbe } from '../health.probe';

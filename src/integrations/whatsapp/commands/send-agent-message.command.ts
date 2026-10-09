@@ -3,8 +3,8 @@
 
 import { Command } from '@nestjs/cqrs';
 
-import type { Message } from '../../../modules/message/entities/message.entity';
-import { SendConversationMessageDto } from '../../../modules/conversations/dto/send-conversation-message.dto';
+import type { Message } from '@modules/message/entities/message.entity';
+import { SendConversationMessageDto } from '@modules/conversations/dto/send-conversation-message.dto';
 
 /**
  * T5: the queue hands the agent send to the outbound pipeline (save pending,

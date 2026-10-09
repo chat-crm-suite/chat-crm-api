@@ -3,6 +3,6 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { UserSearchQuerySchema } from '../../../contracts/index';
+import { UserSearchQuerySchema } from '@contracts';
 
 export class UserSearchDto extends createZodDto(UserSearchQuerySchema) {}

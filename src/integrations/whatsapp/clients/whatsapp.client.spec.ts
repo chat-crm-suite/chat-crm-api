@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { of, throwError } from 'rxjs';
 
-import type { ChannelTransmission } from '../../../modules/channels/channels.service';
+import type { ChannelTransmission } from '@modules/channels/channels.service';
 import type { WhatsAppPayload } from '../interfaces/whatsapp-message.interface';
 import { WhatsAppClient } from './whatsapp.client';
 

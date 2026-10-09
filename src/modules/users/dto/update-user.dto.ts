@@ -3,6 +3,6 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { UpdateUserSchema } from '../../../contracts/index';
+import { UpdateUserSchema } from '@contracts';
 
 export class UpdateUserDto extends createZodDto(UpdateUserSchema) {}

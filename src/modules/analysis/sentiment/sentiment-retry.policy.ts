@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import type { AnalysisSkipReason } from '../../../contracts/index';
+import type { AnalysisSkipReason } from '@contracts';
 
 /** T4: dedicated queue whose repeatable scan triggers the retry worker. */
 export const SENTIMENT_RETRY_QUEUE = 'sentiment-retry' as const;

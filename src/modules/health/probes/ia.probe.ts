@@ -4,7 +4,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 
-import healthConfig from '../../../config/health.config';
+import healthConfig from '@config/health.config';
 import { KillSwitchService } from '../../analysis/ia/kill-switch.service';
 import { HealthCheck, HealthStatus } from '../health.enum';
 import { HealthCheckResult } from '../health.interface';

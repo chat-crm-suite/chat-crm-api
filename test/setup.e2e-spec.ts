@@ -15,13 +15,13 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { EntityTarget } from 'typeorm';
 
-import { AuthModule } from '../src/auth/auth.module';
-import { ZodValidationExceptionFilter } from '../src/common/filters/zod-validation.filter';
-import { loggerConfig } from '../src/config/logger.config';
-import { i18nConfig } from '../src/config/i18n.config';
-import { clsConfig } from '../src/config/cls.config';
-import * as Entities from '../src/entities/index';
-import { SetupModule } from '../src/modules/setup/setup.module';
+import { AuthModule } from '@auth/auth.module';
+import { ZodValidationExceptionFilter } from '@common/filters/zod-validation.filter';
+import { loggerConfig } from '@config/logger.config';
+import { i18nConfig } from '@config/i18n.config';
+import { clsConfig } from '@config/cls.config';
+import * as Entities from '@entities';
+import { SetupModule } from '@modules/setup/setup.module';
 import { getTestConfig } from './helpers/test-database.helper';
 
 interface SetupStatusBody {

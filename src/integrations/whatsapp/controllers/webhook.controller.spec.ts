@@ -5,8 +5,8 @@ import { HttpStatus } from '@nestjs/common';
 import type { WhatsappNotification } from '@daweto/whatsapp-api-types';
 
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
-import { FailWhatsAppMessageCommand } from '../../../modules/conversations/commands/fail-whatsapp-message.command';
-import { UpdateMessageStatusCommand } from '../../../modules/conversations/commands/update-message-status.command';
+import { FailWhatsAppMessageCommand } from '@modules/conversations/commands/fail-whatsapp-message.command';
+import { UpdateMessageStatusCommand } from '@modules/conversations/commands/update-message-status.command';
 import { WebhookController } from './webhook.controller';
 
 /**

@@ -17,8 +17,8 @@ import type {
   MessageSenderType,
   MessageStatus,
   MessageType,
-} from '../../../contracts/index';
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+} from '@contracts';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { Customer } from '../../customers/entities/customer.entity';

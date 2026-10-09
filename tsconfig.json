@@ -22,6 +22,33 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
+      "@src/*": [
+        "./src/*"
+      ],
+      "@contracts": [
+        "./src/contracts/index"
+      ],
+      "@contracts/*": [
+        "./src/contracts/*"
+      ],
+      "@config": [
+        "./src/config/index"
+      ],
+      "@config/*": [
+        "./src/config/*"
+      ],
+      "@common/*": [
+        "./src/common/*"
+      ],
+      "@strategies/*": [
+        "./src/strategies/*"
+      ],
+      "@docs/*": [
+        "./src/docs/*"
+      ],
+      "@scripts/*": [
+        "./src/scripts/*"
+      ],
       "@lib/*": [
         "./src/lib/*"
       ],
@@ -45,6 +72,9 @@
       ],
       "@factories": [
         "./test/factories/index"
+      ],
+      "@helpers/*": [
+        "./test/helpers/*"
       ],
       "@integrations/*": [
         "./src/integrations/*"

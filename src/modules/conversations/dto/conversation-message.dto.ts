@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import type { SendConversationMessageInput } from '../../../contracts/index';
+import type { SendConversationMessageInput } from '@contracts';
 
 /**
  * Internal message payload used by the queue (`save-message`): the wire shape

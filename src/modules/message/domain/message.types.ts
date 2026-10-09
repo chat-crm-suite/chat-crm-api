@@ -11,4 +11,4 @@ export type {
   MessageSenderType,
   MessageStatus,
   MessageType,
-} from '../../../contracts/index';
+} from '@contracts';

@@ -16,8 +16,8 @@ import { CommandBus } from '@nestjs/cqrs';
 import { ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
-import { ConversationSocketEvent, SOCKET_NAMESPACES } from '../../../contracts/index';
-import type { JwtPayload } from '../../../auth/auth.types';
+import { ConversationSocketEvent, SOCKET_NAMESPACES } from '@contracts';
+import type { JwtPayload } from '@auth/auth.types';
 import { SendConversationMessageDto } from '../dto/send-conversation-message.dto';
 import { SendConversationMessageCommand } from '../commands/send-conversation-message.command';
 import {

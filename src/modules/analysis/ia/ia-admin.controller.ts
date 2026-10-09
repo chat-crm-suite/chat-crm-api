@@ -12,8 +12,8 @@ import {
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
 
-import { JwtAuthGuard } from '../../../auth/guards';
-import { IaStateSchema } from '../../../contracts/index';
+import { JwtAuthGuard } from '@auth/guards';
+import { IaStateSchema } from '@contracts';
 import { CompanyGuard } from '../../company/company.guard';
 import { ToggleIaDto } from './dto/toggle-ia.dto';
 import { IaAdminService } from './ia-admin.service';

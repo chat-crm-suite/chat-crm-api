@@ -3,7 +3,7 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { SentimentTrendQuerySchema } from '../../../../contracts/index';
+import { SentimentTrendQuerySchema } from '@contracts';
 
 export class SentimentTrendQuery extends createZodDto(
   SentimentTrendQuerySchema,

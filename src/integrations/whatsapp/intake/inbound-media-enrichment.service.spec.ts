@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { type ConversationMessageAttachmentPatch } from '../../../contracts/index';
-import { MessageSavedEvent } from '../../../modules/conversations/events/message-saved.event';
+import { type ConversationMessageAttachmentPatch } from '@contracts';
+import { MessageSavedEvent } from '@modules/conversations/events/message-saved.event';
 import { InboundMediaEnrichmentHandler } from './inbound-media-enrichment.handler';
-import type { ChannelTransmission } from '../../../modules/channels/channels.service';
-import type { MessageAttachment } from '../../../modules/message/entities/message-attachment.entity';
-import type { Message } from '../../../modules/message/entities/message.entity';
-import type { MessageService } from '../../../modules/message/message.service';
-import type { ConversationsService } from '../../../modules/conversations/conversations.service';
-import type { ConversationFanoutService } from '../../../modules/conversations/realtime/conversation-fanout.service';
-import type { ChannelsService } from '../../../modules/channels/channels.service';
+import type { ChannelTransmission } from '@modules/channels/channels.service';
+import type { MessageAttachment } from '@modules/message/entities/message-attachment.entity';
+import type { Message } from '@modules/message/entities/message.entity';
+import type { MessageService } from '@modules/message/message.service';
+import type { ConversationsService } from '@modules/conversations/conversations.service';
+import type { ConversationFanoutService } from '@modules/conversations/realtime/conversation-fanout.service';
+import type { ChannelsService } from '@modules/channels/channels.service';
 import type { WhatsAppClient } from '../clients/whatsapp.client';
 import { InboundMediaEnrichmentService } from './inbound-media-enrichment.service';
 

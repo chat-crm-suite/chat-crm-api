@@ -6,7 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
 import { Repository } from 'typeorm';
 
-import { isDuplicateKeyError } from '../../../lib/helpers/query-error.helper';
+import { isDuplicateKeyError } from '@lib/helpers/query-error.helper';
 import { WhatsappInboundEvent } from '../entities/whatsapp-inbound-event.entity';
 
 export type IntakeOutcome = 'stored' | 'duplicate';

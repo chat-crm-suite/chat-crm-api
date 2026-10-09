@@ -153,6 +153,9 @@ importers:
       '@faker-js/faker':
         specifier: ^10.1.0
         version: 10.6.0
+      '@limegrass/eslint-plugin-import-alias':
+        specifier: ^1.6.1
+        version: 1.6.1(eslint@9.39.5)
       '@nestjs/cli':
         specifier: ^11.0.16
         version: 11.0.24(@types/node@22.20.5)(prettier@3.9.9)
@@ -797,6 +800,11 @@ packages:
 
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
+
+  '@limegrass/eslint-plugin-import-alias@1.6.1':
+    resolution: {integrity: sha512-bPvxB0C1UnkacEoTo60xdm6W5GZlK0PgYuUrPZHihxacLQjP8VmFvMZ7K0LBjYlaFCig91cwRe+n+SID7uPMNw==}
+    peerDependencies:
+      eslint: ^2 || ^3 || ^4 || ^5 || ^6 || ^7.2.0 || ^8.40.0 || ^9 || ^10
 
   '@lukeed/csprng@1.1.0':
     resolution: {integrity: sha512-Z7C/xXCiGWsg0KuKsHTKJxbWhpI3Vs5GwLfOean7MGyVFGqdRgBbAjOCh6u4bbjPc/8MJ2pZmK/0DLdCbivLDA==}
@@ -3400,6 +3408,10 @@ packages:
     resolution: {integrity: sha512-iclAHeNqNm68zFtnZ0e+1L2yUIdvzNoauKU4WBA3VvH/vPFieF7qfRlwUZU+DA9P9bPXIS90ulxoUoCH23sV2w==}
     engines: {node: '>= 0.6'}
 
+  micromatch@4.0.8:
+    resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
+    engines: {node: '>=8.6'}
+
   mime-db@1.52.0:
     resolution: {integrity: sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==}
     engines: {node: '>= 0.6'}
@@ -5454,6 +5466,14 @@ snapshots:
       - '@opentelemetry/api'
 
   '@keyv/serialize@1.1.1': {}
+
+  '@limegrass/eslint-plugin-import-alias@1.6.1(eslint@9.39.5)':
+    dependencies:
+      eslint: 9.39.5
+      fs-extra: 10.1.0
+      micromatch: 4.0.8
+      slash: 3.0.0
+      tsconfig-paths: 4.2.0
 
   '@lukeed/csprng@1.1.0': {}
 
@@ -8403,6 +8423,11 @@ snapshots:
   merge-stream@2.0.0: {}
 
   methods@1.1.2: {}
+
+  micromatch@4.0.8:
+    dependencies:
+      braces: 3.0.3
+      picomatch: 2.3.2
 
   mime-db@1.52.0: {}
 

@@ -6,7 +6,7 @@ import { DataSource } from 'typeorm';
 import {
   testDatabaseConfig,
   testDatabaseSQLiteConfig,
-} from '../../src/config/database.config';
+} from '@config/database.config';
 
 /**
  * MySQL `_test` config (dropSchema + synchronize). The ioredis query cache of

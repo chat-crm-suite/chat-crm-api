@@ -5,7 +5,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 
-import type { AnalysisSkipReason } from '../../../contracts/index';
+import type { AnalysisSkipReason } from '@contracts';
 import {
   CircuitBreakerService,
   type CircuitBreakerState,

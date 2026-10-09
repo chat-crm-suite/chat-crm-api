@@ -4,7 +4,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
-import type { IaState } from '../../../contracts/index';
+import type { IaState } from '@contracts';
 import { CompanyMemberService } from '../../company-members/company-member.service';
 import { KillSwitchService } from './kill-switch.service';
 

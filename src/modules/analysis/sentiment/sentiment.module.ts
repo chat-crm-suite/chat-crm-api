@@ -7,7 +7,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import sentimentConfig from '../../../config/sentiment.config';
+import sentimentConfig from '@config/sentiment.config';
 import { Message } from '../../message/entities/message.entity';
 import { Analysis } from '../entities/analysis.entity';
 import { SentimentResult } from '../entities/sentiment-result.entity';

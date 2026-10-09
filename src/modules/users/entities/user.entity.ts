@@ -9,7 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 
 /**
  * Identity/login only. No role (that lives in `company_members`) and no

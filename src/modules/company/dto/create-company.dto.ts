@@ -3,6 +3,6 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { CreateCompanySchema } from '../../../contracts/index';
+import { CreateCompanySchema } from '@contracts';
 
 export class CreateCompanyDto extends createZodDto(CreateCompanySchema) {}

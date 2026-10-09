@@ -3,7 +3,7 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { CompanyMemberListQuerySchema } from '../../../contracts/index';
+import { CompanyMemberListQuerySchema } from '@contracts';
 
 export class CompanyMemberListQueryDto extends createZodDto(
   CompanyMemberListQuerySchema,

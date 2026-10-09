@@ -18,7 +18,7 @@ import { ReceiveWhatsAppMessageCommand } from '@integrations/whatsapp/commands/r
 import { InboundMediaEnrichmentService } from '@integrations/whatsapp/intake/inbound-media-enrichment.service';
 import { WhatsAppInboundReplayService } from '@integrations/whatsapp/intake/whatsapp-inbound-replay.service';
 import { WhatsAppIntakeService } from '@integrations/whatsapp/intake/whatsapp-intake.service';
-import { ConversationSocketEvent } from '../../src/contracts/index';
+import { ConversationSocketEvent } from '@contracts';
 import type { ChannelTransmission } from '@modules/channels/channels.service';
 import { SaveConversationMessageCommand } from '@modules/conversations/commands/save-conversation-message.command';
 import { ConversationRepository } from '@modules/conversations/conversation.repository';

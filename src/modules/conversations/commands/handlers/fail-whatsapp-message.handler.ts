@@ -3,7 +3,7 @@
 
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 
-import { ConversationSocketEvent } from '../../../../contracts/index';
+import { ConversationSocketEvent } from '@contracts';
 import { ConversationRepository } from '../../conversation.repository';
 import { ConversationGateway } from '../../gateways/conversation.gateway';
 import { FailWhatsAppMessageCommand } from '../fail-whatsapp-message.command';

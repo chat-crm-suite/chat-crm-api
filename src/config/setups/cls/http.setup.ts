@@ -4,7 +4,7 @@
 import { ClsService } from 'nestjs-cls';
 import { ExecutionContext } from '@nestjs/common';
 import { Request } from 'express';
-import { Payload } from '../../../auth/index';
+import { Payload } from '@auth';
 
 interface RequestAuth extends Request {
   user: Payload;

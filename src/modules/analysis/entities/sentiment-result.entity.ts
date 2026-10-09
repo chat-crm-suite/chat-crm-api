@@ -3,7 +3,7 @@
 
 import { Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
 
-import type { SentimentLabel } from '../../../contracts/index';
+import type { SentimentLabel } from '@contracts';
 import { Analysis } from './analysis.entity';
 
 /** Previously sentiment_analysis: 1:1 detail of `analyses`. */

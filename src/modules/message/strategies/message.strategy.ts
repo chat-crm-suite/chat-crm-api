@@ -4,7 +4,7 @@
 import type {
   WhatsAppMessageContent,
   WhatsAppPayload,
-} from '../../../integrations/whatsapp/interfaces/whatsapp-message.interface';
+} from '@integrations/whatsapp/interfaces/whatsapp-message.interface';
 import type { MessageAttachment } from '../entities/message-attachment.entity';
 import type { Message } from '../entities/message.entity';
 import type { ConversationMessagePayload } from '../message.types';

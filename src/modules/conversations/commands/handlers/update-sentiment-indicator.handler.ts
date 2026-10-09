@@ -4,7 +4,7 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
-import { ConversationSocketEvent } from '../../../../contracts/index';
+import { ConversationSocketEvent } from '@contracts';
 import { ConversationGateway } from '../../gateways/conversation.gateway';
 import { UpdateSentimentIndicatorCommand as Command } from '../update-sentiment-indicator.command';
 

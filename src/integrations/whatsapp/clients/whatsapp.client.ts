@@ -12,9 +12,9 @@ import { join } from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-import type { WhatsAppCredentials } from '../../../contracts/index';
-import type { ChannelTransmission } from '../../../modules/channels/channels.service';
-import type { Channel } from '../../../modules/channels/entities/channel.entity';
+import type { WhatsAppCredentials } from '@contracts';
+import type { ChannelTransmission } from '@modules/channels/channels.service';
+import type { Channel } from '@modules/channels/entities/channel.entity';
 import type { WhatsAppPayload } from '../interfaces/whatsapp-message.interface';
 import type { WhatsAppErrorResponse } from '../interfaces/whatsapp.interface';
 

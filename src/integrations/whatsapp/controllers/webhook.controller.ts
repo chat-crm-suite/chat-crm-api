@@ -26,11 +26,11 @@ import { withReEngagementAction } from '../legacy-error';
 import { WhatsAppService } from '../whatsapp.service';
 import { mapWebhookToMessages } from '../mappers/whatsapp-message.mapper';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
-import { FailWhatsAppMessageCommand } from '../../../modules/conversations/commands/fail-whatsapp-message.command';
+import { FailWhatsAppMessageCommand } from '@modules/conversations/commands/fail-whatsapp-message.command';
 import {
   type DeliveryStatus,
   UpdateMessageStatusCommand,
-} from '../../../modules/conversations/commands/update-message-status.command';
+} from '@modules/conversations/commands/update-message-status.command';
 import { WhatsAppIntakeService } from '../intake/whatsapp-intake.service';
 import { verifyWhatsAppSignature } from '../security/whatsapp-signature';
 import {

@@ -9,10 +9,10 @@ import type {
   MessageType,
   WhatsAppDocumentContent,
   WhatsAppTextContent,
-} from '../../../../contracts/index';
-import { ChannelTransmission } from '../../../../modules/channels/channels.service';
-import { ConversationRepository } from '../../../../modules/conversations/conversation.repository';
-import { SaveConversationMessageCommand } from '../../../../modules/conversations/commands/save-conversation-message.command';
+} from '@contracts';
+import { ChannelTransmission } from '@modules/channels/channels.service';
+import { ConversationRepository } from '@modules/conversations/conversation.repository';
+import { SaveConversationMessageCommand } from '@modules/conversations/commands/save-conversation-message.command';
 import {
   AudioContent,
   ContactContent,

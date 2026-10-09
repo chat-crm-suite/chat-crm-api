@@ -4,7 +4,7 @@
 import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
-import { MessageSavedEvent } from '../../../modules/conversations/events/message-saved.event';
+import { MessageSavedEvent } from '@modules/conversations/events/message-saved.event';
 import { InboundMediaEnrichmentService } from './inbound-media-enrichment.service';
 
 /**

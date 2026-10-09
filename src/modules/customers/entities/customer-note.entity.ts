@@ -11,7 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { Conversation } from '../../conversations/entities/conversation.entity';
 import { Customer } from './customer.entity';

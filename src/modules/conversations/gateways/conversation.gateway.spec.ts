@@ -5,7 +5,7 @@ import { ForbiddenException } from '@nestjs/common';
 import type { JwtService } from '@nestjs/jwt';
 import type { CommandBus } from '@nestjs/cqrs';
 
-import { ConversationSocketEvent } from '../../../contracts/index';
+import { ConversationSocketEvent } from '@contracts';
 import type { ConversationAccessService } from '../realtime/conversation-access.service';
 import { ConversationGateway } from './conversation.gateway';
 

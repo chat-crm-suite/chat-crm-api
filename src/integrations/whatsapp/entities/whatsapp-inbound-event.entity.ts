@@ -9,7 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 
 /**
  * Durable WhatsApp intake (T1): one row per inbound event, written before

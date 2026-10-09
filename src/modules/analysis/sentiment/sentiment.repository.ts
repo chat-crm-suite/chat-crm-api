@@ -9,7 +9,7 @@ import type {
   AnalysisSkipReason,
   ConversationSentiment,
   SentimentLabel,
-} from '../../../contracts/index';
+} from '@contracts';
 import { Conversation } from '../../conversations/entities/conversation.entity';
 import { Message } from '../../message/entities/message.entity';
 import { AnalysisType } from '../analysis.enum';

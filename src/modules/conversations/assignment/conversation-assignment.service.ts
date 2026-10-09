@@ -10,7 +10,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
 
-import type { AssignmentReason, MessageType } from '../../../contracts/index';
+import type { AssignmentReason, MessageType } from '@contracts';
 import { CompanySettings } from '../../company/entities/company-settings.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { ConversationAssignment } from '../entities/conversation-assignment.entity';

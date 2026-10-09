@@ -10,7 +10,7 @@ import {
   ManyToOne,
 } from 'typeorm';
 
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Channel } from '../../channels/entities/channel.entity';
 import { Customer } from './customer.entity';
 

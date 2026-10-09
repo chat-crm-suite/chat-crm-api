@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { WhatsAppTextBuilder } from '../../../integrations/whatsapp/builders/whatsapp-text.builder';
+import { WhatsAppTextBuilder } from '@integrations/whatsapp/builders/whatsapp-text.builder';
 import type {
   WhatsAppPayload,
   WhatsAppTextContent,
-} from '../../../integrations/whatsapp/interfaces/whatsapp-message.interface';
+} from '@integrations/whatsapp/interfaces/whatsapp-message.interface';
 import type { Message } from '../entities/message.entity';
 import { getConversationMessageBase } from '../mappers/conversation-message.mapper';
 import type { ConversationMessagePayload } from '../message.types';

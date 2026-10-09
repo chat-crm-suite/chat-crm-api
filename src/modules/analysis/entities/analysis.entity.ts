@@ -14,8 +14,8 @@ import type {
   AnalysisSkipReason,
   AnalysisStatus,
   AnalysisTarget,
-} from '../../../contracts/index';
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+} from '@contracts';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
 import { Conversation } from '../../conversations/entities/conversation.entity';
 import { Message } from '../../message/entities/message.entity';

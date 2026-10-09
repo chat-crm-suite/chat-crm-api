@@ -11,7 +11,7 @@ import { MessageFactory } from '@factories';
 import {
   getTestConfig,
   truncateAllTables,
-} from '../../../test/helpers/test-database.helper';
+} from '@helpers/test-database.helper';
 import { MessageAttachment } from './entities/message-attachment.entity';
 import { MessageStatusEvent } from './entities/message-status-event.entity';
 import { Message } from './entities/message.entity';

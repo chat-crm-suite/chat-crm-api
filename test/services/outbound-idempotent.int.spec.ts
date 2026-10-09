@@ -14,7 +14,7 @@ import {
 } from '@factories';
 import { AgentMessageSender } from '@integrations/whatsapp/outbound/agent-message-sender.service';
 import type { WhatsAppService } from '@integrations/whatsapp/whatsapp.service';
-import { ConversationSocketEvent } from '../../src/contracts/index';
+import { ConversationSocketEvent } from '@contracts';
 import { ConversationsService } from '@modules/conversations/conversations.service';
 import { Conversation } from '@modules/conversations/entities/conversation.entity';
 import { ConversationAssignment } from '@modules/conversations/entities/conversation-assignment.entity';

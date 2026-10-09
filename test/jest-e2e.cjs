@@ -4,7 +4,7 @@
 // Alias map derived from tsconfig.json so there is a single source of truth.
 // Mirrors jest.config.cjs (unit) but with rootDir = test/, so the prefix
 // climbs one level to reach the repo root.
-const { compilerOptions } = require('../../tsconfig.json');
+const { compilerOptions } = require('../tsconfig.json');
 const { pathsToModuleNameMapper } = require('ts-jest');
 
 module.exports = {

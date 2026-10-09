@@ -74,6 +74,32 @@ export interface InboundWebhookResult {
   errors: WhatsappNotificationError[];
 }
 
+/**
+ * Why a raw provider message was discarded (ticket #21 strict). Every
+ * discard carries one of these reasons on its discard fact — never silence,
+ * never an invented default.
+ */
+export type InboundDiscardReason =
+  | 'unknown-type'
+  | 'invalid-message'
+  | 'missing-message-id'
+  | 'missing-sender'
+  | 'missing-channel-id'
+  | 'missing-text-body'
+  | 'missing-media-id'
+  | 'missing-location-coordinates'
+  | 'missing-contacts'
+  | 'missing-button-payload'
+  | 'missing-interactive-payload'
+  | 'missing-reaction-target';
+
+/** The discard fact the publishing border emits per discarded message. */
+export interface InboundDiscard {
+  messageId: string;
+  type: string;
+  reason: InboundDiscardReason;
+}
+
 // --- Legacy aliases (old names keep working via the new surface) ---
 
 export type MessageContext = InboundMessageContext;

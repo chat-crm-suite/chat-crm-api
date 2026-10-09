@@ -21,6 +21,7 @@ import { WhatsappInboundEvent } from './entities/whatsapp-inbound-event.entity';
 import { InboundMediaEnrichmentHandler } from './intake/inbound-media-enrichment.handler';
 import { InboundMediaEnrichmentService } from './intake/inbound-media-enrichment.service';
 import { InboundMessageSavedHandler } from './intake/inbound-message-saved.handler';
+import { InboundWebhookParserService } from './intake/inbound-webhook-parser.service';
 import { WhatsAppInboundReplayService } from './intake/whatsapp-inbound-replay.service';
 import { WhatsAppIntakeService } from './intake/whatsapp-intake.service';
 import { AgentMessageSender } from './outbound/agent-message-sender.service';
@@ -45,6 +46,7 @@ import { WhatsAppService } from './whatsapp.service';
     WhatsAppIntakeService,
     WhatsAppInboundReplayService,
     InboundMessageSavedHandler,
+    InboundWebhookParserService,
     InboundMediaEnrichmentService,
     InboundMediaEnrichmentHandler,
     WhatsAppClient,

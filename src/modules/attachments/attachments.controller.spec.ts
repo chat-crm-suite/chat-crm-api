@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
+import { Reflector } from '@nestjs/core';
 import type { Response } from 'express';
 
-import { CLS_COMPANY_ID, CLS_USER_ID } from '../../config/cls.keys';
-import type { ClsService } from 'nestjs-cls';
+import type { JwtPayload } from '@auth/auth.types';
+import {
+  IS_PUBLIC_KEY,
+  IS_USER_SCOPED_KEY,
+} from '@auth/decorators/access.decorators';
 import { AttachmentsController } from './attachments.controller';
 import type { AttachmentsService } from './attachments.service';
 
@@ -27,19 +31,19 @@ function build() {
     authorizeForSession: jest.fn(),
     authorizeSigned: jest.fn(),
   };
-  const values: Record<string, unknown> = {
-    [CLS_USER_ID]: 'user-1',
-    [CLS_COMPANY_ID]: 'co-1',
-  };
-  const cls = { get: (key: string) => values[key] };
 
   const controller = new AttachmentsController(
     attachments as unknown as AttachmentsService,
-    cls as unknown as ClsService,
   );
 
-  return { controller, attachments, values };
+  return { controller, attachments };
 }
+
+const user: JwtPayload = {
+  sub: 'user-1',
+  memberships: [{ cid: 'co-1', mid: 'member-1', role: 'agent' }],
+  ts: 1,
+};
 
 const resolved = {
   attachment: { id: 'att-1', sizeBytes: 10 },
@@ -50,25 +54,35 @@ const resolved = {
 };
 
 /**
- * T25: the private endpoint turns the session identity into a membership
- * check and streams from private storage; the signed route only trusts an
- * unexpired grant.
+ * T25: the private endpoint hands the verified session claims to the
+ * membership check and streams from private storage; the signed route only
+ * trusts an unexpired grant.
  */
 describe('AttachmentsController (T25)', () => {
   beforeEach(() => jest.clearAllMocks());
+
+  it('needs a session but no company header, so <img> tags can load it', () => {
+    const reflector = new Reflector();
+    const download = AttachmentsController.prototype.download;
+    const signed = AttachmentsController.prototype.downloadSigned;
+
+    expect(reflector.get(IS_USER_SCOPED_KEY, download)).toBe(true);
+    expect(reflector.get(IS_PUBLIC_KEY, download)).toBeUndefined();
+    expect(reflector.get(IS_PUBLIC_KEY, signed)).toBe(true);
+  });
 
   it('streams a session-authorized attachment with private cache headers', async () => {
     const { controller, attachments } = build();
     attachments.authorizeForSession.mockResolvedValue(resolved);
     const { response, setHeader } = responseMock();
 
-    await controller.download('att-1', response);
+    await controller.download('att-1', user, undefined, response);
 
-    expect(attachments.authorizeForSession).toHaveBeenCalledWith('att-1', {
-      userId: 'user-1',
-      companyId: 'co-1',
-      authenticated: true,
-    });
+    expect(attachments.authorizeForSession).toHaveBeenCalledWith(
+      'att-1',
+      user,
+      undefined,
+    );
     expect(setHeader).toHaveBeenCalledWith('Content-Type', 'image/jpeg');
     expect(setHeader).toHaveBeenCalledWith(
       'Cache-Control',
@@ -77,17 +91,20 @@ describe('AttachmentsController (T25)', () => {
     expect(setHeader).toHaveBeenCalledWith('Content-Length', '10');
   });
 
-  it('rejects a leaked URL when there is no session identity', async () => {
-    const { controller, attachments, values } = build();
-    values[CLS_USER_ID] = undefined;
-    values[CLS_COMPANY_ID] = undefined;
+  it('forwards a client-supplied company so a mismatch can be denied', async () => {
+    const { controller, attachments } = build();
     attachments.authorizeForSession.mockRejectedValue(
-      new Error('Session required'),
+      new Error('Attachment belongs to another company'),
     );
 
     await expect(
-      controller.download('att-1', responseMock().response),
-    ).rejects.toThrow('Session required');
+      controller.download('att-1', user, 'co-2', responseMock().response),
+    ).rejects.toThrow('Attachment belongs to another company');
+    expect(attachments.authorizeForSession).toHaveBeenCalledWith(
+      'att-1',
+      user,
+      'co-2',
+    );
   });
 
   it('serves a direct-from-storage URL only with the signed grant', async () => {

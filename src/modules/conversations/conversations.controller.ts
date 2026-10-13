@@ -14,10 +14,8 @@ import {
   Post,
   Query,
   UploadedFile,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOkResponse } from '@nestjs/swagger';
 import { ClsService } from 'nestjs-cls';
@@ -33,7 +31,6 @@ import { ConversationSentimentDto } from './dto/conversation-sentiment.dto';
 import { AssignmentOutcome } from './assignment/assignment.types';
 
 @Controller('conversations')
-@UseGuards(AuthGuard('jwt'))
 export class ConversationsController {
   constructor(
     private readonly service: ConversationsService,

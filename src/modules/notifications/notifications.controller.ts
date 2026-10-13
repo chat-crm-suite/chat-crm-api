@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { BadRequestException, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { BadRequestException, Controller, Get, Post, Query } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 
 import { CLS_COMPANY_ID, CLS_USER_ID } from '../../config/cls.keys';
 import { NotificationsService } from './notifications.service';
 
 @Controller('/notifications')
-@UseGuards(AuthGuard('jwt'))
 export class NotificationController {
   constructor(
     private readonly notificationService: NotificationsService,

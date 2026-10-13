@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClsService } from 'nestjs-cls';
 
+import { SessionRevocationService } from '@auth/session/session-revocation.service';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
 import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
 import { CompanyService } from './company.service';
@@ -39,6 +40,10 @@ describe('CompanyService', () => {
     get: jest.fn(),
   };
 
+  const sessions = {
+    revoke: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     companyRepo.save.mockImplementation((entity: Record<string, unknown>) =>
@@ -69,6 +74,7 @@ describe('CompanyService', () => {
         { provide: getRepositoryToken(CompanyMember), useValue: membersRepo },
         { provide: getRepositoryToken(PipelineStage), useValue: stagesRepo },
         { provide: ClsService, useValue: cls },
+        { provide: SessionRevocationService, useValue: sessions },
       ],
     }).compile();
 
@@ -95,6 +101,8 @@ describe('CompanyService', () => {
         status: 'active',
       }),
     );
+    // The creator's token must be refreshed to list the new company.
+    expect(sessions.revoke).toHaveBeenCalledWith('user-1');
   });
 
   it('does not create a membership when there is no authenticated user', async () => {
@@ -104,5 +112,6 @@ describe('CompanyService', () => {
 
     expect(settingsRepo.save).toHaveBeenCalledTimes(1);
     expect(membersRepo.save).not.toHaveBeenCalled();
+    expect(sessions.revoke).not.toHaveBeenCalled();
   });
 });

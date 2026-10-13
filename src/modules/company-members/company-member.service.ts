@@ -6,7 +6,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
 import { Repository } from 'typeorm';
 
-import type { CompanyMemberListQuery } from '../../contracts/index';
+import type {
+  CompanyMemberListQuery,
+  MembershipClaim,
+} from '../../contracts/index';
+import {
+  CLS_COMPANY_ID,
+  CLS_MEMBER_ID,
+  CLS_USER_ID,
+} from '../../config/cls.keys';
 import { CompanyMember } from './entities/company-member.entity';
 
 @Injectable()
@@ -18,17 +26,40 @@ export class CompanyMemberService {
   ) {}
 
   private get userId(): string {
-    return this.cls.get('user.id');
+    return this.cls.get(CLS_USER_ID);
   }
 
   private get companyId() {
-    return this.cls.get('company.id');
+    return this.cls.get(CLS_COMPANY_ID);
   }
 
+  /** The verified member of the active company (resolved by the tenant guard). */
   async getMemberActive(): Promise<CompanyMember | null> {
-    return this.repo.findOne({
-      where: { userId: this.userId, companyId: this.companyId },
-    });
+    const memberId = this.cls.get<string>(CLS_MEMBER_ID);
+    if (!memberId) return null;
+
+    return this.repo.findOne({ where: { id: memberId } });
+  }
+
+  /**
+   * Token claims for every active membership of the user in a live company
+   * (soft-deleted companies are excluded by the join).
+   */
+  async findActiveClaims(userId: string): Promise<MembershipClaim[]> {
+    const members = await this.repo
+      .createQueryBuilder('member')
+      .innerJoin('member.company', 'company')
+      .where('member.user_id = :userId', { userId })
+      .andWhere('member.status = :status', { status: 'active' })
+      .orderBy('member.created_at', 'ASC')
+      .select(['member.id', 'member.companyId', 'member.role'])
+      .getMany();
+
+    return members.map((member) => ({
+      cid: member.companyId,
+      mid: member.id,
+      role: member.role,
+    }));
   }
 
   /** Staff of the active company (assignment pickers). */

@@ -17,6 +17,7 @@ import type { App } from 'supertest/types';
 import { DataSource, EntityTarget } from 'typeorm';
 
 import { AuthModule } from '@auth/auth.module';
+import { testCacheModule } from './helpers/auth';
 import { clsConfig } from '@config/cls.config';
 import { i18nConfig } from '@config/i18n.config';
 import { loggerConfig } from '@config/logger.config';
@@ -107,6 +108,7 @@ describe('Admin IA toggle (e2e)', () => {
           },
         }),
         TypeOrmModule.forRoot(getTestConfig(entities)),
+        testCacheModule(),
         AuthModule,
         IaModule,
       ],
@@ -157,13 +159,14 @@ describe('Admin IA toggle (e2e)', () => {
     expect(killSwitch.setEnabled).not.toHaveBeenCalled();
   });
 
-  it('rejects an admin without the active company context with 403', async () => {
+  it('rejects an admin without the active company context with 400', async () => {
     const session = await login('admin-t2');
 
+    // The tenant guard requires `x-company-id` before any handler runs.
     await session
       .post('/admin/ia/toggle')
       .send({ enabled: false })
-      .expect(403);
+      .expect(400);
 
     expect(killSwitch.setEnabled).not.toHaveBeenCalled();
   });

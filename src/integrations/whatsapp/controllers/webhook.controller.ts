@@ -42,6 +42,7 @@ import {
   toStatusDate,
   toStatusError,
 } from '../status';
+import { Public } from '@auth';
 
 /** Wamids freshly persisted by this post, split by event family. */
 interface FreshIntake {
@@ -58,6 +59,7 @@ export const enum WhatsappNotificationStatusStatus {
   Played = 'played',
 }
 
+@Public()
 @Controller('integration/webhook/whatsapp')
 export class WebhookController {
   constructor(

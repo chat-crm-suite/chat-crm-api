@@ -92,8 +92,9 @@ export class MetricsService {
     return MetricMapper.toAgentMetrics(queries);
   }
 
-  async getBestClients(userId: string) {
-    const queries = await this.repo.getBestClients(userId);
+  /** Best clients of the conversations assigned to the active member. */
+  async getBestClients(memberId: string) {
+    const queries = await this.repo.getBestClients(memberId);
 
     return MetricMapper.toBestClients(queries);
   }

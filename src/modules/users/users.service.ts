@@ -19,6 +19,8 @@ import {
 import { ClsService } from 'nestjs-cls';
 
 import type { AuthUser } from '../../contracts/index';
+import { CLS_USER_ID } from '../../config/cls.keys';
+import { SessionRevocationService } from '../../auth/session/session-revocation.service';
 import { buildQueryOptions } from '../../lib/helpers/build-query-options.helper';
 import type { UserTableQuery } from '../../common/schemas/user-table-query.schema';
 import { CoreService } from '../../core/core.service';
@@ -39,16 +41,25 @@ export class UsersService extends CoreService<User> {
     private readonly csv: CsvParser,
     private readonly cls: ClsService,
     private readonly i18n: I18nService,
+    private readonly sessions: SessionRevocationService,
   ) {
     super(repo);
   }
 
   private get userId() {
-    return this.cls.get<string>('user-id');
+    return this.cls.get<string>(CLS_USER_ID);
   }
 
+  /** Profile + memberships of the session user. */
   async identify(): Promise<AuthUser | null> {
-    return this.UserRepo.findUserById(this.userId);
+    return this.profile(this.userId);
+  }
+
+  /** Profile + memberships of a given user (`/auth/me` shape). */
+  async profile(userId: string | undefined): Promise<AuthUser | null> {
+    if (!userId) return null;
+
+    return this.UserRepo.findUserById(userId);
   }
 
   async importCsv(file: Express.Multer.File): Promise<{ count: number }> {
@@ -160,14 +171,21 @@ export class UsersService extends CoreService<User> {
       await this.assertUsernameAvailable(dto.username, id);
     }
 
-    return this.repo.update(id, {
+    const result = await this.repo.update(id, {
       ...rest,
-      // Solo se regenera el hash si el DTO trae password; si no, no se toca.
+      // The hash is only regenerated when the DTO carries a password.
       ...(password ? { passwordHash: bcrypt.hashSync(password, 10) } : {}),
     });
+
+    // A password change ends the user's other sessions.
+    if (password) await this.sessions.revoke(id);
+
+    return result;
   }
 
   async remove(id: string): Promise<void> {
     await this.repo.softDelete({ id });
+    // A deleted user cannot refresh, so every live session ends here.
+    await this.sessions.revoke(id);
   }
 }

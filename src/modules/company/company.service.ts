@@ -10,6 +10,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
 import { Repository } from 'typeorm';
 
+import { SessionRevocationService } from '@auth/session/session-revocation.service';
+import { CLS_USER_ID } from '@config/cls.keys';
+
 import { DEFAULT_PIPELINE_STAGES } from '../customers/pipeline-stages.defaults';
 import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
@@ -30,6 +33,7 @@ export class CompanyService {
     @InjectRepository(PipelineStage)
     private readonly stages: Repository<PipelineStage>,
     private readonly cls: ClsService,
+    private readonly sessions: SessionRevocationService,
   ) {}
 
   get info() {
@@ -62,8 +66,8 @@ export class CompanyService {
       ),
     );
 
-    // El creador queda como member admin: evita empresas huérfanas.
-    const userId = this.cls.get<string>('user.id');
+    // The creator becomes an admin member, so no company is left orphaned.
+    const userId = this.cls.get<string>(CLS_USER_ID);
     if (userId) {
       await this.members.save(
         this.members.create({
@@ -73,6 +77,8 @@ export class CompanyService {
           status: 'active',
         }),
       );
+      // The creator's token does not list the new company yet: refresh it.
+      await this.sessions.revoke(userId);
     }
 
     return company;

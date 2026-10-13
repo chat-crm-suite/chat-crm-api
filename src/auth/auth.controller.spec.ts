@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Response } from 'express';
+import { UnauthorizedException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Request, Response } from 'express';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthUser } from '@auth';
-import { IdentifyGuard } from './guards/identify.guard';
-import { CompanyMemberService } from '../modules/company-members/company-member.service';
+import type { JwtPayload } from './auth.types';
+import { IS_PUBLIC_KEY, IS_USER_SCOPED_KEY } from './decorators/access.decorators';
+import { UsersService } from '../modules/users/users.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -34,15 +37,19 @@ describe('AuthController', () => {
     ],
   };
 
+  const claims: JwtPayload = {
+    sub: 'user-1',
+    memberships: [{ cid: 'company-1', mid: 'member-1', role: 'admin' }],
+    ts: 1,
+  };
+
   const mocks = {
     authService: {
       sign: jest.fn(),
+      refreshMemberships: jest.fn(),
     },
-    identityGuard: {
-      canActivate: jest.fn(),
-    },
-    companyMembers: {
-      getCompanies: jest.fn(),
+    users: {
+      profile: jest.fn(),
     },
     cookie: jest.fn().mockReturnThis(),
     clearCookie: jest.fn().mockReturnThis(),
@@ -52,19 +59,10 @@ describe('AuthController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
-        {
-          provide: AuthService,
-          useValue: mocks.authService,
-        },
-        {
-          provide: CompanyMemberService,
-          useValue: mocks.companyMembers,
-        },
+        { provide: AuthService, useValue: mocks.authService },
+        { provide: UsersService, useValue: mocks.users },
       ],
-    })
-      .overrideGuard(IdentifyGuard)
-      .useValue(mocks.identityGuard)
-      .compile();
+    }).compile();
 
     controller = module.get<AuthController>(AuthController);
 
@@ -76,6 +74,23 @@ describe('AuthController', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('route access', () => {
+    const reflector = new Reflector();
+    const meta = (handler: keyof AuthController, key: string) =>
+      reflector.get<boolean>(key, AuthController.prototype[handler]);
+
+    it('keeps login, logout and refresh public', () => {
+      expect(meta('login', IS_PUBLIC_KEY)).toBe(true);
+      expect(meta('logout', IS_PUBLIC_KEY)).toBe(true);
+      expect(meta('refreshMemberships', IS_PUBLIC_KEY)).toBe(true);
+    });
+
+    it('serves the profile with a session but no company context', () => {
+      expect(meta('getProfile', IS_PUBLIC_KEY)).toBeUndefined();
+      expect(meta('getProfile', IS_USER_SCOPED_KEY)).toBe(true);
+    });
   });
 
   describe('login', () => {
@@ -108,29 +123,54 @@ describe('AuthController', () => {
   });
 
   describe('getProfile', () => {
-    it('should return the user and the first company id', async () => {
-      mocks.companyMembers.getCompanies.mockResolvedValue([
-        'company-1',
-        'company-2',
-      ]);
+    it('returns the profile with every membership for the client company list', async () => {
+      mocks.users.profile.mockResolvedValue(mockUser);
 
-      const result = await controller.getProfile(mockUser);
+      const result = await controller.getProfile(claims);
 
-      expect(result).toEqual({
-        user: mockUser,
-        company: { id: 'company-1' },
-      });
+      expect(mocks.users.profile).toHaveBeenCalledWith('user-1');
+      expect(result).toEqual({ user: mockUser });
     });
 
-    it('should return null company when the user has none', async () => {
-      mocks.companyMembers.getCompanies.mockResolvedValue([]);
+    it('rejects a session whose user no longer exists', async () => {
+      mocks.users.profile.mockResolvedValue(null);
 
-      const result = await controller.getProfile(mockUser);
+      await expect(controller.getProfile(claims)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
 
-      expect(result).toEqual({
-        user: mockUser,
-        company: { id: null },
+  describe('refreshMemberships', () => {
+    const req = { cookies: { access_token: 'stale-token' } } as unknown as Request;
+
+    it('reissues the cookie from the current one and returns the fresh profile', async () => {
+      mocks.authService.refreshMemberships.mockResolvedValue({
+        token: 'fresh-token',
+        userId: 'user-1',
       });
+      mocks.users.profile.mockResolvedValue(mockUser);
+
+      const result = await controller.refreshMemberships(req, res);
+
+      expect(mocks.authService.refreshMemberships).toHaveBeenCalledWith('stale-token');
+      expect(mocks.cookie).toHaveBeenCalledWith(
+        'access_token',
+        'fresh-token',
+        expect.objectContaining({ httpOnly: true }),
+      );
+      expect(result).toEqual({ user: mockUser });
+    });
+
+    it('does not set a cookie when the current token is rejected', async () => {
+      mocks.authService.refreshMemberships.mockRejectedValue(
+        new UnauthorizedException(),
+      );
+
+      await expect(controller.refreshMemberships(req, res)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mocks.cookie).not.toHaveBeenCalled();
     });
   });
 });

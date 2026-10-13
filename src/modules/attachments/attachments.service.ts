@@ -9,10 +9,9 @@ import {
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 
-import {
-  ConversationAccessService,
-  type ConversationSocketIdentity,
-} from '../conversations/realtime/conversation-access.service';
+import type { JwtPayload } from '@auth/auth.types';
+import { findMembership } from '@auth/membership';
+import { ConversationAccessService } from '../conversations/realtime/conversation-access.service';
 import { buildAttachmentUrl } from '../message/attachment-url';
 import type { MessageAttachment } from '../message/entities/message-attachment.entity';
 import type { Message } from '../message/entities/message.entity';
@@ -38,7 +37,8 @@ export interface ResolvedAttachment {
 /**
  * T25 attachment authorization.
  *
- * - Session access reuses the exact same `ConversationAccessService` the
+ * - Session access derives the company from the attachment, requires it in
+ *   the token's memberships and reuses the `ConversationAccessService` the
  *   socket room join uses, so company isolation and role rules are identical.
  * - A short-lived signed grant (direct-from-storage exposure only) is the
  *   sole alternative to a session; it never widens access beyond its window.
@@ -57,23 +57,36 @@ export class AttachmentsService {
     this.logger.setContext(AttachmentsService.name);
   }
 
-  /** Session path: membership-checked, never trusts a client-supplied scope. */
+  /**
+   * Session path. A browser loads media through `<img>`/`<audio>`, which
+   * cannot send `x-company-id`, so the company comes from the attachment row
+   * (server-side data) and must be one of the verified token's memberships.
+   * The role rules then run through the same `ConversationAccessService` as
+   * the socket room join. A client-supplied company that disagrees is denied.
+   */
   async authorizeForSession(
     attachmentId: string,
-    identity: ConversationSocketIdentity,
+    user: Pick<JwtPayload, 'sub' | 'memberships'> | null | undefined,
+    requestedCompanyId?: string | null,
   ): Promise<ResolvedAttachment> {
-    if (!identity.userId || !identity.companyId) {
-      throw new ForbiddenException('Session required');
-    }
+    if (!user?.sub) throw new ForbiddenException('Session required');
 
     const context = await this.messages.findAttachmentContext(attachmentId);
     if (!context) throw new NotFoundException('Attachment not found');
 
-    // Same service as the socket room join: cross-company access is denied.
-    await this.access.assertCanJoinConversation(
-      context.message.conversationId,
-      identity,
-    );
+    const companyId = context.message.companyId;
+    if (requestedCompanyId && requestedCompanyId !== companyId) {
+      throw new ForbiddenException('Attachment belongs to another company');
+    }
+    if (!findMembership(user, companyId)) {
+      throw new ForbiddenException('Not a member of this company');
+    }
+
+    await this.access.assertCanJoinConversation(context.message.conversationId, {
+      userId: user.sub,
+      companyId,
+      authenticated: true,
+    });
 
     return this.resolve(context);
   }

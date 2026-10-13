@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Controller, Get, HttpCode, HttpStatus, Param, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get, HttpCode, HttpStatus, Param, Query } from '@nestjs/common';
 import { MetricsService } from './metrics.service';
-import { type AuthUser, CurrentUser } from '../../auth/index';
+import { CurrentTenant } from '../../auth/index';
 import { CompareQuery } from './dtos/queries/compare-query.dto';
 import { SentimentTopQuery } from './dtos/queries/sentiment-top.query.dto';
 import { CompareParams } from './dtos/params/compare.params.dto';
 import { SentimentTrendQuery } from './dtos/queries/sentiment-trend.query.dto';
 
 @Controller('metrics')
-@UseGuards(AuthGuard('jwt'))
 export class MetricsController {
   constructor(private readonly service: MetricsService) { }
 
@@ -51,7 +49,7 @@ export class MetricsController {
 
   @Get("best-clients")
   @HttpCode(HttpStatus.OK)
-  async getBestClients(@CurrentUser('id') userId: AuthUser['id']) {
-    return this.service.getBestClients(userId);
+  async getBestClients(@CurrentTenant('memberId') memberId: string) {
+    return this.service.getBestClients(memberId);
   }
 }

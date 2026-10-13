@@ -139,7 +139,7 @@ export class MetricsRepository {
   }
 
   async getBestClients(
-    userId: string,
+    memberId: string,
     label: SentimentType = 'POS',
     limit: number = 5,
   ): Promise<ClientQuery[]> {
@@ -159,7 +159,7 @@ export class MetricsRepository {
       INNER JOIN customers c ON c.id = m.sender_customer_id
       LEFT JOIN analyses a ON a.message_id = m.id AND a.type = 'sentiment'
       LEFT JOIN sentiment_results sr ON sr.analysis_id = a.id AND sr.label = ${storedLabel}
-      WHERE cm.user_id = ${userId}
+      WHERE cm.id = ${memberId}
         AND m.direction = 'inbound'
       GROUP BY c.id
       ORDER BY score DESC

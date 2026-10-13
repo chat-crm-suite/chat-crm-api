@@ -7,14 +7,11 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
 
-import { JwtAuthGuard } from '@auth/guards';
 import { IaStateSchema } from '@contracts';
-import { CompanyGuard } from '../../company/company.guard';
 import { ToggleIaDto } from './dto/toggle-ia.dto';
 import { IaAdminService } from './ia-admin.service';
 
@@ -26,7 +23,6 @@ import { IaAdminService } from './ia-admin.service';
 @ApiTags('Admin')
 @ApiCookieAuth('access_token')
 @Controller('admin/ia')
-@UseGuards(JwtAuthGuard, CompanyGuard)
 export class IaAdminController {
   constructor(private readonly service: IaAdminService) {}
 

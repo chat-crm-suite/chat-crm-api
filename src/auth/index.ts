@@ -3,3 +3,6 @@
 
 export { CurrentUser } from './decorators/current-user.decorator';
 export type { AuthUser, JwtPayload as Payload } from './auth.types';
+export { Public, UserScoped } from './decorators/access.decorators';
+export { CurrentTenant } from './decorators/current-tenant.decorator';
+export type { TenantContext } from './auth.types';

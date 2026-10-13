@@ -417,9 +417,9 @@
         ]
       }
     },
-    "/auth/me/companies": {
+    "/auth/me": {
       "get": {
-        "operationId": "AuthController_getCompanies",
+        "operationId": "AuthController_getProfile",
         "parameters": [],
         "responses": {
           "200": {
@@ -431,9 +431,9 @@
         ]
       }
     },
-    "/auth/me": {
-      "get": {
-        "operationId": "AuthController_getProfile",
+    "/auth/refresh-memberships": {
+      "post": {
+        "operationId": "AuthController_refreshMemberships",
         "parameters": [],
         "responses": {
           "200": {
@@ -1194,6 +1194,63 @@
         },
         "tags": [
           "Company"
+        ]
+      }
+    },
+    "/contracts/version": {
+      "get": {
+        "operationId": "ContractsController_version",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Contracts"
+        ]
+      }
+    },
+    "/contracts/manifest": {
+      "get": {
+        "operationId": "ContractsController_manifest",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Contracts"
+        ]
+      }
+    },
+    "/contracts/snapshot": {
+      "get": {
+        "operationId": "ContractsController_snapshot",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "tags": [
+          "Contracts"
         ]
       }
     },

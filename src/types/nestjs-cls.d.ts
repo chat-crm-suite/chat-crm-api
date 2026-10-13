@@ -3,9 +3,13 @@
 
 import 'nestjs-cls';
 
+import type { MemberRole } from '../contracts/index';
+
+// Nested on purpose: nestjs-cls resolves dotted keys ('company.id') as paths.
 declare module "nestjs-cls" {
   interface ClsStore {
-    company?: { id: string };
-    user?: { id: string };
+    company?: { id?: string };
+    user?: { id?: string };
+    member?: { id?: string; role?: MemberRole };
   }
 }

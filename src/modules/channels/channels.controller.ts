@@ -7,7 +7,6 @@ import {
   Get,
   Patch,
   Post,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
@@ -16,15 +15,12 @@ import {
   ChannelResponseSchema,
   WhatsAppConfigResponseSchema,
 } from '../../contracts/index';
-import { JwtAuthGuard } from '../../auth/guards/index';
-import { CompanyGuard } from '../company/company.guard';
 import { ChannelsService } from './channels.service';
 import { CreateChannelDto, UpdateChannelDto } from './dto/channel.dto';
 
 @ApiTags('Channels')
 @ApiCookieAuth('access_token')
 @Controller('channels')
-@UseGuards(JwtAuthGuard, CompanyGuard)
 export class ChannelsController {
   constructor(private readonly service: ChannelsService) {}
 

@@ -16,6 +16,7 @@ import type { App } from 'supertest/types';
 import { EntityTarget } from 'typeorm';
 
 import { AuthModule } from '@auth/auth.module';
+import { testCacheModule } from './helpers/auth';
 import { ZodValidationExceptionFilter } from '@common/filters/zod-validation.filter';
 import { loggerConfig } from '@config/logger.config';
 import { i18nConfig } from '@config/i18n.config';
@@ -66,6 +67,7 @@ const createApp = async (setupToken?: string): Promise<INestApplication> => {
         },
       }),
       TypeOrmModule.forRoot(getTestConfig(entities)),
+      testCacheModule(),
       SetupModule,
       AuthModule,
     ],
@@ -161,27 +163,30 @@ describe('Setup first-run flow (e2e)', () => {
         .send({ username: 'admin', password: 'secreta-123' })
         .expect(200);
 
-      // La sesión sirve para hidratar el front (user + empresa activa).
+      // The session hydrates the front: profile + the company list it picks from.
       const me = await agent.get('/auth/me').expect(200);
       const meBody = me.body as {
         user: {
           username: string;
           memberships: Array<{ companyId: string; role: string }>;
         } | null;
-        company: { id: string | null };
       };
 
       expect(meBody.user?.username).toBe('admin');
       expect(meBody.user?.memberships).toEqual([
         expect.objectContaining({ companyId, role: 'admin', status: 'active' }),
       ]);
-      expect(meBody.company.id).toBe(companyId);
 
-      // La membresía admin creada por /setup pertenece a la empresa creada.
-      const res = await agent.get('/auth/me/companies').expect(200);
-      const body = res.body as string[];
+      // The admin membership created by /setup is in the token: the new
+      // company is usable right away as the active company.
+      const res = await agent
+        .get('/company-members/current')
+        .set('x-company-id', companyId)
+        .expect(200);
 
-      expect(body).toEqual([companyId]);
+      expect(res.body).toEqual(
+        expect.objectContaining({ companyId, role: 'admin', status: 'active' }),
+      );
     });
 
     it('rejects an empty login payload with the standard 400 envelope', async () => {

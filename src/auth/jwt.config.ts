@@ -11,3 +11,6 @@ export const JWT_SECRET_FALLBACK = 'your_jwt_secret';
 export function getJwtSecret(): string {
   return process.env.JWT_SECRET || JWT_SECRET_FALLBACK;
 }
+
+/** Access token lifetime; also the TTL of the per-user stale marker. */
+export const JWT_EXPIRES_IN_SECONDS = 24 * 60 * 60;

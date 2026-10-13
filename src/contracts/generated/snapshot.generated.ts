@@ -184,6 +184,121 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       }
     },
     "auth": {
+      "AUTH_ERROR_CODES": {
+        "kind": "value",
+        "value": {
+          "tokenStale": "token_stale"
+        }
+      },
+      "AuthSessionResponseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "user": {
+              "additionalProperties": false,
+              "properties": {
+                "avatarUrl": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "email": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "firstName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "isPlatformAdmin": {
+                  "type": "boolean"
+                },
+                "lastName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "memberships": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "companyId": {
+                        "type": "string"
+                      },
+                      "companyName": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "enum": [
+                          "admin",
+                          "supervisor",
+                          "agent"
+                        ],
+                        "type": "string"
+                      },
+                      "status": {
+                        "enum": [
+                          "active",
+                          "inactive",
+                          "suspended"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "companyId",
+                      "companyName",
+                      "id",
+                      "role",
+                      "status"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "phoneNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "username": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "isPlatformAdmin",
+                "memberships",
+                "username"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "user"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "COMPANY_HEADER": {
+        "kind": "value",
+        "value": "x-company-id"
+      },
       "LoginResponseSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -217,6 +332,35 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "required": [
             "password",
             "username"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "MembershipClaimSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "cid": {
+              "type": "string"
+            },
+            "mid": {
+              "type": "string"
+            },
+            "role": {
+              "enum": [
+                "admin",
+                "supervisor",
+                "agent"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "cid",
+            "mid",
+            "role"
           ],
           "type": "object"
         },
@@ -2862,4 +3006,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "f000058f9711560954f24414cfbbeae6621c5b484310c170ac682060fb90b974";
+export const CONTRACTS_SNAPSHOT_HASH = "005b6d2ad164ca5720b5285e649875fa355511e62759bb212be9e309a1720a1b";

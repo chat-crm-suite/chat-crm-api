@@ -4,6 +4,7 @@
 import { Controller, Get } from '@nestjs/common';
 
 import { InboundMetricsService } from './inbound-metrics.service';
+import { Public } from '@auth';
 
 /**
  * Ticket #24: `GET /metrics/inbound` — internal operational snapshot of the
@@ -11,6 +12,7 @@ import { InboundMetricsService } from './inbound-metrics.service';
  * intake-backlog gauges). Exposed like `/metrics` and `/health`: no guards and
  * no auth, counters only, never tenant or message data.
  */
+@Public()
 @Controller('metrics/inbound')
 export class InboundMetricsController {
   constructor(private readonly metrics: InboundMetricsService) {}

@@ -11,10 +11,8 @@ import {
   Post,
   Query,
   UploadedFile,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import { CustomerTableQueryDto } from '../../common/schemas/customer-table-query.schema';
@@ -22,7 +20,6 @@ import { CustomersService } from './customers.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 
 @Controller('customers')
-@UseGuards(AuthGuard('jwt'))
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 

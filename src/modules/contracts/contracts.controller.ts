@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 
-import { AuthGuard } from '@nestjs/passport';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 
 import { CONTRACTS_SNAPSHOT } from '../../contracts/generated/snapshot.generated';
 import { CONTRACTS_VERSION } from '../../contracts/generated/version.generated';
+import { UserScoped } from '@auth';
 
 interface ContractsVersion {
   tag: string;
@@ -27,8 +27,8 @@ interface ContractsVersion {
  */
 @ApiTags('Contracts')
 @ApiCookieAuth('access_token')
+@UserScoped()
 @Controller('contracts')
-@UseGuards(AuthGuard('jwt'))
 export class ContractsController {
   @Get('version')
   version() {

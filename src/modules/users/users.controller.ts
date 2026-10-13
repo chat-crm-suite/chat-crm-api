@@ -12,12 +12,10 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
 
-import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { ZodSerializerDto } from 'nestjs-zod';
@@ -30,11 +28,12 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserTableQueryDto } from '../../common/schemas/user-table-query.schema';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
+import { UserScoped } from '@auth';
 
 @ApiTags('Users')
 @ApiCookieAuth('access_token')
+@UserScoped()
 @Controller('users')
-@UseGuards(AuthGuard('jwt'))
 export class UsersController {
   constructor(private readonly service: UsersService) { }
 

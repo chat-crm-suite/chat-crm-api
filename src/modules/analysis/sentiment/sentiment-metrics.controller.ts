@@ -4,6 +4,7 @@
 import { Controller, Get } from '@nestjs/common';
 
 import { SentimentMetricsService } from './sentiment-metrics.service';
+import { Public } from '@auth';
 
 /**
  * T6: `GET /metrics` — internal operational snapshot of the sentiment
@@ -11,6 +12,7 @@ import { SentimentMetricsService } from './sentiment-metrics.service';
  * `/health`: no guards and no auth, counters only, never tenant or message
  * data.
  */
+@Public()
 @Controller('metrics')
 export class SentimentMetricsController {
   constructor(private readonly service: SentimentMetricsService) {}

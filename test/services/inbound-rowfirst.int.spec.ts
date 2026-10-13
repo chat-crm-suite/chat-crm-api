@@ -290,7 +290,8 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
         conversationId: conversation.id,
         attachmentId: pendingAttachment.id,
         status: 'ready',
-        url: '/uploads/co-test/media-audio-1.ogg',
+        // T25: the patch exposes our own endpoint, never the storage path.
+        url: `/attachments/${pendingAttachment.id}`,
       }),
     );
 

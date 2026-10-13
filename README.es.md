@@ -112,6 +112,7 @@ valor por defecto: `COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `LOG_
 | `pnpm lint` · `pnpm format` | ESLint · Prettier |
 | `pnpm migration:generate` · `migration:run` · `migration:revert` | Migraciones de TypeORM |
 | `pnpm docs:gen` · `pnpm docs:check` | Regenera / verifica `openapi.json` (no necesita MySQL ni Redis) |
+| `pnpm contracts:snapshot` · `pnpm contracts:check` | Escribe / verifica el snapshot de contratos servido en `/contracts/*` |
 | `pnpm db:reset` | Reinicia la base de datos local |
 
 ## Estructura del proyecto

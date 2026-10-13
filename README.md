@@ -112,6 +112,7 @@ Pending database migrations run automatically when the API boots.
 | `pnpm lint` · `pnpm format` | ESLint · Prettier |
 | `pnpm migration:generate` · `migration:run` · `migration:revert` | TypeORM migrations |
 | `pnpm docs:gen` · `pnpm docs:check` | Regenerate / verify `openapi.json` (no MySQL or Redis needed) |
+| `pnpm contracts:snapshot` · `pnpm contracts:check` | Write / verify the contracts snapshot served at `/contracts/*` |
 | `pnpm db:reset` | Reset the local database |
 
 ## Project structure

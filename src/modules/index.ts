@@ -7,6 +7,7 @@ import { AttachmentsModule } from './attachments/attachments.module';
 import { ChannelsModule } from './channels/channels.module';
 import { CompanyModule } from './company/company.module';
 import { CompanyMembersModule } from './company-members/company-members.module';
+import { ContractsModule } from './contracts/contracts.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { CustomersModule } from './customers/customers.module';
 import { MessageModule } from './message/message.module';
@@ -21,6 +22,7 @@ export {
   ChannelsModule,
   CompanyModule,
   CompanyMembersModule,
+  ContractsModule,
   ConversationsModule,
   CustomersModule,
   MessageModule,
@@ -36,6 +38,7 @@ export const modules = [
   ChannelsModule,
   CompanyModule,
   CompanyMembersModule,
+  ContractsModule,
   ConversationsModule,
   CustomersModule,
   MessageModule,

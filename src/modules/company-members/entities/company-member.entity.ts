@@ -54,7 +54,7 @@ export class CompanyMember extends UuidV7Entity {
 
   /** Overrides company_settings.auto_assign_max_open. */
   @Column({ name: 'max_open_conversations', type: 'int', nullable: true })
-  maxOpenConversations?: number;
+  maxOpenConversations?: number | null;
 
   @Column({ name: 'joined_at', type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   joinedAt: Date;

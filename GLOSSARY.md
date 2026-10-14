@@ -74,3 +74,37 @@ The single emission path for conversation content: it delivers an event to the
 message's conversation room and to the assignee's personal room, and is
 deliberately never company-wide.
 _Avoid_: broadcast, emit everywhere
+
+### Team and platform
+
+**Team (Equipo)**:
+The members of one company (admin, supervisor, agent), managed from `/team`.
+An admin manages anyone; a supervisor only agents and never promotes; nobody
+edits their own membership; the last active admin is protected.
+_Avoid_: users, staff list, agents (an agent is one role of a member)
+
+**Member removal**:
+A soft delete of the membership, never of the account (the person may belong
+to other companies). Its open conversations go back to the unassigned queue
+with a `release` assignment row and its sessions are revoked. Adding the same
+account again restores the same row.
+_Avoid_: deactivate, delete user
+
+**Member provisioning**:
+The single rule for adding a person to a company: an existing account is
+linked by exact email (its password is untouched), otherwise the account is
+created with a generated password shown once, a removed membership is
+restored, an active one is a conflict.
+_Avoid_: invite, signup
+
+**Customer restore**:
+Creating, importing or receiving a WhatsApp message from a phone that belongs
+to a soft-deleted customer brings that customer back instead of failing on
+the unique `(company, phone)`.
+_Avoid_: duplicate error, recreate
+
+**Platform console**:
+The superadmin area for companies (create, edit, soft delete, restore). It
+needs a platform admin account AND an unlock with `PLATFORM_CONSOLE_PASSWORD`;
+without that variable the whole surface answers 404.
+_Avoid_: admin panel, super admin page

@@ -9507,18 +9507,32 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               "type": "string"
             },
             "ownerMemberId": {
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-              "type": "string"
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "phoneNumber": {
               "maxLength": 20,
               "type": "string"
             },
             "pipelineStageId": {
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-              "type": "string"
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "source": {
               "enum": [
@@ -14303,4 +14317,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "d33d7a5b08d61c6ce9166878c9af84d848aa330b362920f075436fe1cb6a3101";
+export const CONTRACTS_SNAPSHOT_HASH = "fe01bd7539fcb8d8d9e7a6d7d107d3b956d13a7af703247e8c5350e6e9da381f";

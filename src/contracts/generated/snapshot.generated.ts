@@ -9392,6 +9392,46 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "kind": "value",
         "value": "none"
       },
+      "PipelineStageSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "isLost": {
+              "type": "boolean"
+            },
+            "isWon": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "position": {
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "id",
+            "isLost",
+            "isWon",
+            "name",
+            "position"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "SetCustomerTagsSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -14263,4 +14303,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "3218e155ceebf984aada121a55c77fa214d2e30a4446a1dfa49dc484611c24d2";
+export const CONTRACTS_SNAPSHOT_HASH = "d33d7a5b08d61c6ce9166878c9af84d848aa330b362920f075436fe1cb6a3101";

@@ -13,7 +13,9 @@
  * deterministic and works identically under ts-jest and the compiled `dist`.
  */
 import * as analysis from '../contracts/analysis.contract';
+import * as analytics from '../contracts/analytics.contract';
 import * as auth from '../contracts/auth.contract';
+import * as caseContract from '../contracts/case.contract';
 import * as channel from '../contracts/channel.contract';
 import * as company from '../contracts/company.contract';
 import * as conversation from '../contracts/conversation.contract';
@@ -23,15 +25,20 @@ import * as member from '../contracts/member.contract';
 import * as message from '../contracts/message.contract';
 import * as metrics from '../contracts/metrics.contract';
 import * as pagination from '../contracts/pagination.contract';
+import * as presence from '../contracts/presence.contract';
+import * as serviceSettings from '../contracts/service-settings.contract';
 import * as setup from '../contracts/setup.contract';
 import * as socket from '../contracts/socket.contract';
+import * as spend from '../contracts/spend.contract';
 import * as template from '../contracts/template.contract';
 import * as user from '../contracts/user.contract';
 import * as whatsappWebhook from '../contracts/whatsapp-webhook.contract';
 
 export const CONTRACT_MODULES = {
   analysis,
+  analytics,
   auth,
+  case: caseContract,
   channel,
   company,
   conversation,
@@ -41,8 +48,11 @@ export const CONTRACT_MODULES = {
   message,
   metrics,
   pagination,
+  presence,
+  'service-settings': serviceSettings,
   setup,
   socket,
+  spend,
   template,
   user,
   'whatsapp-webhook': whatsappWebhook,

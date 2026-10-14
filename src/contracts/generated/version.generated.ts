@@ -2,7 +2,7 @@
 export const CONTRACTS_VERSION: unknown = {
   "tag": "v1.0.2",
   "commit": "69dc9c1ba6142521d539f1aa48f748b242c70f05",
-  "hash": "0aae110f283792a47ffb4fe2871a9975dc75de866b0da2a8afeda79153e5588f",
+  "hash": "6268e627665587f7d223aae0974ea651a9b37a8cea542f9fdd61d987273a3d2a",
   "generatedAt": "2026-10-14T00:54:04-05:00",
   "files": {
     "analysis": {
@@ -10,10 +10,20 @@ export const CONTRACTS_VERSION: unknown = {
       "version": null,
       "updatedAt": "2026-10-07T12:16:13-05:00"
     },
+    "analytics": {
+      "hash": "0b5239a4fa6abde3c6e1a741c83d5770be0a91754390626507227483db49f1de",
+      "version": null,
+      "updatedAt": ""
+    },
     "auth": {
       "hash": "99bd71f88fbbc41b1db1334ece72207e7e05b461b7d84953539e44f50111bdf8",
       "version": null,
       "updatedAt": "2026-10-13T18:54:54-05:00"
+    },
+    "case": {
+      "hash": "0a6a7ae1bcf83473694f3c0ace7e3889747e8d6b72063972985ca317e72d44f8",
+      "version": null,
+      "updatedAt": ""
     },
     "channel": {
       "hash": "2faf258e928307bb5aa62e54e466cb7f286c15ee945df5850b03b046e3974829",
@@ -36,7 +46,7 @@ export const CONTRACTS_VERSION: unknown = {
       "updatedAt": "2026-10-05T22:33:40-05:00"
     },
     "ia": {
-      "hash": "1a9c2a6e0c3f8c9b3da3ecc4116339cc03dc6dc8a5fc671e7c5c625a17affaac",
+      "hash": "dde85b7a47bbe36ffcc5f7e4f6a0799b738ed84df13b118e8face74abfff53b8",
       "version": null,
       "updatedAt": "2026-10-07T13:14:52-05:00"
     },
@@ -60,6 +70,16 @@ export const CONTRACTS_VERSION: unknown = {
       "version": null,
       "updatedAt": "2026-10-05T22:33:40-05:00"
     },
+    "presence": {
+      "hash": "d3bdedd6ab139110bae7e49869321aa2b839e2de33343afdf42944ed8b8bf145",
+      "version": null,
+      "updatedAt": ""
+    },
+    "service-settings": {
+      "hash": "be4aaed8959e72c43d31e9a083e942884b2d79df2c297483f5cc34b73a2f49e0",
+      "version": null,
+      "updatedAt": ""
+    },
     "setup": {
       "hash": "3d7155a1a4bbe1ba3b23c03611652c6785182050231094debbb5bf41d2ba7edb",
       "version": null,
@@ -69,6 +89,11 @@ export const CONTRACTS_VERSION: unknown = {
       "hash": "76a132a88822a41223793f66cdc487bbeac170de70f9978b50a1e3a8cf784834",
       "version": null,
       "updatedAt": "2026-10-05T22:33:40-05:00"
+    },
+    "spend": {
+      "hash": "94721427000a25b2a565f2a44c7218178098a108dedbec10ae662cae0a1fc982",
+      "version": null,
+      "updatedAt": ""
     },
     "template": {
       "hash": "5a5c920c9d2376b4ac4898bbcee4f27b43305f512b76df3a7f16c7e958828478",

@@ -183,6 +183,6121 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "kind": "schema"
       }
     },
+    "analytics": {
+      "ANALYTICS_PERIODS": {
+        "kind": "value",
+        "value": [
+          "today",
+          "7d",
+          "30d",
+          "90d"
+        ]
+      },
+      "ANALYTICS_SCOPES": {
+        "kind": "value",
+        "value": [
+          "live",
+          "cases",
+          "presence",
+          "spend",
+          "sentiment"
+        ]
+      },
+      "AgentControlParamsSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "memberId": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "memberId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "AgentControlQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "anyOf": [
+                {
+                  "const": "all",
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "whatsapp",
+                    "telegram",
+                    "messenger",
+                    "instagram",
+                    "email",
+                    "sms",
+                    "webchat"
+                  ],
+                  "type": "string"
+                }
+              ],
+              "default": "all"
+            },
+            "metric": {
+              "enum": [
+                "first-response",
+                "service-level",
+                "resolved-cases",
+                "negative-tone"
+              ],
+              "type": "string"
+            },
+            "month": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            },
+            "period": {
+              "default": "7d",
+              "enum": [
+                "today",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "metric",
+            "period"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "AgentControlSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "chart": {
+              "additionalProperties": false,
+              "properties": {
+                "center": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "lowerLimit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "points": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "date": {
+                        "type": "string"
+                      },
+                      "signal": {
+                        "enum": [
+                          "none",
+                          "beyond-limits",
+                          "run-of-8"
+                        ],
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "date",
+                      "signal",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "upperLimit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "center",
+                "lowerLimit",
+                "meta",
+                "points",
+                "upperLimit"
+              ],
+              "type": "object"
+            },
+            "member": {
+              "additionalProperties": false,
+              "properties": {
+                "displayName": {
+                  "type": "string"
+                },
+                "memberId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "displayName",
+                "memberId"
+              ],
+              "type": "object"
+            },
+            "metric": {
+              "enum": [
+                "first-response",
+                "service-level",
+                "resolved-cases",
+                "negative-tone"
+              ],
+              "type": "string"
+            },
+            "range": {
+              "additionalProperties": false,
+              "properties": {
+                "from": {},
+                "month": {
+                  "anyOf": [
+                    {
+                      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "period": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "today",
+                        "7d",
+                        "30d",
+                        "90d"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "timezone": {
+                  "type": "string"
+                },
+                "to": {}
+              },
+              "required": [
+                "from",
+                "month",
+                "period",
+                "timezone",
+                "to"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "chart",
+            "member",
+            "metric",
+            "range"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "AgentFloorRowSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "capacity": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "firstResponseTodayMedian": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "memberId": {
+              "type": "string"
+            },
+            "negativeToneShare": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "oldestWaitingSeconds": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "openCases": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "presence": {
+              "enum": [
+                "available",
+                "away",
+                "offline"
+              ],
+              "type": "string"
+            },
+            "presenceSince": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "role": {
+              "enum": [
+                "admin",
+                "supervisor",
+                "agent"
+              ],
+              "type": "string"
+            },
+            "waitingCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "capacity",
+            "displayName",
+            "firstResponseTodayMedian",
+            "memberId",
+            "negativeToneShare",
+            "oldestWaitingSeconds",
+            "openCases",
+            "presence",
+            "presenceSince",
+            "role",
+            "waitingCount"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "AgentPerformanceSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "availableSeconds": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "connectedSeconds": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "firstResponse": {
+              "additionalProperties": false,
+              "properties": {
+                "median": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "p90": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "median",
+                "meta",
+                "p90"
+              ],
+              "type": "object"
+            },
+            "handledCases": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "memberId": {
+              "type": "string"
+            },
+            "messagesPerCase": {
+              "additionalProperties": false,
+              "properties": {
+                "inboundMedian": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "outboundMedian": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "inboundMedian",
+                "meta",
+                "outboundMedian"
+              ],
+              "type": "object"
+            },
+            "negativeTone": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "adjusted": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "interval": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "high": {
+                              "type": "number"
+                            },
+                            "low": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "high",
+                            "low"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "minimumSample": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sampleSize": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok",
+                            "insufficient",
+                            "empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "minimumSample",
+                        "sampleSize",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "successes": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "trials": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "adjusted",
+                    "interval",
+                    "meta",
+                    "successes",
+                    "trials",
+                    "value"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "occupancy": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reopenRate": {
+              "additionalProperties": false,
+              "properties": {
+                "adjusted": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "interval": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "high": {
+                          "type": "number"
+                        },
+                        "low": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "high",
+                        "low"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "successes": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "trials": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "adjusted",
+                "interval",
+                "meta",
+                "successes",
+                "trials",
+                "value"
+              ],
+              "type": "object"
+            },
+            "replyTime": {
+              "additionalProperties": false,
+              "properties": {
+                "median": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "p90": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "median",
+                "meta",
+                "p90"
+              ],
+              "type": "object"
+            },
+            "resolutionTime": {
+              "additionalProperties": false,
+              "properties": {
+                "median": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "p90": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "median",
+                "meta",
+                "p90"
+              ],
+              "type": "object"
+            },
+            "resolvedCases": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "role": {
+              "enum": [
+                "admin",
+                "supervisor",
+                "agent"
+              ],
+              "type": "string"
+            },
+            "serviceLevel": {
+              "additionalProperties": false,
+              "properties": {
+                "adjusted": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "interval": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "high": {
+                          "type": "number"
+                        },
+                        "low": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "high",
+                        "low"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "successes": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "trials": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "adjusted",
+                "interval",
+                "meta",
+                "successes",
+                "trials",
+                "value"
+              ],
+              "type": "object"
+            },
+            "transferRate": {
+              "additionalProperties": false,
+              "properties": {
+                "adjusted": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "interval": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "high": {
+                          "type": "number"
+                        },
+                        "low": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "high",
+                        "low"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "successes": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "trials": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "adjusted",
+                "interval",
+                "meta",
+                "successes",
+                "trials",
+                "value"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "availableSeconds",
+            "connectedSeconds",
+            "displayName",
+            "firstResponse",
+            "handledCases",
+            "memberId",
+            "messagesPerCase",
+            "negativeTone",
+            "occupancy",
+            "reopenRate",
+            "replyTime",
+            "resolutionTime",
+            "resolvedCases",
+            "role",
+            "serviceLevel",
+            "transferRate"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "AgentsPerformanceSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "agents": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "availableSeconds": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "connectedSeconds": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "firstResponse": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "median": {
+                        "anyOf": [
+                          {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meta": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "minimumSample": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "sampleSize": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "status": {
+                            "enum": [
+                              "ok",
+                              "insufficient",
+                              "empty"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "minimumSample",
+                          "sampleSize",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "p90": {
+                        "anyOf": [
+                          {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "median",
+                      "meta",
+                      "p90"
+                    ],
+                    "type": "object"
+                  },
+                  "handledCases": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "memberId": {
+                    "type": "string"
+                  },
+                  "messagesPerCase": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "inboundMedian": {
+                        "anyOf": [
+                          {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meta": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "minimumSample": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "sampleSize": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "status": {
+                            "enum": [
+                              "ok",
+                              "insufficient",
+                              "empty"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "minimumSample",
+                          "sampleSize",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "outboundMedian": {
+                        "anyOf": [
+                          {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "inboundMedian",
+                      "meta",
+                      "outboundMedian"
+                    ],
+                    "type": "object"
+                  },
+                  "negativeTone": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "adjusted": {
+                            "anyOf": [
+                              {
+                                "maximum": 1,
+                                "minimum": 0,
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "interval": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "high": {
+                                    "type": "number"
+                                  },
+                                  "low": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "high",
+                                  "low"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "meta": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "minimumSample": {
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "sampleSize": {
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "status": {
+                                "enum": [
+                                  "ok",
+                                  "insufficient",
+                                  "empty"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "minimumSample",
+                              "sampleSize",
+                              "status"
+                            ],
+                            "type": "object"
+                          },
+                          "successes": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "trials": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "maximum": 1,
+                                "minimum": 0,
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "adjusted",
+                          "interval",
+                          "meta",
+                          "successes",
+                          "trials",
+                          "value"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "occupancy": {
+                    "anyOf": [
+                      {
+                        "maximum": 1,
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reopenRate": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "adjusted": {
+                        "anyOf": [
+                          {
+                            "maximum": 1,
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "interval": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "high": {
+                                "type": "number"
+                              },
+                              "low": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "high",
+                              "low"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meta": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "minimumSample": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "sampleSize": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "status": {
+                            "enum": [
+                              "ok",
+                              "insufficient",
+                              "empty"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "minimumSample",
+                          "sampleSize",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "successes": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "trials": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "value": {
+                        "anyOf": [
+                          {
+                            "maximum": 1,
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "adjusted",
+                      "interval",
+                      "meta",
+                      "successes",
+                      "trials",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  "replyTime": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "median": {
+                        "anyOf": [
+                          {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meta": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "minimumSample": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "sampleSize": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "status": {
+                            "enum": [
+                              "ok",
+                              "insufficient",
+                              "empty"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "minimumSample",
+                          "sampleSize",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "p90": {
+                        "anyOf": [
+                          {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "median",
+                      "meta",
+                      "p90"
+                    ],
+                    "type": "object"
+                  },
+                  "resolutionTime": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "median": {
+                        "anyOf": [
+                          {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meta": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "minimumSample": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "sampleSize": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "status": {
+                            "enum": [
+                              "ok",
+                              "insufficient",
+                              "empty"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "minimumSample",
+                          "sampleSize",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "p90": {
+                        "anyOf": [
+                          {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "median",
+                      "meta",
+                      "p90"
+                    ],
+                    "type": "object"
+                  },
+                  "resolvedCases": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "role": {
+                    "enum": [
+                      "admin",
+                      "supervisor",
+                      "agent"
+                    ],
+                    "type": "string"
+                  },
+                  "serviceLevel": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "adjusted": {
+                        "anyOf": [
+                          {
+                            "maximum": 1,
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "interval": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "high": {
+                                "type": "number"
+                              },
+                              "low": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "high",
+                              "low"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meta": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "minimumSample": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "sampleSize": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "status": {
+                            "enum": [
+                              "ok",
+                              "insufficient",
+                              "empty"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "minimumSample",
+                          "sampleSize",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "successes": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "trials": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "value": {
+                        "anyOf": [
+                          {
+                            "maximum": 1,
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "adjusted",
+                      "interval",
+                      "meta",
+                      "successes",
+                      "trials",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  "transferRate": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "adjusted": {
+                        "anyOf": [
+                          {
+                            "maximum": 1,
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "interval": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "high": {
+                                "type": "number"
+                              },
+                              "low": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "high",
+                              "low"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "meta": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "minimumSample": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "sampleSize": {
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "status": {
+                            "enum": [
+                              "ok",
+                              "insufficient",
+                              "empty"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "minimumSample",
+                          "sampleSize",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "successes": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "trials": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "value": {
+                        "anyOf": [
+                          {
+                            "maximum": 1,
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "adjusted",
+                      "interval",
+                      "meta",
+                      "successes",
+                      "trials",
+                      "value"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "availableSeconds",
+                  "connectedSeconds",
+                  "displayName",
+                  "firstResponse",
+                  "handledCases",
+                  "memberId",
+                  "messagesPerCase",
+                  "negativeTone",
+                  "occupancy",
+                  "reopenRate",
+                  "replyTime",
+                  "resolutionTime",
+                  "resolvedCases",
+                  "role",
+                  "serviceLevel",
+                  "transferRate"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "range": {
+              "additionalProperties": false,
+              "properties": {
+                "from": {},
+                "month": {
+                  "anyOf": [
+                    {
+                      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "period": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "today",
+                        "7d",
+                        "30d",
+                        "90d"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "timezone": {
+                  "type": "string"
+                },
+                "to": {}
+              },
+              "required": [
+                "from",
+                "month",
+                "period",
+                "timezone",
+                "to"
+              ],
+              "type": "object"
+            },
+            "slaSeconds": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "team": {
+              "additionalProperties": false,
+              "properties": {
+                "agentCount": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "firstResponseMedian": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "firstResponseP90": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reopenRate": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "resolutionTimeMedian": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "serviceLevel": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "agentCount",
+                "firstResponseMedian",
+                "firstResponseP90",
+                "reopenRate",
+                "resolutionTimeMedian",
+                "serviceLevel"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "agents",
+            "range",
+            "slaSeconds",
+            "team"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "AnalyticsChangedEventSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "companyId": {
+              "type": "string"
+            },
+            "scopes": {
+              "items": {
+                "enum": [
+                  "live",
+                  "cases",
+                  "presence",
+                  "spend",
+                  "sentiment"
+                ],
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "companyId",
+            "scopes"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "AnalyticsPeriodSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "today",
+            "7d",
+            "30d",
+            "90d"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "AnalyticsRangeQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "anyOf": [
+                {
+                  "const": "all",
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "whatsapp",
+                    "telegram",
+                    "messenger",
+                    "instagram",
+                    "email",
+                    "sms",
+                    "webchat"
+                  ],
+                  "type": "string"
+                }
+              ],
+              "default": "all"
+            },
+            "month": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            },
+            "period": {
+              "default": "7d",
+              "enum": [
+                "today",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "period"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "AnalyticsRangeSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "from": {},
+            "month": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "period": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "today",
+                    "7d",
+                    "30d",
+                    "90d"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "timezone": {
+              "type": "string"
+            },
+            "to": {}
+          },
+          "required": [
+            "from",
+            "month",
+            "period",
+            "timezone",
+            "to"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "AnalyticsReadinessSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "activeDays": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "agentCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "businessHoursConfigured": {
+              "type": "boolean"
+            },
+            "channels": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "channelType": {
+                    "enum": [
+                      "whatsapp",
+                      "telegram",
+                      "messenger",
+                      "instagram",
+                      "email",
+                      "sms",
+                      "webchat"
+                    ],
+                    "type": "string"
+                  },
+                  "connected": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "channelType",
+                  "connected"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "firstMessageReceived": {
+              "type": "boolean"
+            },
+            "isEmpty": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "activeDays",
+            "agentCount",
+            "businessHoursConfigured",
+            "channels",
+            "firstMessageReceived",
+            "isEmpty"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "AnalyticsScopeSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "live",
+            "cases",
+            "presence",
+            "spend",
+            "sentiment"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "AnalyticsSocketEvent": {
+        "kind": "value",
+        "value": {
+          "Changed": "analytics:changed",
+          "IaStatusChanged": "ia:status:changed",
+          "PresenceChanged": "presence:changed"
+        }
+      },
+      "ArrivalsHeatCellSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "averageArrivals": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "hour": {
+              "maximum": 23,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "weekday": {
+              "maximum": 7,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "averageArrivals",
+            "hour",
+            "weekday"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "CONTROL_CHART_MIN_POINTS": {
+        "kind": "value",
+        "value": 8
+      },
+      "CONTROL_METRICS": {
+        "kind": "value",
+        "value": [
+          "first-response",
+          "service-level",
+          "resolved-cases",
+          "negative-tone"
+        ]
+      },
+      "CONTROL_SIGNALS": {
+        "kind": "value",
+        "value": [
+          "none",
+          "beyond-limits",
+          "run-of-8"
+        ]
+      },
+      "ChannelFilterSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "anyOf": [
+            {
+              "const": "all",
+              "type": "string"
+            },
+            {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            }
+          ],
+          "default": "all"
+        },
+        "kind": "schema"
+      },
+      "ControlChartSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "center": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "lowerLimit": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "minimumSample": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sampleSize": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "insufficient",
+                    "empty"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "minimumSample",
+                "sampleSize",
+                "status"
+              ],
+              "type": "object"
+            },
+            "points": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "date": {
+                    "type": "string"
+                  },
+                  "signal": {
+                    "enum": [
+                      "none",
+                      "beyond-limits",
+                      "run-of-8"
+                    ],
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "date",
+                  "signal",
+                  "value"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "upperLimit": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "center",
+            "lowerLimit",
+            "meta",
+            "points",
+            "upperLimit"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ControlMetricSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "first-response",
+            "service-level",
+            "resolved-cases",
+            "negative-tone"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "ControlPointSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "date": {
+              "type": "string"
+            },
+            "signal": {
+              "enum": [
+                "none",
+                "beyond-limits",
+                "run-of-8"
+              ],
+              "type": "string"
+            },
+            "value": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "date",
+            "signal",
+            "value"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ControlSignalSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "none",
+            "beyond-limits",
+            "run-of-8"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "DATA_SUFFICIENCY_STATUSES": {
+        "kind": "value",
+        "value": [
+          "ok",
+          "insufficient",
+          "empty"
+        ]
+      },
+      "DataSufficiencySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "minimumSample": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "sampleSize": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "status": {
+              "enum": [
+                "ok",
+                "insufficient",
+                "empty"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "minimumSample",
+            "sampleSize",
+            "status"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "DataSufficiencyStatusSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "ok",
+            "insufficient",
+            "empty"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "DeliveryErrorSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "count": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "count",
+            "message"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "DeliverySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "delivered": {
+              "additionalProperties": false,
+              "properties": {
+                "adjusted": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "interval": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "high": {
+                          "type": "number"
+                        },
+                        "low": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "high",
+                        "low"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "successes": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "trials": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "adjusted",
+                "interval",
+                "meta",
+                "successes",
+                "trials",
+                "value"
+              ],
+              "type": "object"
+            },
+            "failed": {
+              "additionalProperties": false,
+              "properties": {
+                "adjusted": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "interval": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "high": {
+                          "type": "number"
+                        },
+                        "low": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "high",
+                        "low"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "successes": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "trials": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "adjusted",
+                "interval",
+                "meta",
+                "successes",
+                "trials",
+                "value"
+              ],
+              "type": "object"
+            },
+            "range": {
+              "additionalProperties": false,
+              "properties": {
+                "from": {},
+                "month": {
+                  "anyOf": [
+                    {
+                      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "period": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "today",
+                        "7d",
+                        "30d",
+                        "90d"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "timezone": {
+                  "type": "string"
+                },
+                "to": {}
+              },
+              "required": [
+                "from",
+                "month",
+                "period",
+                "timezone",
+                "to"
+              ],
+              "type": "object"
+            },
+            "read": {
+              "additionalProperties": false,
+              "properties": {
+                "adjusted": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "interval": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "high": {
+                          "type": "number"
+                        },
+                        "low": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "high",
+                        "low"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "successes": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "trials": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "adjusted",
+                "interval",
+                "meta",
+                "successes",
+                "trials",
+                "value"
+              ],
+              "type": "object"
+            },
+            "sent": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "topErrors": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991,
+                    "type": "integer"
+                  },
+                  "message": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "count",
+                  "message"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "delivered",
+            "failed",
+            "range",
+            "read",
+            "sent",
+            "topErrors"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "DurationSummarySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "median": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "minimumSample": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sampleSize": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "insufficient",
+                    "empty"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "minimumSample",
+                "sampleSize",
+                "status"
+              ],
+              "type": "object"
+            },
+            "p90": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "median",
+            "meta",
+            "p90"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "HistogramBinSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "count": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "fromSeconds": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "toSeconds": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "count",
+            "fromSeconds",
+            "toSeconds"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "HistogramSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "bins": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "fromSeconds": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "toSeconds": {
+                    "anyOf": [
+                      {
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "count",
+                  "fromSeconds",
+                  "toSeconds"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "minimumSample": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sampleSize": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "insufficient",
+                    "empty"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "minimumSample",
+                "sampleSize",
+                "status"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "bins",
+            "meta"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "IA_UNAVAILABLE_ERROR": {
+        "kind": "value",
+        "value": "ia_unavailable"
+      },
+      "IntervalSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "high": {
+              "type": "number"
+            },
+            "low": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "high",
+            "low"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "LIVE_WAITING_LIMIT": {
+        "kind": "value",
+        "value": 50
+      },
+      "LiveQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "anyOf": [
+                {
+                  "const": "all",
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "whatsapp",
+                    "telegram",
+                    "messenger",
+                    "instagram",
+                    "email",
+                    "sms",
+                    "webchat"
+                  ],
+                  "type": "string"
+                }
+              ],
+              "default": "all"
+            }
+          },
+          "required": [
+            "channel"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "LiveSnapshotSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "agents": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "capacity": {
+                    "anyOf": [
+                      {
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991,
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "firstResponseTodayMedian": {
+                    "anyOf": [
+                      {
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "memberId": {
+                    "type": "string"
+                  },
+                  "negativeToneShare": {
+                    "anyOf": [
+                      {
+                        "maximum": 1,
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "oldestWaitingSeconds": {
+                    "anyOf": [
+                      {
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "openCases": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "presence": {
+                    "enum": [
+                      "available",
+                      "away",
+                      "offline"
+                    ],
+                    "type": "string"
+                  },
+                  "presenceSince": {
+                    "anyOf": [
+                      {},
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "role": {
+                    "enum": [
+                      "admin",
+                      "supervisor",
+                      "agent"
+                    ],
+                    "type": "string"
+                  },
+                  "waitingCount": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "capacity",
+                  "displayName",
+                  "firstResponseTodayMedian",
+                  "memberId",
+                  "negativeToneShare",
+                  "oldestWaitingSeconds",
+                  "openCases",
+                  "presence",
+                  "presenceSince",
+                  "role",
+                  "waitingCount"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "generatedAt": {},
+            "me": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "capacity": {
+                      "anyOf": [
+                        {
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "firstResponseTodayMedian": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "memberId": {
+                      "type": "string"
+                    },
+                    "negativeToneShare": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "oldestWaitingSeconds": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "openCases": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "presence": {
+                      "enum": [
+                        "available",
+                        "away",
+                        "offline"
+                      ],
+                      "type": "string"
+                    },
+                    "presenceSince": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "role": {
+                      "enum": [
+                        "admin",
+                        "supervisor",
+                        "agent"
+                      ],
+                      "type": "string"
+                    },
+                    "waitingCount": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "capacity",
+                    "displayName",
+                    "firstResponseTodayMedian",
+                    "memberId",
+                    "negativeToneShare",
+                    "oldestWaitingSeconds",
+                    "openCases",
+                    "presence",
+                    "presenceSince",
+                    "role",
+                    "waitingCount"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "queue": {
+              "additionalProperties": false,
+              "properties": {
+                "oldestWaitingSeconds": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "unassignedCount": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "oldestWaitingSeconds",
+                "unassignedCount"
+              ],
+              "type": "object"
+            },
+            "queuePressure": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "arrivalsPerHour": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "expectedQueueLength": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "medianWaitSeconds": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "minimumSample": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sampleSize": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok",
+                            "insufficient",
+                            "empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "minimumSample",
+                        "sampleSize",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "observedQueueLength": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "trend": {
+                      "enum": [
+                        "stable",
+                        "building",
+                        "draining"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "arrivalsPerHour",
+                    "expectedQueueLength",
+                    "medianWaitSeconds",
+                    "meta",
+                    "observedQueueLength",
+                    "trend"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "slaSeconds": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "waiting": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "assignee": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "memberId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "displayName",
+                          "memberId"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "caseId": {
+                    "type": "string"
+                  },
+                  "channelType": {
+                    "enum": [
+                      "whatsapp",
+                      "telegram",
+                      "messenger",
+                      "instagram",
+                      "email",
+                      "sms",
+                      "webchat"
+                    ],
+                    "type": "string"
+                  },
+                  "conversationId": {
+                    "type": "string"
+                  },
+                  "customer": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "displayName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "displayName",
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  "slaState": {
+                    "enum": [
+                      "ok",
+                      "risk",
+                      "breach"
+                    ],
+                    "type": "string"
+                  },
+                  "waitingSeconds": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "waitingSince": {}
+                },
+                "required": [
+                  "assignee",
+                  "caseId",
+                  "channelType",
+                  "conversationId",
+                  "customer",
+                  "slaState",
+                  "waitingSeconds",
+                  "waitingSince"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "waitingTotal": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "agents",
+            "generatedAt",
+            "me",
+            "queue",
+            "queuePressure",
+            "slaSeconds",
+            "waiting",
+            "waitingTotal"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "MemberRefSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "displayName": {
+              "type": "string"
+            },
+            "memberId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "displayName",
+            "memberId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "MessagesPerCaseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "inboundMedian": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "minimumSample": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sampleSize": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "insufficient",
+                    "empty"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "minimumSample",
+                "sampleSize",
+                "status"
+              ],
+              "type": "object"
+            },
+            "outboundMedian": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "inboundMedian",
+            "meta",
+            "outboundMedian"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "MonthSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "MyPerformanceSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "capacity": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "firstResponseControl": {
+              "additionalProperties": false,
+              "properties": {
+                "center": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "lowerLimit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "points": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "date": {
+                        "type": "string"
+                      },
+                      "signal": {
+                        "enum": [
+                          "none",
+                          "beyond-limits",
+                          "run-of-8"
+                        ],
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "date",
+                      "signal",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "upperLimit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "center",
+                "lowerLimit",
+                "meta",
+                "points",
+                "upperLimit"
+              ],
+              "type": "object"
+            },
+            "firstResponseHistogram": {
+              "additionalProperties": false,
+              "properties": {
+                "bins": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "count": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "fromSeconds": {
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      "toSeconds": {
+                        "anyOf": [
+                          {
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "count",
+                      "fromSeconds",
+                      "toSeconds"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "bins",
+                "meta"
+              ],
+              "type": "object"
+            },
+            "openCases": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "performance": {
+              "additionalProperties": false,
+              "properties": {
+                "availableSeconds": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "connectedSeconds": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "firstResponse": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "median": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "minimumSample": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sampleSize": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok",
+                            "insufficient",
+                            "empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "minimumSample",
+                        "sampleSize",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "p90": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "median",
+                    "meta",
+                    "p90"
+                  ],
+                  "type": "object"
+                },
+                "handledCases": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "memberId": {
+                  "type": "string"
+                },
+                "messagesPerCase": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "inboundMedian": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "minimumSample": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sampleSize": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok",
+                            "insufficient",
+                            "empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "minimumSample",
+                        "sampleSize",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "outboundMedian": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "inboundMedian",
+                    "meta",
+                    "outboundMedian"
+                  ],
+                  "type": "object"
+                },
+                "negativeTone": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "adjusted": {
+                          "anyOf": [
+                            {
+                              "maximum": 1,
+                              "minimum": 0,
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "interval": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "high": {
+                                  "type": "number"
+                                },
+                                "low": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "high",
+                                "low"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "meta": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "minimumSample": {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "sampleSize": {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "status": {
+                              "enum": [
+                                "ok",
+                                "insufficient",
+                                "empty"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "minimumSample",
+                            "sampleSize",
+                            "status"
+                          ],
+                          "type": "object"
+                        },
+                        "successes": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "trials": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "value": {
+                          "anyOf": [
+                            {
+                              "maximum": 1,
+                              "minimum": 0,
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "adjusted",
+                        "interval",
+                        "meta",
+                        "successes",
+                        "trials",
+                        "value"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "occupancy": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reopenRate": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "adjusted": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "interval": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "high": {
+                              "type": "number"
+                            },
+                            "low": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "high",
+                            "low"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "minimumSample": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sampleSize": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok",
+                            "insufficient",
+                            "empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "minimumSample",
+                        "sampleSize",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "successes": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "trials": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "adjusted",
+                    "interval",
+                    "meta",
+                    "successes",
+                    "trials",
+                    "value"
+                  ],
+                  "type": "object"
+                },
+                "replyTime": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "median": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "minimumSample": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sampleSize": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok",
+                            "insufficient",
+                            "empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "minimumSample",
+                        "sampleSize",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "p90": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "median",
+                    "meta",
+                    "p90"
+                  ],
+                  "type": "object"
+                },
+                "resolutionTime": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "median": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "minimumSample": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sampleSize": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok",
+                            "insufficient",
+                            "empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "minimumSample",
+                        "sampleSize",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "p90": {
+                      "anyOf": [
+                        {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "median",
+                    "meta",
+                    "p90"
+                  ],
+                  "type": "object"
+                },
+                "resolvedCases": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "role": {
+                  "enum": [
+                    "admin",
+                    "supervisor",
+                    "agent"
+                  ],
+                  "type": "string"
+                },
+                "serviceLevel": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "adjusted": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "interval": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "high": {
+                              "type": "number"
+                            },
+                            "low": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "high",
+                            "low"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "minimumSample": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sampleSize": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok",
+                            "insufficient",
+                            "empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "minimumSample",
+                        "sampleSize",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "successes": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "trials": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "adjusted",
+                    "interval",
+                    "meta",
+                    "successes",
+                    "trials",
+                    "value"
+                  ],
+                  "type": "object"
+                },
+                "transferRate": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "adjusted": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "interval": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "high": {
+                              "type": "number"
+                            },
+                            "low": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "high",
+                            "low"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "minimumSample": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sampleSize": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok",
+                            "insufficient",
+                            "empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "minimumSample",
+                        "sampleSize",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "successes": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "trials": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "adjusted",
+                    "interval",
+                    "meta",
+                    "successes",
+                    "trials",
+                    "value"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "availableSeconds",
+                "connectedSeconds",
+                "displayName",
+                "firstResponse",
+                "handledCases",
+                "memberId",
+                "messagesPerCase",
+                "negativeTone",
+                "occupancy",
+                "reopenRate",
+                "replyTime",
+                "resolutionTime",
+                "resolvedCases",
+                "role",
+                "serviceLevel",
+                "transferRate"
+              ],
+              "type": "object"
+            },
+            "range": {
+              "additionalProperties": false,
+              "properties": {
+                "from": {},
+                "month": {
+                  "anyOf": [
+                    {
+                      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "period": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "today",
+                        "7d",
+                        "30d",
+                        "90d"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "timezone": {
+                  "type": "string"
+                },
+                "to": {}
+              },
+              "required": [
+                "from",
+                "month",
+                "period",
+                "timezone",
+                "to"
+              ],
+              "type": "object"
+            },
+            "slaSeconds": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "team": {
+              "additionalProperties": false,
+              "properties": {
+                "agentCount": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "firstResponseMedian": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "firstResponseP90": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reopenRate": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "resolutionTimeMedian": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "serviceLevel": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "agentCount",
+                "firstResponseMedian",
+                "firstResponseP90",
+                "reopenRate",
+                "resolutionTimeMedian",
+                "serviceLevel"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "capacity",
+            "firstResponseControl",
+            "firstResponseHistogram",
+            "openCases",
+            "performance",
+            "range",
+            "slaSeconds",
+            "team"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "PERCENTILE_MIN_SAMPLE": {
+        "kind": "value",
+        "value": 5
+      },
+      "PROJECTION_MIN_DAYS": {
+        "kind": "value",
+        "value": 3
+      },
+      "PerformanceExportQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "anyOf": [
+                {
+                  "const": "all",
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "whatsapp",
+                    "telegram",
+                    "messenger",
+                    "instagram",
+                    "email",
+                    "sms",
+                    "webchat"
+                  ],
+                  "type": "string"
+                }
+              ],
+              "default": "all"
+            },
+            "month": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "month"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "QUEUE_TRENDS": {
+        "kind": "value",
+        "value": [
+          "stable",
+          "building",
+          "draining"
+        ]
+      },
+      "QueuePressureSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "arrivalsPerHour": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "expectedQueueLength": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "medianWaitSeconds": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "minimumSample": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sampleSize": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "insufficient",
+                    "empty"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "minimumSample",
+                "sampleSize",
+                "status"
+              ],
+              "type": "object"
+            },
+            "observedQueueLength": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "trend": {
+              "enum": [
+                "stable",
+                "building",
+                "draining"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "arrivalsPerHour",
+            "expectedQueueLength",
+            "medianWaitSeconds",
+            "meta",
+            "observedQueueLength",
+            "trend"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "QueueTrendSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "stable",
+            "building",
+            "draining"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "RateEstimateSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "adjusted": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "interval": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "high": {
+                      "type": "number"
+                    },
+                    "low": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "high",
+                    "low"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "minimumSample": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sampleSize": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "insufficient",
+                    "empty"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "minimumSample",
+                "sampleSize",
+                "status"
+              ],
+              "type": "object"
+            },
+            "successes": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "trials": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "adjusted",
+            "interval",
+            "meta",
+            "successes",
+            "trials",
+            "value"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SENTIMENT_SCOPES": {
+        "kind": "value",
+        "value": [
+          "company",
+          "me"
+        ]
+      },
+      "SHRINKAGE_MIN_AGENTS": {
+        "kind": "value",
+        "value": 3
+      },
+      "SLA_STATES": {
+        "kind": "value",
+        "value": [
+          "ok",
+          "risk",
+          "breach"
+        ]
+      },
+      "STAFFING_MIN_HISTORY_DAYS": {
+        "kind": "value",
+        "value": 14
+      },
+      "SentimentAnalyticsQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "anyOf": [
+                {
+                  "const": "all",
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "whatsapp",
+                    "telegram",
+                    "messenger",
+                    "instagram",
+                    "email",
+                    "sms",
+                    "webchat"
+                  ],
+                  "type": "string"
+                }
+              ],
+              "default": "all"
+            },
+            "month": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            },
+            "period": {
+              "default": "7d",
+              "enum": [
+                "today",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "type": "string"
+            },
+            "scope": {
+              "default": "company",
+              "enum": [
+                "company",
+                "me"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "period",
+            "scope"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SentimentAnalyticsSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "days": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "date": {
+                    "type": "string"
+                  },
+                  "negative": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "neutral": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "positive": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "date",
+                  "negative",
+                  "neutral",
+                  "positive"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "minimumSample": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sampleSize": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "insufficient",
+                    "empty"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "minimumSample",
+                "sampleSize",
+                "status"
+              ],
+              "type": "object"
+            },
+            "negativeControl": {
+              "additionalProperties": false,
+              "properties": {
+                "center": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "lowerLimit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "points": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "date": {
+                        "type": "string"
+                      },
+                      "signal": {
+                        "enum": [
+                          "none",
+                          "beyond-limits",
+                          "run-of-8"
+                        ],
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "date",
+                      "signal",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "upperLimit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "center",
+                "lowerLimit",
+                "meta",
+                "points",
+                "upperLimit"
+              ],
+              "type": "object"
+            },
+            "range": {
+              "additionalProperties": false,
+              "properties": {
+                "from": {},
+                "month": {
+                  "anyOf": [
+                    {
+                      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "period": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "today",
+                        "7d",
+                        "30d",
+                        "90d"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "timezone": {
+                  "type": "string"
+                },
+                "to": {}
+              },
+              "required": [
+                "from",
+                "month",
+                "period",
+                "timezone",
+                "to"
+              ],
+              "type": "object"
+            },
+            "scope": {
+              "enum": [
+                "company",
+                "me"
+              ],
+              "type": "string"
+            },
+            "share": {
+              "additionalProperties": false,
+              "properties": {
+                "negative": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "neutral": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "positive": {
+                  "anyOf": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "negative",
+                "neutral",
+                "positive"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "days",
+            "meta",
+            "negativeControl",
+            "range",
+            "scope",
+            "share"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SlaStateSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "ok",
+            "risk",
+            "breach"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "StaffingHourSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "availableAgents": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "expectedArrivals": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "hourStart": {},
+            "requiredAgents": {
+              "anyOf": [
+                {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "availableAgents",
+            "expectedArrivals",
+            "hourStart",
+            "requiredAgents"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "StaffingSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "handleTimeSeconds": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "heatmap": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "averageArrivals": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "hour": {
+                    "maximum": 23,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "weekday": {
+                    "maximum": 7,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "averageArrivals",
+                  "hour",
+                  "weekday"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "historyDays": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "hours": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "availableAgents": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "expectedArrivals": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "hourStart": {},
+                  "requiredAgents": {
+                    "anyOf": [
+                      {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "availableAgents",
+                  "expectedArrivals",
+                  "hourStart",
+                  "requiredAgents"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "minimumSample": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sampleSize": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "insufficient",
+                    "empty"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "minimumSample",
+                "sampleSize",
+                "status"
+              ],
+              "type": "object"
+            },
+            "slaSeconds": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "targetServiceLevel": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "handleTimeSeconds",
+            "heatmap",
+            "historyDays",
+            "hours",
+            "meta",
+            "slaSeconds",
+            "targetServiceLevel"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TeamReferenceSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "agentCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "firstResponseMedian": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "firstResponseP90": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reopenRate": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "resolutionTimeMedian": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "serviceLevel": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "agentCount",
+            "firstResponseMedian",
+            "firstResponseP90",
+            "reopenRate",
+            "resolutionTimeMedian",
+            "serviceLevel"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ToneDaySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "date": {
+              "type": "string"
+            },
+            "negative": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "neutral": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "positive": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "date",
+            "negative",
+            "neutral",
+            "positive"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ToneShareSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "negative": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "neutral": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "positive": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "negative",
+            "neutral",
+            "positive"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "VolumeDaySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "backlog": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "date": {
+              "type": "string"
+            },
+            "inboundMessages": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "newCases": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "outboundMessages": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "resolvedCases": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "backlog",
+            "date",
+            "inboundMessages",
+            "newCases",
+            "outboundMessages",
+            "resolvedCases"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "VolumeSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "customers": {
+              "additionalProperties": false,
+              "properties": {
+                "casesPerCustomer": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "new": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "returning": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "casesPerCustomer",
+                "new",
+                "returning"
+              ],
+              "type": "object"
+            },
+            "days": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "backlog": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "date": {
+                    "type": "string"
+                  },
+                  "inboundMessages": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "newCases": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "outboundMessages": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "resolvedCases": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "backlog",
+                  "date",
+                  "inboundMessages",
+                  "newCases",
+                  "outboundMessages",
+                  "resolvedCases"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "minimumSample": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sampleSize": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "insufficient",
+                    "empty"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "minimumSample",
+                "sampleSize",
+                "status"
+              ],
+              "type": "object"
+            },
+            "newCasesControl": {
+              "additionalProperties": false,
+              "properties": {
+                "center": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "lowerLimit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "meta": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "minimumSample": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "sampleSize": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok",
+                        "insufficient",
+                        "empty"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "minimumSample",
+                    "sampleSize",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                "points": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "date": {
+                        "type": "string"
+                      },
+                      "signal": {
+                        "enum": [
+                          "none",
+                          "beyond-limits",
+                          "run-of-8"
+                        ],
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "date",
+                      "signal",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "upperLimit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "center",
+                "lowerLimit",
+                "meta",
+                "points",
+                "upperLimit"
+              ],
+              "type": "object"
+            },
+            "range": {
+              "additionalProperties": false,
+              "properties": {
+                "from": {},
+                "month": {
+                  "anyOf": [
+                    {
+                      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "period": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "today",
+                        "7d",
+                        "30d",
+                        "90d"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "timezone": {
+                  "type": "string"
+                },
+                "to": {}
+              },
+              "required": [
+                "from",
+                "month",
+                "period",
+                "timezone",
+                "to"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "customers",
+            "days",
+            "meta",
+            "newCasesControl",
+            "range"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "WaitingCustomerSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assignee": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "memberId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "displayName",
+                    "memberId"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "caseId": {
+              "type": "string"
+            },
+            "channelType": {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            },
+            "conversationId": {
+              "type": "string"
+            },
+            "customer": {
+              "additionalProperties": false,
+              "properties": {
+                "displayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "displayName",
+                "id"
+              ],
+              "type": "object"
+            },
+            "slaState": {
+              "enum": [
+                "ok",
+                "risk",
+                "breach"
+              ],
+              "type": "string"
+            },
+            "waitingSeconds": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "waitingSince": {}
+          },
+          "required": [
+            "assignee",
+            "caseId",
+            "channelType",
+            "conversationId",
+            "customer",
+            "slaState",
+            "waitingSeconds",
+            "waitingSince"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      }
+    },
     "auth": {
       "AUTH_ERROR_CODES": {
         "kind": "value",
@@ -365,6 +6480,198 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "type": "object"
         },
         "kind": "schema"
+      }
+    },
+    "case": {
+      "CASE_STATUSES": {
+        "kind": "value",
+        "value": [
+          "open",
+          "closed"
+        ]
+      },
+      "CaseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "closedAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "closedByMemberId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "conversationId": {
+              "type": "string"
+            },
+            "firstResponderMemberId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "firstResponseAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "openedAt": {},
+            "reopenOfCaseId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "enum": [
+                "open",
+                "closed"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "closedAt",
+            "closedByMemberId",
+            "conversationId",
+            "firstResponderMemberId",
+            "firstResponseAt",
+            "id",
+            "openedAt",
+            "reopenOfCaseId",
+            "status"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "CaseStatusSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "open",
+            "closed"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "CloseCaseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "note": {
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "CurrentCaseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "case": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "closedAt": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "closedByMemberId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "conversationId": {
+                      "type": "string"
+                    },
+                    "firstResponderMemberId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "firstResponseAt": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "openedAt": {},
+                    "reopenOfCaseId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "enum": [
+                        "open",
+                        "closed"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "closedAt",
+                    "closedByMemberId",
+                    "conversationId",
+                    "firstResponderMemberId",
+                    "firstResponseAt",
+                    "id",
+                    "openedAt",
+                    "reopenOfCaseId",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "case"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "REOPEN_WINDOW_HOURS": {
+        "kind": "value",
+        "value": 72
       }
     },
     "channel": {
@@ -1822,6 +8129,34 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       }
     },
     "ia": {
+      "CIRCUIT_BREAKER_STATES": {
+        "kind": "value",
+        "value": [
+          "closed",
+          "open",
+          "half-open"
+        ]
+      },
+      "CircuitBreakerStateSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "closed",
+            "open",
+            "half-open"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "IA_STATUSES": {
+        "kind": "value",
+        "value": [
+          "active",
+          "disabled",
+          "unavailable"
+        ]
+      },
       "IaStateSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1833,6 +8168,56 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           },
           "required": [
             "enabled"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "IaStatusKindSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "active",
+            "disabled",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "IaStatusSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "breaker": {
+              "enum": [
+                "closed",
+                "open",
+                "half-open"
+              ],
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "status": {
+              "enum": [
+                "active",
+                "disabled",
+                "unavailable"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "available",
+            "breaker",
+            "enabled",
+            "status"
           ],
           "type": "object"
         },
@@ -3898,6 +10283,397 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "kind": "factory"
       }
     },
+    "presence": {
+      "MANUAL_PRESENCE_STATES": {
+        "kind": "value",
+        "value": [
+          "available",
+          "away"
+        ]
+      },
+      "ManualPresenceStateSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "available",
+            "away"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "PRESENCE_STATES": {
+        "kind": "value",
+        "value": [
+          "available",
+          "away",
+          "offline"
+        ]
+      },
+      "PresenceSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "memberId": {
+              "type": "string"
+            },
+            "since": {},
+            "state": {
+              "enum": [
+                "available",
+                "away",
+                "offline"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "memberId",
+            "since",
+            "state"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "PresenceStateSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "available",
+            "away",
+            "offline"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "UpdatePresenceSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "enum": [
+                "available",
+                "away"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "state"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      }
+    },
+    "service-settings": {
+      "BusinessDaySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "intervals": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "end": {
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    "type": "string"
+                  },
+                  "start": {
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "end",
+                  "start"
+                ],
+                "type": "object"
+              },
+              "maxItems": 4,
+              "type": "array"
+            },
+            "weekday": {
+              "maximum": 7,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "intervals",
+            "weekday"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "BusinessHoursSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "days": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "intervals": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "end": {
+                          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                          "type": "string"
+                        },
+                        "start": {
+                          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "end",
+                        "start"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 4,
+                    "type": "array"
+                  },
+                  "weekday": {
+                    "maximum": 7,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "intervals",
+                  "weekday"
+                ],
+                "type": "object"
+              },
+              "maxItems": 7,
+              "type": "array"
+            },
+            "timezone": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "days",
+            "timezone"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "DEFAULT_SLA_FIRST_RESPONSE_SECONDS": {
+        "kind": "value",
+        "value": 300
+      },
+      "DEFAULT_SLA_TARGET_SHARE": {
+        "kind": "value",
+        "value": 0.8
+      },
+      "ServiceSettingsSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "businessHours": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "days": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "intervals": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "end": {
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                                  "type": "string"
+                                },
+                                "start": {
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "end",
+                                "start"
+                              ],
+                              "type": "object"
+                            },
+                            "maxItems": 4,
+                            "type": "array"
+                          },
+                          "weekday": {
+                            "maximum": 7,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "intervals",
+                          "weekday"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 7,
+                      "type": "array"
+                    },
+                    "timezone": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "days",
+                    "timezone"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "slaFirstResponseSeconds": {
+              "maximum": 86400,
+              "minimum": 30,
+              "type": "integer"
+            },
+            "slaTargetShare": {
+              "maximum": 0.99,
+              "minimum": 0.5,
+              "type": "number"
+            }
+          },
+          "required": [
+            "businessHours",
+            "slaFirstResponseSeconds",
+            "slaTargetShare"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TimeIntervalSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "end": {
+              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+              "type": "string"
+            },
+            "start": {
+              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "end",
+            "start"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "UpdateServiceSettingsSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "businessHours": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "days": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "intervals": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "end": {
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                                  "type": "string"
+                                },
+                                "start": {
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "end",
+                                "start"
+                              ],
+                              "type": "object"
+                            },
+                            "maxItems": 4,
+                            "type": "array"
+                          },
+                          "weekday": {
+                            "maximum": 7,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "intervals",
+                          "weekday"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 7,
+                      "type": "array"
+                    },
+                    "timezone": {
+                      "maxLength": 64,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "days",
+                    "timezone"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "slaFirstResponseSeconds": {
+              "maximum": 86400,
+              "minimum": 30,
+              "type": "integer"
+            },
+            "slaTargetShare": {
+              "maximum": 0.99,
+              "minimum": 0.5,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      }
+    },
     "setup": {
       "CreateSetupSchema": {
         "jsonSchema": {
@@ -4268,6 +11044,651 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         }
       }
     },
+    "spend": {
+      "BILLABLE_SENDS_PAUSED_ERROR": {
+        "kind": "value",
+        "value": "billable_sends_paused"
+      },
+      "BUDGET_THRESHOLDS": {
+        "kind": "value",
+        "value": [
+          "none",
+          "warning",
+          "exceeded"
+        ]
+      },
+      "BUDGET_WARNING_SHARE": {
+        "kind": "value",
+        "value": 0.8
+      },
+      "BillablePauseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "paused": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paused"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "BudgetThresholdSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "none",
+            "warning",
+            "exceeded"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "ChannelRateSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "category": {
+              "maxLength": 50,
+              "minLength": 1,
+              "type": "string"
+            },
+            "channelType": {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            },
+            "usdPerUnit": {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "category",
+            "channelType",
+            "usdPerUnit"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ChannelSpendSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "categories": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "billableCount": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "category": {
+                    "maxLength": 50,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "freeCount": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "totalUsd": {
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "usdPerUnit": {
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "billableCount",
+                  "category",
+                  "freeCount",
+                  "totalUsd",
+                  "usdPerUnit"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "channelType": {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            },
+            "totalUsd": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "categories",
+            "channelType",
+            "totalUsd"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ChargeCategorySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "maxLength": 50,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "SpendCategorySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "billableCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "category": {
+              "maxLength": 50,
+              "minLength": 1,
+              "type": "string"
+            },
+            "freeCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "totalUsd": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "usdPerUnit": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "billableCount",
+            "category",
+            "freeCount",
+            "totalUsd",
+            "usdPerUnit"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SpendProjectionSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "expectedUsd": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "highUsd": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "lowUsd": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "minimumSample": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sampleSize": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "insufficient",
+                    "empty"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "minimumSample",
+                "sampleSize",
+                "status"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "expectedUsd",
+            "highUsd",
+            "lowUsd",
+            "meta"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SpendQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "month": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SpendSummarySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "billableCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "billableSendsPaused": {
+              "type": "boolean"
+            },
+            "budget": {
+              "additionalProperties": false,
+              "properties": {
+                "consumedShare": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "monthlyBudgetUsd": {
+                  "anyOf": [
+                    {
+                      "exclusiveMinimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "threshold": {
+                  "enum": [
+                    "none",
+                    "warning",
+                    "exceeded"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "consumedShare",
+                "monthlyBudgetUsd",
+                "threshold"
+              ],
+              "type": "object"
+            },
+            "byChannel": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "categories": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "billableCount": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "category": {
+                          "maxLength": 50,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "freeCount": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "totalUsd": {
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "usdPerUnit": {
+                          "minimum": 0,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "billableCount",
+                        "category",
+                        "freeCount",
+                        "totalUsd",
+                        "usdPerUnit"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "channelType": {
+                    "enum": [
+                      "whatsapp",
+                      "telegram",
+                      "messenger",
+                      "instagram",
+                      "email",
+                      "sms",
+                      "webchat"
+                    ],
+                    "type": "string"
+                  },
+                  "totalUsd": {
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "categories",
+                  "channelType",
+                  "totalUsd"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "costPerResolvedCaseUsd": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "currency": {
+              "const": "USD",
+              "type": "string"
+            },
+            "daily": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "date": {
+                    "type": "string"
+                  },
+                  "totalUsd": {
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "date",
+                  "totalUsd"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "freeCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "month": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            },
+            "projection": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "expectedUsd": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "highUsd": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "lowUsd": {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "meta": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "minimumSample": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "sampleSize": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok",
+                            "insufficient",
+                            "empty"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "minimumSample",
+                        "sampleSize",
+                        "status"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "expectedUsd",
+                    "highUsd",
+                    "lowUsd",
+                    "meta"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rates": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "category": {
+                    "maxLength": 50,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "channelType": {
+                    "enum": [
+                      "whatsapp",
+                      "telegram",
+                      "messenger",
+                      "instagram",
+                      "email",
+                      "sms",
+                      "webchat"
+                    ],
+                    "type": "string"
+                  },
+                  "usdPerUnit": {
+                    "maximum": 100,
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "category",
+                  "channelType",
+                  "usdPerUnit"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "totalUsd": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "billableCount",
+            "billableSendsPaused",
+            "budget",
+            "byChannel",
+            "costPerResolvedCaseUsd",
+            "currency",
+            "daily",
+            "freeCount",
+            "month",
+            "projection",
+            "rates",
+            "totalUsd"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "UpdateBudgetSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "monthlyBudgetUsd": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "maximum": 1000000,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "monthlyBudgetUsd"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "UpdateChannelRatesSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "rates": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "category": {
+                    "maxLength": 50,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "channelType": {
+                    "enum": [
+                      "whatsapp",
+                      "telegram",
+                      "messenger",
+                      "instagram",
+                      "email",
+                      "sms",
+                      "webchat"
+                    ],
+                    "type": "string"
+                  },
+                  "usdPerUnit": {
+                    "maximum": 100,
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "category",
+                  "channelType",
+                  "usdPerUnit"
+                ],
+                "type": "object"
+              },
+              "maxItems": 50,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "rates"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "WHATSAPP_CHARGE_CATEGORIES": {
+        "kind": "value",
+        "value": [
+          "marketing",
+          "utility",
+          "authentication",
+          "authentication_international",
+          "service"
+        ]
+      }
+    },
     "template": {
       "TEMPLATE_CATEGORIES": {
         "kind": "value",
@@ -4600,4 +12021,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "0aae110f283792a47ffb4fe2871a9975dc75de866b0da2a8afeda79153e5588f";
+export const CONTRACTS_SNAPSHOT_HASH = "6268e627665587f7d223aae0974ea651a9b37a8cea542f9fdd61d987273a3d2a";

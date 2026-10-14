@@ -20,10 +20,13 @@ export class SendConversationMessageHandler
     this.logger.setContext(SendConversationMessageHandler.name);
   }
 
-  execute(command: SendConversationMessageCommand): Promise<{ conversationId: string }> {
+  /** Resolves once the job is stored in Redis: the send can no longer be lost. */
+  async execute(
+    command: SendConversationMessageCommand,
+  ): Promise<{ conversationId: string }> {
     this.logger.debug('Execute Queue: chat');
-    void this.queue.add('send-message', command.data);
+    await this.queue.add('send-message', command.data);
 
-    return Promise.resolve({ conversationId: command.data.room });
+    return { conversationId: command.data.room };
   }
 }

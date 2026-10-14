@@ -13,10 +13,16 @@ import {
 import { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { PinoLogger } from 'nestjs-pino';
 import { CommandBus } from '@nestjs/cqrs';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, UseFilters, UsePipes } from '@nestjs/common';
+import { ZodValidationPipe } from 'nestjs-zod';
 import { JwtService } from '@nestjs/jwt';
 
-import { ConversationSocketEvent, SOCKET_NAMESPACES } from '@contracts';
+import {
+  ConversationSocketEvent,
+  SOCKET_NAMESPACES,
+  type SendMessageAck,
+} from '@contracts';
+import { WsAckExceptionFilter } from '@common/filters/ws-ack-exception.filter';
 import type { JwtPayload } from '@auth/auth.types';
 import { findMembership } from '@auth/membership';
 import { SessionRevocationService } from '@auth/session/session-revocation.service';
@@ -118,12 +124,17 @@ export class ConversationGateway
    * on reassignment) may send, so the hot path runs no access queries. The
    * sender is always the socket's own member in the conversation's company (a
    * client-supplied sender is ignored).
+   *
+   * Acknowledged once the send is durably queued: `{ ok: true }`, or
+   * `{ ok: false, code }` for invalid payloads and refused access.
    */
   @SubscribeMessage(ConversationSocketEvent.SendMessage)
+  @UsePipes(ZodValidationPipe)
+  @UseFilters(WsAckExceptionFilter)
   async handleSendMessage(
     @ConnectedSocket() client: ConversationSocket,
     @MessageBody() data: SendConversationMessageDto,
-  ) {
+  ): Promise<SendMessageAck> {
     const user = this.requireUser(client);
     const membership = this.requireJoinedMembership(client, user, data);
 
@@ -135,6 +146,8 @@ export class ConversationGateway
         sender: { id: membership.mid, type: 'member' },
       }),
     );
+
+    return { ok: true };
   }
 
   async hasSockets(roomName: string): Promise<boolean> {

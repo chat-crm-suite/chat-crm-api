@@ -96,6 +96,7 @@ Pending database migrations run automatically when the API boots.
 | `CREDENTIALS_ENCRYPTION_KEY` | AES-256-GCM key for channel credentials (64 hex chars or base64 of 32 bytes) |
 | `WHATSAPP_APP_SECRET` | Meta App Secret; verifies webhook signatures |
 | `SETUP_TOKEN` | Required by the first-run setup screen in production |
+| `PLATFORM_CONSOLE_PASSWORD` | Optional. Enables the `/platform` superadmin console (password for platform admins); empty or `disabled` keeps it off |
 
 `./deploy/gen-secrets.sh` fills every secret with a strong random value. Optional variables with defaults:
 `COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`, `HEALTH_IA_TIMEOUT_MS`,

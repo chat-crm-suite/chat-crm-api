@@ -19,6 +19,7 @@ import { ZodSerializerDto } from 'nestjs-zod';
 import { AuthSessionResponseSchema, type AuthSessionResponse } from '../contracts/index';
 import { UsersService } from '../modules/users/users.service';
 import { AuthService } from './auth.service';
+import { SessionRevocationService } from './session/session-revocation.service';
 import { LoginDto } from './dto/login.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public, UserScoped } from './decorators/access.decorators';
@@ -40,6 +41,7 @@ export class AuthController {
   constructor(
     private readonly service: AuthService,
     private readonly users: UsersService,
+    private readonly sessions: SessionRevocationService,
   ) {}
 
   @Public()
@@ -60,6 +62,23 @@ export class AuthController {
   logout(@Res({ passthrough: true }) res: Response): { message: string } {
     res.clearCookie(ACCESS_TOKEN_COOKIE);
     return { message: 'Logout success' };
+  }
+
+  /**
+   * "Sign out everywhere": every token of the caller issued until now becomes
+   * stale (their sockets drop too) and the cookie of this browser is cleared.
+   */
+  @UserScoped()
+  @Post('revoke-all')
+  @HttpCode(HttpStatus.OK)
+  async revokeAll(
+    @CurrentUser('sub') userId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ message: string }> {
+    await this.sessions.revoke(userId);
+    res.clearCookie(ACCESS_TOKEN_COOKIE);
+
+    return { message: 'All sessions revoked' };
   }
 
   /**

@@ -8,7 +8,7 @@ import { filter, map, mergeMap, Observable } from 'rxjs';
 import { AnalyzeMessageCommand } from '../analysis/sentiment/commands/analyze-message.command';
 import { MessageAnalyzedEvent } from '../analysis/events/message-analyzed.event';
 import { MessageService } from '../message/message.service';
-import { toConversationMessagePayload } from '../message/mappers/conversation-message.mapper';
+import { toConversationMessage } from '../message/mappers/conversation-message.mapper';
 import {
   BroadcastConversationMessageCommand,
   ClaimConversationCommand,
@@ -36,7 +36,7 @@ export class ConversationSaga {
         new BroadcastConversationMessageCommand(
           message.id,
           (await this.messages.getMessagePayload(message.id)) ??
-            toConversationMessagePayload(message, []),
+            toConversationMessage(message),
           message.conversationId,
         ),
       ]),

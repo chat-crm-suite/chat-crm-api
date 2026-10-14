@@ -1,25 +1,24 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import type { SendConversationMessageDto } from '@modules/conversations/dto/send-conversation-message.dto';
-import { MessageSavedEvent } from '@modules/conversations/events/message-saved.event';
 import type { Message } from '@modules/message/entities/message.entity';
+import type { AgentSendJob } from '../commands/send-conversation-message.command';
+import { MessageSavedEvent } from '../events/message-saved.event';
 import { AgentMessageSender } from './agent-message-sender.service';
 
 /**
- * T5 outbound pipeline: the row is saved pending first and Graph is called
+ * T5 outbound pipeline: the row is saved pending first and the provider is called
  * exactly once per client send. A stalled BullMQ retry is the exception: the
  * original attempt died, so the still-`pending` row is sent again instead of
  * staying pending forever. A fresh duplicate never triggers a second call.
  */
-const data = {
+const data: AgentSendJob = {
   room: 'conv-1',
   companyId: 'co-1',
-  to: '+15551234567',
-  sender: { id: 'user-1', type: 'member' },
+  sender: { id: 'member-1', type: 'member' },
   clientMessageId: 'client-1',
-  msg: { type: 'text', content: { body: 'hola' } },
-} as unknown as SendConversationMessageDto;
+  msg: { type: 'text', text: 'hola' },
+};
 
 const message = (overrides: Partial<Message> = {}): Message =>
   ({
@@ -37,7 +36,8 @@ function build() {
     markSendFailed: jest.fn(),
     resetFailedForRetry: jest.fn(),
   };
-  const whatsapp = { deliverMessage: jest.fn() };
+  const adapter = { type: 'whatsapp', send: jest.fn(), uploadMedia: jest.fn() };
+  const adapters = { for: jest.fn().mockReturnValue(adapter) };
   const fanout = { emitStatusPatch: jest.fn(), emitError: jest.fn() };
   const sendContext = {
     get: jest.fn().mockResolvedValue({
@@ -59,9 +59,9 @@ function build() {
   const sender = new AgentMessageSender(
     conversations as never,
     messages as never,
-    whatsapp as never,
     fanout as never,
     sendContext as never,
+    adapters as never,
     eventBus as never,
     logger as never,
   );
@@ -70,7 +70,8 @@ function build() {
     sender,
     conversations,
     messages,
-    whatsapp,
+    adapter,
+    adapters,
     fanout,
     sendContext,
     eventBus,
@@ -82,17 +83,14 @@ describe('AgentMessageSender stalled retries (T5)', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('sends and broadcasts a freshly created row', async () => {
-    const { sender, conversations, messages, whatsapp, fanout, eventBus } =
+    const { sender, conversations, messages, adapter, fanout, eventBus } =
       build();
     const pending = message();
     conversations.saveOutbound.mockResolvedValue({
       message: pending,
       created: true,
     });
-    whatsapp.deliverMessage.mockResolvedValue({
-      ok: true,
-      response: { messages: [{ id: 'wamid-1' }] },
-    });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-1' });
     messages.markSent.mockResolvedValue(
       message({ status: 'sent', externalId: 'wamid-1' }),
     );
@@ -102,13 +100,13 @@ describe('AgentMessageSender stalled retries (T5)', () => {
     expect(eventBus.publish).toHaveBeenCalledWith(
       expect.any(MessageSavedEvent),
     );
-    expect(whatsapp.deliverMessage).toHaveBeenCalledTimes(1);
+    expect(adapter.send).toHaveBeenCalledTimes(1);
     expect(messages.markSent).toHaveBeenCalledWith('msg-1', 'wamid-1');
     expect(fanout.emitStatusPatch).toHaveBeenCalled();
   });
 
-  it('ignores a fresh duplicate without calling Graph again', async () => {
-    const { sender, conversations, whatsapp, eventBus } = build();
+  it('ignores a fresh duplicate without calling the provider again', async () => {
+    const { sender, conversations, adapter, eventBus } = build();
     const existing = message();
     conversations.saveOutbound.mockResolvedValue({
       message: existing,
@@ -120,34 +118,31 @@ describe('AgentMessageSender stalled retries (T5)', () => {
     );
 
     expect(eventBus.publish).not.toHaveBeenCalled();
-    expect(whatsapp.deliverMessage).not.toHaveBeenCalled();
+    expect(adapter.send).not.toHaveBeenCalled();
   });
 
   it('sends the still-pending row when a stalled job retries', async () => {
-    const { sender, conversations, messages, whatsapp, eventBus } = build();
+    const { sender, conversations, messages, adapter, eventBus } = build();
     const pending = message();
     conversations.saveOutbound.mockResolvedValue({
       message: pending,
       created: false,
     });
-    whatsapp.deliverMessage.mockResolvedValue({
-      ok: true,
-      response: { messages: [{ id: 'wamid-1' }] },
-    });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-1' });
     messages.markSent.mockResolvedValue(
       message({ status: 'sent', externalId: 'wamid-1' }),
     );
 
     await sender.send(data, { attemptsMade: 1 });
 
-    expect(whatsapp.deliverMessage).toHaveBeenCalledTimes(1);
+    expect(adapter.send).toHaveBeenCalledTimes(1);
     expect(messages.markSent).toHaveBeenCalledWith('msg-1', 'wamid-1');
     // The first attempt already broadcast the pending row.
     expect(eventBus.publish).not.toHaveBeenCalled();
   });
 
   it('ignores a retry when the row already moved past pending', async () => {
-    const { sender, conversations, messages, whatsapp } = build();
+    const { sender, conversations, messages, adapter } = build();
     const sent = message({ status: 'sent', externalId: 'wamid-1' });
     conversations.saveOutbound.mockResolvedValue({
       message: sent,
@@ -156,7 +151,7 @@ describe('AgentMessageSender stalled retries (T5)', () => {
 
     await expect(sender.send(data, { attemptsMade: 2 })).resolves.toBe(sent);
 
-    expect(whatsapp.deliverMessage).not.toHaveBeenCalled();
+    expect(adapter.send).not.toHaveBeenCalled();
     expect(messages.markSent).not.toHaveBeenCalled();
   });
 });
@@ -165,7 +160,7 @@ describe('AgentMessageSender failed retries (#8)', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('re-attempts delivery when the user retries a failed row', async () => {
-    const { sender, conversations, messages, whatsapp, fanout, eventBus } =
+    const { sender, conversations, messages, adapter, fanout, eventBus } =
       build();
     const failed = message({
       status: 'failed',
@@ -182,10 +177,7 @@ describe('AgentMessageSender failed retries (#8)', () => {
       created: false,
     });
     messages.resetFailedForRetry.mockResolvedValue(pending);
-    whatsapp.deliverMessage.mockResolvedValue({
-      ok: true,
-      response: { messages: [{ id: 'wamid-2' }] },
-    });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-2' });
     messages.markSent.mockResolvedValue(
       message({ status: 'sent', externalId: 'wamid-2' }),
     );
@@ -193,9 +185,9 @@ describe('AgentMessageSender failed retries (#8)', () => {
     await sender.send(data, { attemptsMade: 0 });
 
     expect(messages.resetFailedForRetry).toHaveBeenCalledWith('msg-1');
-    expect(whatsapp.deliverMessage).toHaveBeenCalledTimes(1);
+    expect(adapter.send).toHaveBeenCalledTimes(1);
     expect(messages.markSent).toHaveBeenCalledWith('msg-1', 'wamid-2');
-    // The reset broadcasts the row going back to pending, then Graph's answer
+    // The reset broadcasts the row going back to pending, then the provider's answer
     // moves it to sent.
     expect(fanout.emitStatusPatch).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'msg-1', status: 'pending' }),
@@ -208,7 +200,7 @@ describe('AgentMessageSender failed retries (#8)', () => {
   });
 
   it('keeps the row failed when the retry fails again', async () => {
-    const { sender, conversations, messages, whatsapp, fanout } = build();
+    const { sender, conversations, messages, adapter, fanout } = build();
     conversations.saveOutbound.mockResolvedValue({
       message: message({ status: 'failed' }),
       created: false,
@@ -216,7 +208,7 @@ describe('AgentMessageSender failed retries (#8)', () => {
     messages.resetFailedForRetry.mockResolvedValue(
       message({ status: 'pending' }),
     );
-    whatsapp.deliverMessage.mockResolvedValue({
+    adapter.send.mockResolvedValue({
       ok: false,
       error: {
         authFault: false,
@@ -238,8 +230,8 @@ describe('AgentMessageSender failed retries (#8)', () => {
     expect(fanout.emitError).toHaveBeenCalled();
   });
 
-  it('lets only one of two concurrent retries reach Graph', async () => {
-    const { sender, conversations, messages, whatsapp } = build();
+  it('lets only one of two concurrent retries reach the provider', async () => {
+    const { sender, conversations, messages, adapter } = build();
     conversations.saveOutbound.mockResolvedValue({
       message: message({ status: 'failed' }),
       created: false,
@@ -252,10 +244,7 @@ describe('AgentMessageSender failed retries (#8)', () => {
       won = true;
       return Promise.resolve(message({ status: 'pending' }));
     });
-    whatsapp.deliverMessage.mockResolvedValue({
-      ok: true,
-      response: { messages: [{ id: 'wamid-2' }] },
-    });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-2' });
     messages.markSent.mockResolvedValue(
       message({ status: 'sent', externalId: 'wamid-2' }),
     );
@@ -263,23 +252,24 @@ describe('AgentMessageSender failed retries (#8)', () => {
     await Promise.all([sender.send(data), sender.send(data)]);
 
     expect(messages.resetFailedForRetry).toHaveBeenCalledTimes(2);
-    expect(whatsapp.deliverMessage).toHaveBeenCalledTimes(1);
+    expect(adapter.send).toHaveBeenCalledTimes(1);
     expect(messages.markSent).toHaveBeenCalledTimes(1);
   });
 
-  it('flags the 24h-window failure with the template action and recipient (#9)', async () => {
-    const { sender, conversations, messages, whatsapp, fanout } = build();
+  it('flags a closed reply window with the template action and recipient (#9)', async () => {
+    const { sender, conversations, messages, adapter, fanout } = build();
     conversations.saveOutbound.mockResolvedValue({
       message: message(),
       created: true,
     });
-    whatsapp.deliverMessage.mockResolvedValue({
+    adapter.send.mockResolvedValue({
       ok: false,
       error: {
         authFault: false,
         retryable: false,
         code: '131047',
         message: 'Re-engagement message',
+        replyWindowClosed: true,
       },
     });
     messages.markSendFailed.mockResolvedValue(
@@ -294,18 +284,18 @@ describe('AgentMessageSender failed retries (#8)', () => {
         code: 131047,
         hasAction: true,
         // The server-resolved recipient, never the client-supplied `to`.
-        to: '+51999000111',
+        to: '51999000111',
       }),
     );
   });
 
   it('leaves the legacy error shape unchanged for other failures (#9)', async () => {
-    const { sender, conversations, messages, whatsapp, fanout } = build();
+    const { sender, conversations, messages, adapter, fanout } = build();
     conversations.saveOutbound.mockResolvedValue({
       message: message(),
       created: true,
     });
-    whatsapp.deliverMessage.mockResolvedValue({
+    adapter.send.mockResolvedValue({
       ok: false,
       error: {
         authFault: true,
@@ -336,7 +326,7 @@ describe('AgentMessageSender failed retries (#8)', () => {
  * The destination is resolved on the server from the conversation: a client
  * that names another phone in `to` can never redirect the send.
  */
-describe('AgentMessageSender recipient', () => {
+describe('AgentMessageSender channel routing', () => {
   beforeEach(() => jest.clearAllMocks());
 
   const created = (conversations: { saveOutbound: jest.Mock }) =>
@@ -345,36 +335,67 @@ describe('AgentMessageSender recipient', () => {
       created: true,
     });
 
-  it("sends to the conversation customer's identity, not the client `to`", async () => {
-    const { sender, conversations, whatsapp, messages, sendContext } = build();
+  it("sends through the conversation channel's adapter to the server-resolved recipient", async () => {
+    const { sender, conversations, adapter, adapters, messages, sendContext } =
+      build();
     created(conversations);
-    whatsapp.deliverMessage.mockResolvedValue({
-      ok: true,
-      response: { messages: [{ id: 'wamid-1' }] },
-    });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-1' });
     messages.markSent.mockResolvedValue(message({ status: 'sent' }));
 
+    // Extra client fields (a forged `to`) never reach the provider.
     await sender.send(
-      { ...data, to: '+19990000000' },
+      { ...data, to: '+19990000000' } as unknown as AgentSendJob,
       { attemptsMade: 0 },
     );
 
     expect(sendContext.get).toHaveBeenCalledWith('conv-1');
-    expect(whatsapp.deliverMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ to: '+51999000111' }),
+    expect(adapters.for).toHaveBeenCalledWith('whatsapp');
+    expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', {
+      type: 'text',
+      text: 'hola',
+    });
+  });
+
+  it('persists the text as the message body', async () => {
+    const { sender, conversations, adapter, messages } = build();
+    created(conversations);
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-1' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+
+    await sender.send(data);
+
+    expect(conversations.saveOutbound).toHaveBeenCalledWith(
+      'conv-1',
+      { type: 'text', content: { body: 'hola' }, clientMessageId: 'client-1' },
+      { id: 'member-1', type: 'member' },
       'co-1',
     );
   });
 
+  it('fails the row when no adapter is installed for the channel', async () => {
+    const { sender, conversations, adapter, adapters, messages } = build();
+    created(conversations);
+    adapters.for.mockReturnValue(null);
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.send(data);
+
+    expect(adapter.send).not.toHaveBeenCalled();
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: null,
+      message: 'No whatsapp adapter is installed',
+    });
+  });
+
   it('fails the row without calling the provider when there is no recipient', async () => {
-    const { sender, conversations, whatsapp, messages, sendContext } = build();
+    const { sender, conversations, adapter, messages, sendContext } = build();
     created(conversations);
     sendContext.get.mockResolvedValue(null);
     messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
 
     await sender.send(data, { attemptsMade: 0 });
 
-    expect(whatsapp.deliverMessage).not.toHaveBeenCalled();
+    expect(adapter.send).not.toHaveBeenCalled();
     expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
       code: null,
       message: 'Customer has no address on the conversation channel',

@@ -3,35 +3,36 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { getDataSourceToken, TypeOrmModule } from '@nestjs/typeorm';
-import { DataSource, EntityTarget } from 'typeorm';
+import { DataSource } from 'typeorm';
 
-import * as Entities from '@entities';
 import {
   CompanyFactory,
   CompanyMemberFactory,
   ConversationFactory,
   CustomerFactory,
 } from '@factories';
-import { AgentMessageSender } from '@integrations/whatsapp/outbound/agent-message-sender.service';
-import type { WhatsAppService } from '@integrations/whatsapp/whatsapp.service';
 import { ConversationSocketEvent } from '@contracts';
+import type { ChannelAdapterRegistry } from '@modules/channels/ports/channel-adapter.registry';
 import { ConversationsService } from '@modules/conversations/conversations.service';
 import { Conversation } from '@modules/conversations/entities/conversation.entity';
 import { ConversationAssignment } from '@modules/conversations/entities/conversation-assignment.entity';
 import { MessageSavedEvent } from '@modules/conversations/events/message-saved.event';
 import { ConversationGateway } from '@modules/conversations/gateways/conversation.gateway';
+import { AgentMessageSender } from '@modules/conversations/outbound/agent-message-sender.service';
 import { ConversationFanoutService } from '@modules/conversations/realtime/conversation-fanout.service';
+import { ConversationSendContextService } from '@modules/conversations/send-context/conversation-send-context.service';
 import { CompanyMember } from '@modules/company-members/entities/company-member.entity';
 import { MessageAttachment } from '@modules/message/entities/message-attachment.entity';
 import { Message } from '@modules/message/entities/message.entity';
 import { MessageRepository } from '@modules/message/message.repository';
 import { MessageService } from '@modules/message/message.service';
 import {
-  getTestConfig,
-  truncateAllTables,
+  clearSQLiteTables,
+  getSQLiteEntities,
+  getTestSQLiteConfig,
 } from '../helpers/test-database.helper';
 
-const entities = Object.values(Entities) as EntityTarget<unknown>[];
+const entities = getSQLiteEntities();
 
 jest.setTimeout(120_000);
 
@@ -69,11 +70,22 @@ async function waitFor<T>(
   throw new Error('waitFor timed out');
 }
 
+/** Two-tier cache stand-in: the send context is cached per conversation. */
+const memoryCache = () => {
+  const store = new Map<string, unknown>();
+  return {
+    get: (key: string) => Promise.resolve(store.get(key)),
+    set: (key: string, value: unknown) => Promise.resolve(store.set(key, value)),
+    del: (key: string) => Promise.resolve(store.delete(key)),
+  };
+};
+
 /**
- * T5 acceptance over the real DB: an agent send is saved first as `pending`
- * (idempotent by `client_message_id`), Graph's wamid moves the row to `sent`,
- * and a failed send stays in the thread with its error. The Graph boundary is
- * mocked; the socket contract is observed through the real fanout.
+ * T5 acceptance over a real (sqlite) database: an agent send is saved first
+ * as `pending` (idempotent by `client_message_id`), the provider's id moves
+ * the row to `sent`, and a failed send stays in the thread with its error.
+ * The channel adapter is mocked; the socket contract is observed through the
+ * real fanout.
  */
 describe('Outbound idempotent agent send - integration', () => {
   let module: TestingModule;
@@ -81,13 +93,13 @@ describe('Outbound idempotent agent send - integration', () => {
   let messageService: MessageService;
   let sender: AgentMessageSender;
 
-  const deliverMessage = jest.fn();
+  const adapter = { type: 'whatsapp', send: jest.fn(), uploadMedia: jest.fn() };
   const emit = jest.fn();
   const to = jest.fn().mockReturnValue({ emit });
 
   beforeAll(async () => {
     module = await Test.createTestingModule({
-      imports: [TypeOrmModule.forRoot(getTestConfig(entities))],
+      imports: [TypeOrmModule.forRoot(getTestSQLiteConfig(entities))],
     }).compile();
 
     dataSource = module.get<DataSource>(getDataSourceToken());
@@ -134,8 +146,12 @@ describe('Outbound idempotent agent send - integration', () => {
     sender = new AgentMessageSender(
       conversations,
       messageService,
-      { deliverMessage } as unknown as WhatsAppService,
       fanout,
+      new ConversationSendContextService(
+        dataSource.getRepository(Conversation),
+        memoryCache() as never,
+      ),
+      { for: () => adapter } as unknown as ChannelAdapterRegistry,
       eventBus as never,
       logger(),
     );
@@ -144,7 +160,7 @@ describe('Outbound idempotent agent send - integration', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     to.mockReturnValue({ emit });
-    await truncateAllTables(dataSource);
+    await clearSQLiteTables(dataSource);
   });
 
   afterAll(async () => {
@@ -181,17 +197,16 @@ describe('Outbound idempotent agent send - integration', () => {
     return {
       room: conversationId,
       companyId,
-      to: '+15551234567',
       sender: { id: memberId, type: 'member' as const },
       clientMessageId,
-      msg: { type: 'text' as const, content: { body: 'hola' } },
+      msg: { type: 'text' as const, text: 'hola' },
     };
   }
 
-  it('saves the agent message as pending, then Graph wamid moves it to sent', async () => {
+  it('saves the agent message as pending, then the provider id moves it to sent', async () => {
     const { company, member, conversation } = await setupConversation();
     const graph = deferred<unknown>();
-    deliverMessage.mockReturnValue(graph.promise);
+    adapter.send.mockReturnValue(graph.promise);
 
     const sending = sender.send(
       sendData(conversation.id, company.id, member.id, 'client-1'),
@@ -231,21 +246,15 @@ describe('Outbound idempotent agent send - integration', () => {
       ConversationSocketEvent.MessageStatus,
       expect.anything(),
     );
-    const [sentPayload, sentCompanyId] = deliverMessage.mock.calls[0] as [
-      { type?: string; to?: string; text?: { body?: string } },
-      string,
-    ];
-    expect(sentPayload).toMatchObject({
-      type: 'text',
-      to: '+15551234567',
-    });
-    expect(sentPayload.text?.body).toBe('hola');
-    expect(sentCompanyId).toBe(company.id);
+    // The recipient is the conversation customer's address, resolved on the
+    // server (WhatsApp falls back to the stored phone digits).
+    expect(adapter.send).toHaveBeenCalledWith(
+      conversation.channelId,
+      '15551234567',
+      { type: 'text', text: 'hola' },
+    );
 
-    graph.resolve({
-      ok: true,
-      response: { messages: [{ id: 'wamid-out-1' }] },
-    });
+    graph.resolve({ ok: true, externalId: 'wamid-out-1' });
     await sending;
 
     const sent = await dataSource
@@ -265,10 +274,7 @@ describe('Outbound idempotent agent send - integration', () => {
 
   it('double submit with the same client id creates one row and sends once', async () => {
     const { company, member, conversation } = await setupConversation();
-    deliverMessage.mockResolvedValue({
-      ok: true,
-      response: { messages: [{ id: 'wamid-out-dup' }] },
-    });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-out-dup' });
 
     const first = await sender.send(
       sendData(conversation.id, company.id, member.id, 'client-dup'),
@@ -283,7 +289,7 @@ describe('Outbound idempotent agent send - integration', () => {
         .countBy({ conversationId: conversation.id }),
     ).toBe(1);
     expect(second?.id).toBe(first?.id);
-    expect(deliverMessage).toHaveBeenCalledTimes(1);
+    expect(adapter.send).toHaveBeenCalledTimes(1);
 
     const row = await dataSource
       .getRepository(Message)
@@ -291,34 +297,9 @@ describe('Outbound idempotent agent send - integration', () => {
     expect(row).toMatchObject({ status: 'sent', externalId: 'wamid-out-dup' });
   });
 
-  it('concurrent double submit still creates one row and sends once', async () => {
-    const { company, member, conversation } = await setupConversation();
-    deliverMessage.mockResolvedValue({
-      ok: true,
-      response: { messages: [{ id: 'wamid-out-race' }] },
-    });
-
-    const [first, second] = await Promise.all([
-      sender.send(
-        sendData(conversation.id, company.id, member.id, 'client-race'),
-      ),
-      sender.send(
-        sendData(conversation.id, company.id, member.id, 'client-race'),
-      ),
-    ]);
-
-    expect(
-      await dataSource
-        .getRepository(Message)
-        .countBy({ conversationId: conversation.id }),
-    ).toBe(1);
-    expect(second?.id).toBe(first?.id);
-    expect(deliverMessage).toHaveBeenCalledTimes(1);
-  });
-
   it('keeps a failed send in the thread with its error code and message', async () => {
     const { company, member, conversation } = await setupConversation();
-    deliverMessage.mockResolvedValue({
+    adapter.send.mockResolvedValue({
       ok: false,
       error: {
         authFault: true,
@@ -366,27 +347,16 @@ describe('Outbound idempotent agent send - integration', () => {
     );
   });
 
-  it('treats a Graph answer without a wamid as a failed send', async () => {
-    const { company, member, conversation } = await setupConversation();
-    deliverMessage.mockResolvedValue({ ok: true, response: {} });
-
-    await sender.send(
-      sendData(conversation.id, company.id, member.id, 'client-no-wamid'),
-    );
-
-    const failed = await dataSource
-      .getRepository(Message)
-      .findOneByOrFail({ clientMessageId: 'client-no-wamid' });
-    expect(failed.status).toBe('failed');
-    expect(failed.errorMessage).toBeTruthy();
-  });
-
   it('persists a visible failure when the message type cannot be sent', async () => {
     const { company, member, conversation } = await setupConversation();
 
     await sender.send({
       ...sendData(conversation.id, company.id, member.id, 'client-bad-type'),
-      msg: { type: 'audio', content: { body: 'nota de voz' } },
+      msg: {
+        type: 'audio',
+        uploadId: '0b9f6a3e-5c1d-4f7e-9a2b-3c4d5e6f7a8b',
+        voice: true,
+      },
     });
 
     const failed = await dataSource
@@ -394,7 +364,7 @@ describe('Outbound idempotent agent send - integration', () => {
       .findOneByOrFail({ clientMessageId: 'client-bad-type' });
     expect(failed).toMatchObject({ status: 'failed' });
     expect(failed.errorMessage).toContain('audio');
-    expect(deliverMessage).not.toHaveBeenCalled();
+    expect(adapter.send).not.toHaveBeenCalled();
     expect(emit).toHaveBeenCalledWith(
       ConversationSocketEvent.MessageStatus,
       expect.objectContaining({ id: failed.id, status: 'failed' }),

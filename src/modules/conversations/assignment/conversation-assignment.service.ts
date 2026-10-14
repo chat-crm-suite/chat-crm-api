@@ -10,7 +10,7 @@ import {
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
 
-import type { AssignmentReason, MessageType } from '@contracts';
+import type { AssignmentReason, ChannelType, MessageType } from '@contracts';
 import { CompanySettings } from '../../company/entities/company-settings.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { ConversationAssignment } from '../entities/conversation-assignment.entity';
@@ -222,6 +222,7 @@ export class ConversationAssignmentService {
       .getRepository(Conversation)
       .createQueryBuilder('conversation')
       .innerJoinAndSelect('conversation.customer', 'customer')
+      .innerJoinAndSelect('conversation.channel', 'channel')
       .leftJoinAndSelect('conversation.lastMessage', 'lastMessage')
       .where('conversation.company_id = :companyId', { companyId })
       .andWhere('conversation.status IN (:...statuses)', {
@@ -254,6 +255,7 @@ export class ConversationAssignmentService {
         displayName: conversation.customer?.displayName,
         phone: conversation.customer?.phoneNumber,
       },
+      channelType: conversation.channel.type,
       status: conversation.status,
       createdAt: conversation.createdAt,
       waitingSince: conversation.lastMessageAt ?? conversation.createdAt,
@@ -271,6 +273,7 @@ export class ConversationAssignmentService {
       .getRepository(Conversation)
       .createQueryBuilder('conversation')
       .innerJoin('conversation.customer', 'customer')
+      .innerJoin('conversation.channel', 'channel')
       .innerJoin('conversation.lastMessage', 'lastMessage')
       .leftJoin(
         ConversationAssignment,
@@ -282,6 +285,7 @@ export class ConversationAssignmentService {
       .select('conversation.id', 'conversationId')
       .addSelect('conversation.status', 'conversationStatus')
       .addSelect('conversation.lastMessageAt', 'lastMessageAt')
+      .addSelect('channel.type', 'channelType')
       .addSelect('lastMessage.body', 'lastMessageBody')
       .addSelect('lastMessage.type', 'lastMessageType')
       .addSelect('customer.id', 'customerId')
@@ -302,6 +306,7 @@ export class ConversationAssignmentService {
         conversationId: string;
         conversationStatus: string;
         lastMessageAt: Date | string | null;
+        channelType: ChannelType;
         lastMessageBody: string | null;
         lastMessageType: string | null;
         customerId: string;
@@ -323,6 +328,7 @@ export class ConversationAssignmentService {
         displayName: row.customerDisplayName,
         phone: row.customerPhone,
       },
+      channelType: row.channelType,
       status: row.conversationStatus,
       waitingSince: row.lastMessageAt,
       member: row.memberId

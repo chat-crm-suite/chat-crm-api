@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { SendAgentMessageCommand } from '../../integrations/whatsapp/commands/send-agent-message.command';
 import { ConversationProcessor } from './conversation.processor';
 
 /**
@@ -11,11 +10,7 @@ import { ConversationProcessor } from './conversation.processor';
  * persist a second row or fake a `sent`.
  */
 describe('ConversationProcessor (T5 outbound)', () => {
-  const commandBus = {
-    execute: jest
-      .fn<Promise<unknown>, [unknown]>()
-      .mockResolvedValue(undefined),
-  };
+  const sender = { send: jest.fn() };
   const eventBus = { publish: jest.fn() };
   const conversations = { saveMsg: jest.fn() };
   const logger = {
@@ -26,7 +21,7 @@ describe('ConversationProcessor (T5 outbound)', () => {
   };
 
   const processor = new ConversationProcessor(
-    commandBus as never,
+    sender as never,
     eventBus as never,
     conversations as never,
     logger as never,
@@ -35,17 +30,16 @@ describe('ConversationProcessor (T5 outbound)', () => {
   const sendJobData = {
     room: 'conv-1',
     companyId: 'co-1',
-    to: '+15551234567',
-    sender: { id: 'user-1', type: 'member' as const },
+    sender: { id: 'member-1', type: 'member' as const },
     clientMessageId: 'client-1',
-    msg: { type: 'text' as const, content: { body: 'hola' } },
+    msg: { type: 'text' as const, text: 'hola' },
   };
 
   beforeEach(() => jest.clearAllMocks());
 
   it('routes a send-message job through the T5 outbound sender', async () => {
     const saved = { id: 'msg-1' };
-    commandBus.execute.mockResolvedValue(saved);
+    sender.send.mockResolvedValue(saved);
 
     await expect(
       processor.process({
@@ -55,13 +49,8 @@ describe('ConversationProcessor (T5 outbound)', () => {
       } as never),
     ).resolves.toBe(saved);
 
-    expect(commandBus.execute).toHaveBeenCalledTimes(1);
-    const command = commandBus.execute.mock
-      .calls[0][0] as SendAgentMessageCommand;
-    expect(command).toBeInstanceOf(SendAgentMessageCommand);
-    expect(command.data).toBe(sendJobData);
     // A stalled retry must be distinguishable from a fresh duplicate.
-    expect(command.attemptsMade).toBe(2);
+    expect(sender.send).toHaveBeenCalledWith(sendJobData, { attemptsMade: 2 });
   });
 
   it('does not publish a save event after a send job completes', () => {

@@ -20,7 +20,7 @@ import { ConversationAssignmentService } from './assignment/conversation-assignm
 import { ConversationAssignmentNotifier } from './assignment/conversation-assignment.notifier';
 import { AssignmentOutcome } from './assignment/assignment.types';
 import { ConversationRepository } from './conversation.repository';
-import { ConversationMessageDto } from './dto/conversation-message.dto';
+import type { SaveMessageJob } from './commands/save-conversation-message.command';
 import { ConversationAssignment } from './entities/conversation-assignment.entity';
 import { Conversation } from './entities/conversation.entity';
 
@@ -319,7 +319,7 @@ export class ConversationsService {
     return this.conversationRepo.findOne({ where: { id } });
   }
 
-  update(_id: string, _dto: ConversationMessageDto): Promise<UpdateResult> {
+  update(_id: string, _dto: SaveMessageJob): Promise<UpdateResult> {
     throw new Error('Not implemented');
   }
 

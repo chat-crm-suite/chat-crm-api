@@ -36,6 +36,8 @@ import { ConversationGateway } from './gateways/conversation.gateway';
 import { ConversationAccessService } from './realtime/conversation-access.service';
 import { ConversationFanoutService } from './realtime/conversation-fanout.service';
 import { ConversationSendContextService } from './send-context/conversation-send-context.service';
+import { AgentMessageSender } from './outbound/agent-message-sender.service';
+import { ChannelsModule } from '../channels/channels.module';
 import { UserSessionsRevokedHandler } from './realtime/user-sessions-revoked.handler';
 
 const commandHandlers = [
@@ -64,6 +66,7 @@ const commandHandlers = [
       secret: getJwtSecret(),
     }),
     MessageModule,
+    ChannelsModule,
     NotificationsModule,
     CustomersModule,
     SentimentModule,
@@ -76,6 +79,7 @@ const commandHandlers = [
     ConversationAccessService,
     ConversationFanoutService,
     ConversationSendContextService,
+    AgentMessageSender,
     ConversationAssignmentService,
     ConversationAssignmentNotifier,
     ConversationProcessor,

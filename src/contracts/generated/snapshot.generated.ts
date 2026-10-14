@@ -1089,6 +1089,18 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
+            "channelType": {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            },
             "createdAt": {},
             "customer": {
               "additionalProperties": false,
@@ -1171,6 +1183,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             }
           },
           "required": [
+            "channelType",
             "createdAt",
             "customer",
             "id",
@@ -1367,47 +1380,6 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
-      "MessageContentSchema": {
-        "jsonSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "anyOf": [
-            {
-              "additionalProperties": false,
-              "properties": {
-                "body": {
-                  "type": "string"
-                },
-                "preview_url": {
-                  "type": "boolean"
-                }
-              },
-              "required": [
-                "body"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "caption": {
-                  "type": "string"
-                },
-                "filename": {
-                  "type": "string"
-                },
-                "id": {
-                  "type": "string"
-                },
-                "link": {
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            }
-          ]
-        },
-        "kind": "schema"
-      },
       "SendConversationMessageSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1415,168 +1387,189 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "properties": {
             "clientMessageId": {
               "maxLength": 64,
+              "minLength": 1,
               "type": "string"
             },
             "companyId": {
               "type": "string"
             },
             "msg": {
-              "additionalProperties": false,
-              "properties": {
-                "content": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "body": {
-                          "type": "string"
-                        },
-                        "preview_url": {
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "body"
-                      ],
-                      "type": "object"
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "text": {
+                      "maxLength": 4096,
+                      "minLength": 1,
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "caption": {
-                          "type": "string"
-                        },
-                        "filename": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "link": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
+                    "type": {
+                      "const": "text",
+                      "type": "string"
                     }
-                  ]
-                },
-                "type": {
-                  "enum": [
+                  },
+                  "required": [
                     "text",
-                    "image",
-                    "audio",
-                    "video",
-                    "document",
-                    "sticker",
-                    "location",
-                    "contact",
-                    "template",
-                    "interactive",
-                    "reaction"
+                    "type"
                   ],
-                  "type": "string"
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "caption": {
+                      "maxLength": 1024,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "type": {
+                      "const": "image",
+                      "type": "string"
+                    },
+                    "uploadId": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "uploadId"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "caption": {
+                      "maxLength": 1024,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "type": {
+                      "const": "video",
+                      "type": "string"
+                    },
+                    "uploadId": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "uploadId"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "const": "audio",
+                      "type": "string"
+                    },
+                    "uploadId": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "voice": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "uploadId",
+                    "voice"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "caption": {
+                      "maxLength": 1024,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "filename": {
+                      "maxLength": 240,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "type": {
+                      "const": "document",
+                      "type": "string"
+                    },
+                    "uploadId": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "filename",
+                    "type",
+                    "uploadId"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "source": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "uploadId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "uploadId"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "attachmentId": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "attachmentId"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "type": {
+                      "const": "sticker",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "type"
+                  ],
+                  "type": "object"
                 }
-              },
-              "required": [
-                "content",
-                "type"
-              ],
-              "type": "object"
+              ]
             },
             "room": {
               "type": "string"
-            },
-            "sender": {
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "type": {
-                  "enum": [
-                    "customer",
-                    "member",
-                    "system",
-                    "bot"
-                  ],
-                  "type": "string"
-                }
-              },
-              "required": [
-                "id",
-                "type"
-              ],
-              "type": "object"
-            },
-            "to": {
-              "type": "string"
             }
           },
           "required": [
+            "clientMessageId",
             "msg",
-            "room",
-            "sender",
-            "to"
-          ],
-          "type": "object"
-        },
-        "kind": "schema"
-      },
-      "WhatsAppDocumentContentSchema": {
-        "jsonSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "additionalProperties": false,
-          "properties": {
-            "caption": {
-              "type": "string"
-            },
-            "filename": {
-              "type": "string"
-            },
-            "id": {
-              "type": "string"
-            },
-            "link": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "kind": "schema"
-      },
-      "WhatsAppMediaContentSchema": {
-        "jsonSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "additionalProperties": false,
-          "properties": {
-            "caption": {
-              "type": "string"
-            },
-            "id": {
-              "type": "string"
-            },
-            "link": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "kind": "schema"
-      },
-      "WhatsAppTextContentSchema": {
-        "jsonSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "additionalProperties": false,
-          "properties": {
-            "body": {
-              "type": "string"
-            },
-            "preview_url": {
-              "type": "boolean"
-            }
-          },
-          "required": [
-            "body"
+            "room"
           ],
           "type": "object"
         },
@@ -4548,4 +4541,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "f10e38329c4fe304356281fa168ac97c1cd7740a2b51045e14258f0a0950de0d";
+export const CONTRACTS_SNAPSHOT_HASH = "ab041d895b8ff2d09c3b7f12d49da2b2c1a2d1cf0e246d792d4d75cfd3f10f4f";

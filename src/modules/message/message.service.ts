@@ -10,18 +10,17 @@ import {
 import type {
   AttachmentStatus,
   AttachmentType,
+  ConversationMessage,
   MessageDirection,
   MessageSenderType,
   MessageStatus,
   MessageType,
-} from '../../contracts/index';
+} from '@contracts';
 import type { MessageAttachment } from './entities/message-attachment.entity';
 import type { Message } from './entities/message.entity';
-import { toConversationMessagePayload } from './mappers/conversation-message.mapper';
+import { toConversationMessage } from './mappers/conversation-message.mapper';
 import { MessageRepository } from './message.repository';
 import type { MessageAttachmentContext } from './message.repository';
-import type { ConversationMessagePayload } from './message.types';
-import { MESSAGE_STRATEGY_REGISTRY } from './strategies/strategy.registry';
 
 export interface DeliveryStatusUpdate {
   /** Meta message id: matched against `messages.external_id`. */
@@ -168,7 +167,7 @@ export class MessageService {
    */
   async getConversationMessages(
     conversationId: string,
-  ): Promise<ConversationMessagePayload[]> {
+  ): Promise<ConversationMessage[]> {
     const messages = await this.repo.findConversationMessages(conversationId);
     const attachments = await this.repo.findAttachmentsByMessageIds(
       messages.map((message) => message.id),
@@ -182,14 +181,9 @@ export class MessageService {
       attachmentsByMessage.set(attachment.messageId, list);
     }
 
-    return messages.map((message) => {
-      const rows = attachmentsByMessage.get(message.id) ?? [];
-      const strategy = MESSAGE_STRATEGY_REGISTRY[message.type];
-
-      return strategy
-        ? strategy.toBroadcastFields(message, rows)
-        : toConversationMessagePayload(message, rows);
-    });
+    return messages.map((message) =>
+      toConversationMessage(message, attachmentsByMessage.get(message.id)),
+    );
   }
 
   /**
@@ -199,18 +193,14 @@ export class MessageService {
    */
   async getMessagePayload(
     messageId: string,
-  ): Promise<ConversationMessagePayload | null> {
+  ): Promise<ConversationMessage | null> {
     const message = await this.repo.findById(messageId);
     if (!message) return null;
 
     const attachments = await this.repo.findAttachmentsByMessageIds([
       message.id,
     ]);
-    const strategy = MESSAGE_STRATEGY_REGISTRY[message.type];
-
-    return strategy
-      ? strategy.toBroadcastFields(message, attachments)
-      : toConversationMessagePayload(message, attachments);
+    return toConversationMessage(message, attachments);
   }
 
   /** Replay idempotency: does this wamid already have a persisted row? */

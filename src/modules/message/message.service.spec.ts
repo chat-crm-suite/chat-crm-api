@@ -35,6 +35,17 @@ const attachment = (
     ...overrides,
   }) as MessageAttachment;
 
+const readyMedia = {
+  attachmentId: 'att-1',
+  url: '/attachments/att-1',
+  status: 'ready',
+  mimeType: 'image/jpeg',
+  sizeBytes: 2048,
+  durationMs: null,
+  width: null,
+  height: null,
+};
+
 describe('MessageService.getMessagePayload', () => {
   const findById = jest.fn();
   const findAttachmentsByMessageIds = jest.fn();
@@ -47,61 +58,79 @@ describe('MessageService.getMessagePayload', () => {
     jest.clearAllMocks();
   });
 
-  it('includes the attachment storageUrl as mediaUrl for images', async () => {
-    findById.mockResolvedValue(message({ type: 'image' }));
+  it('exposes an image through our attachments endpoint', async () => {
+    findById.mockResolvedValue(message({ type: 'image', body: 'Mira' }));
     findAttachmentsByMessageIds.mockResolvedValue([attachment()]);
 
     const payload = await service.getMessagePayload('msg-1');
 
     expect(findAttachmentsByMessageIds).toHaveBeenCalledWith(['msg-1']);
-    expect(payload).toMatchObject({
+    expect(payload).toEqual({
       id: 'msg-1',
       conversationId: 'conv-1',
-      msg: {
-        type: 'image',
-        mediaUrl: '/attachments/att-1',
-      },
+      clientMessageId: null,
+      timestamp: new Date('2026-10-05T00:00:00.000Z'),
+      status: 'delivered',
+      sender: { id: 'cust-1', type: 'customer' },
+      msg: { type: 'image', media: readyMedia, caption: 'Mira' },
     });
   });
 
-  it('includes the filename for documents', async () => {
-    findById.mockResolvedValue(message({ type: 'document' }));
+  it('includes the filename and caption for documents', async () => {
+    findById.mockResolvedValue(message({ type: 'document', body: null }));
     findAttachmentsByMessageIds.mockResolvedValue([attachment()]);
 
     const payload = await service.getMessagePayload('msg-1');
 
-    expect(payload?.msg.mediaUrl).toBe('/attachments/att-1');
-    expect(payload?.msg.content.filename).toBe('photo.jpg');
-    expect(payload?.msg.mimeType).toBe('image/jpeg');
-    expect(payload?.msg.sizeBytes).toBe(2048);
+    expect(payload?.msg).toEqual({
+      type: 'document',
+      media: readyMedia,
+      filename: 'photo.jpg',
+      caption: null,
+    });
   });
 
-  it('returns null mediaUrl for text without attachments', async () => {
+  it('maps text rows to their text', async () => {
     findById.mockResolvedValue(message({ type: 'text' }));
     findAttachmentsByMessageIds.mockResolvedValue([]);
 
     const payload = await service.getMessagePayload('msg-1');
 
-    expect(payload?.msg).toMatchObject({
-      type: 'text',
-      content: { body: 'hola' },
-    });
-    expect(payload?.msg.mediaUrl).toBeNull();
-    expect(payload?.msg.mimeType).toBeUndefined();
-    expect(payload?.msg.sizeBytes).toBeUndefined();
+    expect(payload?.msg).toEqual({ type: 'text', text: 'hola' });
   });
 
-  it('falls back to the generic mapper for types without strategy', async () => {
-    findById.mockResolvedValue(message({ type: 'audio' }));
-    findAttachmentsByMessageIds.mockResolvedValue([attachment()]);
+  it('marks ogg audio as a voice note with its duration', async () => {
+    findById.mockResolvedValue(message({ type: 'audio', body: null }));
+    findAttachmentsByMessageIds.mockResolvedValue([
+      attachment({
+        type: 'audio',
+        mimeType: 'audio/ogg; codecs=opus',
+        fileName: 'a.ogg',
+        durationMs: 4200,
+      }),
+    ]);
 
     const payload = await service.getMessagePayload('msg-1');
 
-    expect(payload?.msg.type).toBe('audio');
-    expect(payload?.msg.mediaUrl).toBe('/attachments/att-1');
+    expect(payload?.msg).toMatchObject({
+      type: 'audio',
+      voice: true,
+      media: { url: '/attachments/att-1', durationMs: 4200 },
+    });
   });
 
-  it('exposes the attachment status for a failed media row', async () => {
+  it('keeps an mp3 as a plain audio file', async () => {
+    findById.mockResolvedValue(message({ type: 'audio', body: null }));
+    findAttachmentsByMessageIds.mockResolvedValue([
+      attachment({ type: 'audio', mimeType: 'audio/mpeg' }),
+    ]);
+
+    const payload = await service.getMessagePayload('msg-1');
+
+    expect(payload?.msg).toMatchObject({ type: 'audio', voice: false });
+  });
+
+  it('exposes a failed media row without url', async () => {
     findById.mockResolvedValue(message({ type: 'image' }));
     findAttachmentsByMessageIds.mockResolvedValue([
       attachment({ status: 'failed', storageUrl: undefined }),
@@ -109,8 +138,22 @@ describe('MessageService.getMessagePayload', () => {
 
     const payload = await service.getMessagePayload('msg-1');
 
-    expect(payload?.msg.attachmentStatus).toBe('failed');
-    expect(payload?.msg.mediaUrl).toBeNull();
+    expect(payload?.msg).toMatchObject({
+      type: 'image',
+      media: { status: 'failed', url: null },
+    });
+  });
+
+  it('reads a media row without attachment as failed', async () => {
+    findById.mockResolvedValue(message({ type: 'sticker', body: null }));
+    findAttachmentsByMessageIds.mockResolvedValue([]);
+
+    const payload = await service.getMessagePayload('msg-1');
+
+    expect(payload?.msg).toMatchObject({
+      type: 'sticker',
+      media: { status: 'failed', url: null, attachmentId: null },
+    });
   });
 
   it('returns null when the message does not exist', async () => {
@@ -118,35 +161,6 @@ describe('MessageService.getMessagePayload', () => {
 
     await expect(service.getMessagePayload('missing')).resolves.toBeNull();
     expect(findAttachmentsByMessageIds).not.toHaveBeenCalled();
-  });
-
-  it('maps an audio row to the unchanged broadcast shape with mediaUrl', async () => {
-    findById.mockResolvedValue(message({ type: 'audio', body: null }));
-    findAttachmentsByMessageIds.mockResolvedValue([
-      attachment({
-        type: 'audio',
-        mimeType: 'audio/ogg',
-        storageUrl: '/uploads/a.ogg',
-        fileName: 'a.ogg',
-      }),
-    ]);
-
-    const payload = await service.getMessagePayload('msg-1');
-
-    expect(payload).toMatchObject({
-      id: 'msg-1',
-      conversationId: 'conv-1',
-      msg: { type: 'audio', mediaUrl: '/attachments/att-1', content: {} },
-    });
-    expect(Object.keys(payload as object).sort()).toEqual([
-      'clientMessageId',
-      'conversationId',
-      'id',
-      'msg',
-      'sender',
-      'status',
-      'timestamp',
-    ]);
   });
 
   it('carries the client message id so the front reconciles the optimistic row', async () => {
@@ -158,7 +172,7 @@ describe('MessageService.getMessagePayload', () => {
     expect(payload?.clientMessageId).toBe('client-1');
   });
 
-  it('maps a location row to a readable body row', async () => {
+  it('maps kinds without a renderer to the unsupported view, keeping their text', async () => {
     findById.mockResolvedValue(
       message({
         type: 'location',
@@ -169,12 +183,10 @@ describe('MessageService.getMessagePayload', () => {
 
     const payload = await service.getMessagePayload('msg-1');
 
-    expect(payload).toMatchObject({
-      msg: {
-        type: 'location',
-        mediaUrl: null,
-        content: { body: '📍 Oficina: 4.60971, -74.08175' },
-      },
+    expect(payload?.msg).toEqual({
+      type: 'unsupported',
+      originalType: 'location',
+      text: '📍 Oficina: 4.60971, -74.08175',
     });
   });
 });

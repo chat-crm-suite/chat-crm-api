@@ -25,9 +25,7 @@ const validSend = {
   room: 'conv-1',
   companyId: 'co-1',
   clientMessageId: 'client-1',
-  to: '51999000111',
-  sender: { id: 'member-1', type: 'member' },
-  msg: { type: 'text', content: { body: 'Hola' } },
+  msg: { type: 'text', text: 'Hola' },
 };
 
 /**
@@ -121,6 +119,10 @@ describe('ConversationGateway send acknowledgement', () => {
       ok: false,
       code: 'validation',
     });
+    // Content that does not match its kind is rejected too.
+    await expect(
+      send({ ...validSend, msg: { type: 'image', text: 'Hola' } }),
+    ).resolves.toMatchObject({ ok: false, code: 'validation' });
     expect(commandBus.execute).not.toHaveBeenCalled();
   });
 

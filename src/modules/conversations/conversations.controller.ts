@@ -21,6 +21,8 @@ import { ApiOkResponse } from '@nestjs/swagger';
 import { ClsService } from 'nestjs-cls';
 import { ZodSerializerDto } from 'nestjs-zod';
 
+import { ConversationMessageSchema } from '@contracts';
+
 import { multerConfig } from '../../config/multer.config';
 import { CLS_COMPANY_ID, CLS_USER_ID } from '../../config/cls.keys';
 import { SentimentService } from '../analysis/sentiment/sentiment.service';
@@ -143,6 +145,7 @@ export class ConversationsController {
   }
 
   @Get(':id/messages')
+  @ZodSerializerDto(ConversationMessageSchema.array())
   findMessages(@Param('id') id: string) {
     return this.messages.getConversationMessages(id);
   }

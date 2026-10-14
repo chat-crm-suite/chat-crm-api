@@ -63,6 +63,7 @@ export class ConversationRepository {
       .getRepository(Conversation)
       .createQueryBuilder('conversation')
       .innerJoinAndSelect('conversation.customer', 'customer')
+      .innerJoinAndSelect('conversation.channel', 'channel')
       .innerJoin(
         ConversationAssignment,
         'ca',
@@ -89,6 +90,7 @@ export class ConversationRepository {
         displayName: conversation.customer?.displayName,
         phone: conversation.customer?.phoneNumber,
       },
+      channelType: conversation.channel.type,
       status: conversation.status,
       createdAt: conversation.createdAt,
     }));

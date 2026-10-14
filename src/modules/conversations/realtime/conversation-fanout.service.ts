@@ -10,7 +10,7 @@ import {
   type ConversationMessageAttachmentPatch,
   type ConversationMessageStatusPatch,
 } from '@contracts';
-import type { ConversationMessagePayload } from '../../message/message.types';
+import type { ConversationMessage } from '@contracts';
 import { ConversationGateway } from '../gateways/conversation.gateway';
 import { ConversationAccessService } from './conversation-access.service';
 
@@ -37,7 +37,7 @@ export class ConversationFanoutService {
   /** Live message body: open thread + assignee preview. */
   emitMessage(
     conversationId: string,
-    payload: ConversationMessagePayload,
+    payload: ConversationMessage,
   ): Promise<void> {
     return this.emitToThreadAndAssignee(
       conversationId,

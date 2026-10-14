@@ -16,7 +16,6 @@ import { MessageModule } from '../../modules/message/message.module';
 import { WhatsAppClient } from './clients/whatsapp.client';
 import { InboundMessageRouter } from './commands/router/inbound-message.router';
 import { ReceiveWhatsAppMessageHandler } from './commands/handlers/receive-whatsapp-message.handler';
-import { SendAgentMessageHandler } from './commands/handlers/send-agent-message.handler';
 import { SendWhatsAppMessageHandler } from './commands/handlers/send-whatsapp-message.handler';
 import { WebhookController } from './controllers/index';
 import { InboundMetricsController } from './observability/inbound-metrics.controller';
@@ -45,7 +44,7 @@ import {
   InboundMediaFailedMetricsHandler,
   InboundReceivedMetricsHandler,
 } from './observability/inbound-metrics.subscriber';
-import { AgentMessageSender } from './outbound/agent-message-sender.service';
+import { WhatsAppChannelAdapter } from './outbound/whatsapp-channel.adapter';
 import { WhatsAppService } from './whatsapp.service';
 
 @Module({
@@ -64,7 +63,7 @@ import { WhatsAppService } from './whatsapp.service';
   controllers: [WebhookController, InboundMetricsController],
   providers: [
     WhatsAppService,
-    AgentMessageSender,
+    WhatsAppChannelAdapter,
     WhatsAppIntakeService,
     WhatsAppInboundReplayService,
     InboundMessageSavedHandler,
@@ -75,7 +74,6 @@ import { WhatsAppService } from './whatsapp.service';
     WhatsAppClient,
     ReceiveWhatsAppMessageHandler,
     InboundMessageRouter,
-    SendAgentMessageHandler,
     SendWhatsAppMessageHandler,
     // Ticket #24: event-based observability (logs + metrics).
     {

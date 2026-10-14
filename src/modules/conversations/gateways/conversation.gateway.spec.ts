@@ -217,9 +217,10 @@ describe('ConversationGateway', () => {
       ({
         room: 'conv-1',
         companyId: 'co-1',
-        to: '51999999999',
+        clientMessageId: 'client-1',
+        // A client-supplied sender is ignored: the socket's member sends.
         sender: { id: 'someone-else', type: 'customer' },
-        msg: { type: 'text', content: { body: 'Hola' } },
+        msg: { type: 'text', text: 'Hola' },
         ...overrides,
       }) as SendConversationMessageDto;
 

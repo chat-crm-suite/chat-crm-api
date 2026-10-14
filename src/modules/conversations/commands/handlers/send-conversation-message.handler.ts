@@ -6,15 +6,17 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 
-import { SendConversationMessageDto } from '../../dto/send-conversation-message.dto';
-import { SendConversationMessageCommand } from '../send-conversation-message.command';
+import {
+  type AgentSendJob,
+  SendConversationMessageCommand,
+} from '../send-conversation-message.command';
 
 @CommandHandler(SendConversationMessageCommand)
 export class SendConversationMessageHandler
   implements ICommandHandler<SendConversationMessageCommand>
 {
   constructor(
-    @InjectQueue('chat') private readonly queue: Queue<SendConversationMessageDto>,
+    @InjectQueue('chat') private readonly queue: Queue<AgentSendJob>,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(SendConversationMessageHandler.name);

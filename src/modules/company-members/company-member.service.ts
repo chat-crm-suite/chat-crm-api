@@ -13,7 +13,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { ClsService } from 'nestjs-cls';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
-import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 
 import { SessionRevocationService } from '../../auth/session/session-revocation.service';
 import { WorkspaceTableCache } from '../../common/cache/workspace-table-cache.service';

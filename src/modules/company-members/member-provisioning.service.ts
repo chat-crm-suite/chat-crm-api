@@ -77,8 +77,8 @@ export class MemberProvisioningService {
           email,
           username: await this.freeUsername(users, input.username, email),
           passwordHash: await bcrypt.hash(initialPassword, 10),
-          firstName: input.firstName,
-          lastName: input.lastName,
+          firstName: input.firstName?.trim() || undefined,
+          lastName: input.lastName?.trim() || undefined,
           phoneNumber: await this.freePhone(users, input.phoneNumber),
         }),
       );

@@ -13,6 +13,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { ClsService } from 'nestjs-cls';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 
 import { SessionRevocationService } from '../../auth/session/session-revocation.service';
 import { WorkspaceTableCache } from '../../common/cache/workspace-table-cache.service';
@@ -435,7 +436,7 @@ export class CompanyMemberService {
     }
 
     const users = manager.getRepository(User);
-    if (fields.phoneNumber) {
+    if (fields.phoneNumber?.trim()) {
       const taken = await users
         .createQueryBuilder('user')
         .withDeleted()
@@ -450,7 +451,12 @@ export class CompanyMemberService {
       }
     }
 
-    await users.update(userId, fields);
+    // A blank field means "remove it": store NULL, never '' (phone_number is
+    // unique, so two people clearing it would otherwise collide).
+    const values = Object.fromEntries(
+      Object.entries(fields).map(([key, value]) => [key, value?.trim() ? value : null]),
+    );
+    await users.update(userId, values);
   }
 
   /** Marks the table stale and tells open screens of the company. */

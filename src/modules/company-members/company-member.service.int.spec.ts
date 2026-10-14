@@ -659,6 +659,24 @@ describe('CompanyMemberService (integration)', () => {
       ).rejects.toMatchObject({ response: { code: 'phone_taken' } });
     });
 
+    it('stores NULL when a name or phone is blanked, so two people can clear their phone', async () => {
+      const company = await seedCompany();
+      const admin = await seedMember(company, 'admin');
+      const a = await seedMember(company, 'agent');
+      const b = await seedMember(company, 'agent');
+      actAs(company, admin.member);
+      await service.update(a.member.id, { phoneNumber: '+51999000222', lastName: 'Uno' });
+      await service.update(b.member.id, { phoneNumber: '+51999000333', lastName: 'Dos' });
+
+      const first = await service.update(a.member.id, { phoneNumber: '', lastName: '  ' });
+      const second = await service.update(b.member.id, { phoneNumber: '', lastName: '' });
+
+      expect(first).toMatchObject({ phoneNumber: null, lastName: null });
+      expect(second).toMatchObject({ phoneNumber: null, lastName: null });
+      const users = dataSource.getRepository(User);
+      expect((await users.findOneByOrFail({ id: a.user.id })).phoneNumber).toBeNull();
+    });
+
     it('returns 404 for a member of another company', async () => {
       const company = await seedCompany();
       const admin = await seedMember(company, 'admin');

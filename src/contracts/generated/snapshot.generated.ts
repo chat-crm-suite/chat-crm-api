@@ -416,7 +416,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                 "mimeTypes": [
                   "video/mp4",
                   "video/3gpp"
-                ]
+                ],
+                "progressiveOnly": true
               }
             },
             "replyWindowMs": 86400000,
@@ -3676,6 +3677,36 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       "TEXT_MAX_LENGTH": {
         "kind": "value",
         "value": 4096
+      },
+      "UPLOAD_ERROR_CODES": {
+        "kind": "value",
+        "value": [
+          "channel_unsupported",
+          "content_mismatch",
+          "type_not_allowed",
+          "too_large",
+          "sticker_dimensions",
+          "sticker_too_large",
+          "fragmented_video",
+          "unreadable"
+        ]
+      },
+      "UploadErrorCodeSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "channel_unsupported",
+            "content_mismatch",
+            "type_not_allowed",
+            "too_large",
+            "sticker_dimensions",
+            "sticker_too_large",
+            "fragmented_video",
+            "unreadable"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
       }
     },
     "metrics": {
@@ -4569,4 +4600,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "1bde61ebba22afaa2d9b79ffa6f6a074fc8fe4274571d6aac6f727fed5c90f99";
+export const CONTRACTS_SNAPSHOT_HASH = "0aae110f283792a47ffb4fe2871a9975dc75de866b0da2a8afeda79153e5588f";

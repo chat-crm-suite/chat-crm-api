@@ -8,6 +8,7 @@ import { PinoLogger } from 'nestjs-pino';
 import type { OutgoingMessage } from '@contracts';
 import type {
   ChannelFailure,
+  ProviderMedia,
   ResolvedOutgoing,
 } from '@modules/channels/ports/channel-adapter.port';
 import { ChannelAdapterRegistry } from '@modules/channels/ports/channel-adapter.registry';
@@ -23,6 +24,7 @@ import { MessageSavedEvent } from '../events/message-saved.event';
 import { ConversationFanoutService } from '../realtime/conversation-fanout.service';
 import { ConversationSendContextService } from '../send-context/conversation-send-context.service';
 import { toLegacySendError } from './legacy-send-error';
+import { OutgoingMediaService, type OutgoingFile } from './outgoing-media.service';
 
 /**
  * Channel-agnostic outbound pipeline (T5). An agent send is persisted first
@@ -43,6 +45,7 @@ export class AgentMessageSender {
     private readonly fanout: ConversationFanoutService,
     private readonly sendContext: ConversationSendContextService,
     private readonly adapters: ChannelAdapterRegistry,
+    private readonly media: OutgoingMediaService,
     private readonly eventBus: EventBus,
     private readonly logger: PinoLogger,
   ) {
@@ -53,9 +56,15 @@ export class AgentMessageSender {
     job: AgentSendJob,
     options?: { attemptsMade?: number },
   ): Promise<Message | null> {
+    // An expired or foreign upload still leaves a visible (failed) row.
+    const prepared = await this.media.prepare(job).then(
+      (file) => ({ file, error: null }),
+      (error: unknown) => ({ file: null, error: errorMessage(error) }),
+    );
+
     const { message: saved, created } = await this.conversations.saveOutbound(
       job.room,
-      toSaveContent(job),
+      toSaveContent(job, prepared.file),
       job.sender,
       job.companyId,
     );
@@ -86,11 +95,37 @@ export class AgentMessageSender {
       );
     }
 
-    const resolved = resolveOutgoing(job.msg);
+    let media: ProviderMedia | null = null;
+    if (job.msg.type !== 'text') {
+      // A retried row already holds its file, even once the upload expired.
+      const attachment = await this.media.attachmentOf(message.id);
+      if (!attachment) {
+        return this.failSend(
+          message,
+          failure(prepared.error ?? 'The file of this message is missing'),
+          job.msg.type,
+        );
+      }
+
+      const uploaded = await this.media.toProvider(
+        adapter,
+        { channelId: context.channelId, companyId: context.companyId },
+        attachment,
+      );
+      if (!uploaded.ok) {
+        return this.failSend(message, uploaded.error, job.msg.type);
+      }
+      media = {
+        providerMediaId: uploaded.providerMediaId,
+        mimeType: attachment.mimeType,
+      };
+    }
+
+    const resolved = resolveOutgoing(job.msg, media);
     if (!resolved) {
       return this.failSend(
         message,
-        failure(`Sending ${job.msg.type} messages is not available yet`),
+        failure('The file of this message is missing'),
         job.msg.type,
       );
     }
@@ -197,25 +232,76 @@ export class AgentMessageSender {
   }
 }
 
-/** What gets persisted for the outgoing message (body + kind). */
-function toSaveContent(job: AgentSendJob): SaveConversationMessageContent {
+/** What gets persisted for the outgoing message: kind, text and file. */
+function toSaveContent(
+  job: AgentSendJob,
+  file: OutgoingFile | null,
+): SaveConversationMessageContent {
   const { msg } = job;
+  const body =
+    msg.type === 'text'
+      ? msg.text
+      : 'caption' in msg
+        ? msg.caption
+        : undefined;
 
   return {
     type: msg.type,
-    content: msg.type === 'text' ? { body: msg.text } : {},
+    content: {
+      ...(body ? { body } : {}),
+      ...(msg.type === 'document'
+        ? { filename: msg.filename }
+        : file
+          ? { filename: file.filename }
+          : {}),
+    },
     clientMessageId: job.clientMessageId,
+    ...(file
+      ? {
+          mediaUrl: file.storageUrl,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+          durationMs: file.durationMs,
+          width: file.width,
+          height: file.height,
+        }
+      : {}),
   };
 }
 
 /**
- * The provider-ready message, or `null` for kinds whose files are not wired
- * to the provider yet.
+ * The provider-ready message: the outgoing kind with its file referenced by
+ * the provider id. `null` when a media kind has no provider file.
  */
-function resolveOutgoing(msg: OutgoingMessage): ResolvedOutgoing | null {
-  return msg.type === 'text' ? { type: 'text', text: msg.text } : null;
+function resolveOutgoing(
+  msg: OutgoingMessage,
+  media: ProviderMedia | null,
+): ResolvedOutgoing | null {
+  if (msg.type === 'text') return { type: 'text', text: msg.text };
+  if (!media) return null;
+
+  switch (msg.type) {
+    case 'image':
+    case 'video':
+      return { type: msg.type, media, caption: msg.caption };
+    case 'audio':
+      return { type: 'audio', media, voice: msg.voice };
+    case 'document':
+      return {
+        type: 'document',
+        media,
+        filename: msg.filename,
+        caption: msg.caption,
+      };
+    case 'sticker':
+      return { type: 'sticker', media };
+  }
 }
 
 function failure(message: string): ChannelFailure {
   return { authFault: false, retryable: false, message };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

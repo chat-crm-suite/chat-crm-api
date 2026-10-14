@@ -203,6 +203,19 @@ export class MessageService {
     return toConversationMessage(message, attachments);
   }
 
+  /** Attachments of one message, oldest first. */
+  findAttachments(messageId: string): Promise<MessageAttachment[]> {
+    return this.repo.findAttachmentsByMessageIds([messageId]);
+  }
+
+  /** Stores the provider's media id of an outbound file (see the sender). */
+  rememberProviderMedia(
+    attachmentId: string,
+    providerMediaId: string,
+  ): Promise<void> {
+    return this.repo.setAttachmentExternalMediaId(attachmentId, providerMediaId);
+  }
+
   /** Replay idempotency: does this wamid already have a persisted row? */
   findByExternalId(externalId: string): Promise<Message | null> {
     return this.repo.findByExternalId(externalId);

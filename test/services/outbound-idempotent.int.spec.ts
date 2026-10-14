@@ -26,6 +26,15 @@ import { MessageAttachment } from '@modules/message/entities/message-attachment.
 import { Message } from '@modules/message/entities/message.entity';
 import { MessageRepository } from '@modules/message/message.repository';
 import { MessageService } from '@modules/message/message.service';
+import { AttachmentStorageService } from '@modules/media/attachment-storage.service';
+import { MediaNormalizerChain } from '@modules/media/normalize/media-normalizer';
+import { StagedUploadStore } from '@modules/media/staging/staged-upload.store';
+import { OutgoingMediaService } from '@modules/conversations/outbound/outgoing-media.service';
+import { ConversationUploadsService } from '@modules/conversations/uploads/conversation-uploads.service';
+import { MessageAttachment as AttachmentRow } from '@modules/message/entities/message-attachment.entity';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   clearSQLiteTables,
   getSQLiteEntities,
@@ -92,6 +101,8 @@ describe('Outbound idempotent agent send - integration', () => {
   let dataSource: DataSource;
   let messageService: MessageService;
   let sender: AgentMessageSender;
+  let uploads: ConversationUploadsService;
+  let storageRoot: string;
 
   const adapter = { type: 'whatsapp', send: jest.fn(), uploadMedia: jest.fn() };
   const emit = jest.fn();
@@ -143,15 +154,27 @@ describe('Outbound idempotent agent send - integration', () => {
       },
     };
 
+    storageRoot = mkdtempSync(join(tmpdir(), 'outbound-storage-'));
+    const storage = new AttachmentStorageService(storageRoot);
+    const cache = memoryCache() as never;
+    const sendContext = new ConversationSendContextService(
+      dataSource.getRepository(Conversation),
+      cache,
+    );
+    const staged = new StagedUploadStore(storage, cache);
+    uploads = new ConversationUploadsService(
+      sendContext,
+      staged,
+      new MediaNormalizerChain([]),
+    );
+
     sender = new AgentMessageSender(
       conversations,
       messageService,
       fanout,
-      new ConversationSendContextService(
-        dataSource.getRepository(Conversation),
-        memoryCache() as never,
-      ),
+      sendContext,
       { for: () => adapter } as unknown as ChannelAdapterRegistry,
+      new OutgoingMediaService(staged, storage, messageService),
       eventBus as never,
       logger(),
     );
@@ -164,6 +187,7 @@ describe('Outbound idempotent agent send - integration', () => {
   });
 
   afterAll(async () => {
+    rmSync(storageRoot, { recursive: true, force: true });
     if (dataSource) await dataSource.destroy();
     if (module) await module.close();
   });
@@ -347,11 +371,11 @@ describe('Outbound idempotent agent send - integration', () => {
     );
   });
 
-  it('persists a visible failure when the message type cannot be sent', async () => {
+  it('persists a visible failure when the upload does not exist', async () => {
     const { company, member, conversation } = await setupConversation();
 
     await sender.send({
-      ...sendData(conversation.id, company.id, member.id, 'client-bad-type'),
+      ...sendData(conversation.id, company.id, member.id, 'client-no-upload'),
       msg: {
         type: 'audio',
         uploadId: '0b9f6a3e-5c1d-4f7e-9a2b-3c4d5e6f7a8b',
@@ -361,13 +385,93 @@ describe('Outbound idempotent agent send - integration', () => {
 
     const failed = await dataSource
       .getRepository(Message)
-      .findOneByOrFail({ clientMessageId: 'client-bad-type' });
-    expect(failed).toMatchObject({ status: 'failed' });
-    expect(failed.errorMessage).toContain('audio');
+      .findOneByOrFail({ clientMessageId: 'client-no-upload' });
+    expect(failed).toMatchObject({
+      status: 'failed',
+      errorMessage: 'Upload not found or expired',
+    });
     expect(adapter.send).not.toHaveBeenCalled();
     expect(emit).toHaveBeenCalledWith(
       ConversationSocketEvent.MessageStatus,
       expect.objectContaining({ id: failed.id, status: 'failed' }),
     );
+  });
+
+  it('sends a staged document end to end: upload, row, provider upload, send', async () => {
+    const { company, member, conversation } = await setupConversation();
+    const incoming = join(storageRoot, 'incoming.pdf');
+    writeFileSync(incoming, '%PDF-1.7 cotizacion');
+    adapter.uploadMedia.mockResolvedValue({ ok: true, providerMediaId: 'media-77' });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-doc' });
+
+    const stagedUpload = await uploads.stage(
+      conversation.id,
+      company.id,
+      {
+        path: incoming,
+        size: 19,
+        mimetype: 'application/pdf',
+        originalname: 'Cotización final.pdf',
+      },
+      { kind: 'document' },
+    );
+
+    await sender.send({
+      ...sendData(conversation.id, company.id, member.id, 'client-doc'),
+      msg: {
+        type: 'document',
+        uploadId: stagedUpload.uploadId,
+        filename: 'Cotización final.pdf',
+        caption: 'Te paso la cotización',
+      },
+    });
+
+    const row = await dataSource
+      .getRepository(Message)
+      .findOneByOrFail({ clientMessageId: 'client-doc' });
+    expect(row).toMatchObject({
+      status: 'sent',
+      externalId: 'wamid-doc',
+      body: 'Te paso la cotización',
+    });
+
+    const [attachment] = await dataSource
+      .getRepository(AttachmentRow)
+      .findBy({ messageId: row.id });
+    expect(attachment).toMatchObject({
+      type: 'document',
+      status: 'ready',
+      mimeType: 'application/pdf',
+      sizeBytes: 19,
+      fileName: 'Cotización final.pdf',
+      // Remembered: a retry never uploads the file twice.
+      externalMediaId: 'media-77',
+      storageUrl: `/uploads/${company.id}/${stagedUpload.uploadId}.pdf`,
+    });
+    // The file left staging for the company storage, and Graph got that path.
+    expect(
+      existsSync(join(storageRoot, company.id, `${stagedUpload.uploadId}.pdf`)),
+    ).toBe(true);
+    expect(adapter.uploadMedia).toHaveBeenCalledWith(conversation.channelId, {
+      absolutePath: join(storageRoot, company.id, `${stagedUpload.uploadId}.pdf`),
+      mimeType: 'application/pdf',
+      filename: 'Cotización final.pdf',
+      sizeBytes: 19,
+    });
+    expect(adapter.send).toHaveBeenCalledWith(conversation.channelId, '15551234567', {
+      type: 'document',
+      media: { providerMediaId: 'media-77', mimeType: 'application/pdf' },
+      filename: 'Cotización final.pdf',
+      caption: 'Te paso la cotización',
+    });
+
+    // History renders it through the private attachments endpoint.
+    const [view] = await messageService.getConversationMessages(conversation.id);
+    expect(view.msg).toMatchObject({
+      type: 'document',
+      filename: 'Cotización final.pdf',
+      caption: 'Te paso la cotización',
+      media: { url: `/attachments/${attachment.id}`, status: 'ready' },
+    });
   });
 });

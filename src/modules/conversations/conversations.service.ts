@@ -39,6 +39,11 @@ export interface SaveConversationMessageContent {
   externalId?: string;
   externalMediaId?: string;
   mimeType?: string;
+  /** Known file facts (outbound uploads): kept on the attachment row. */
+  sizeBytes?: number | null;
+  durationMs?: number | null;
+  width?: number | null;
+  height?: number | null;
   /** Front-generated send id: makes outbound retries idempotent. */
   clientMessageId?: string | null;
 }
@@ -152,6 +157,10 @@ export class ConversationsService {
                 storageUrl: link,
                 externalMediaId: msg.externalMediaId,
                 status: attachmentStatus,
+                sizeBytes: msg.sizeBytes,
+                durationMs: msg.durationMs,
+                width: msg.width,
+                height: msg.height,
               },
             ]
           : undefined,

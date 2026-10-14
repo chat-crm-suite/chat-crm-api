@@ -38,6 +38,11 @@ function build() {
   };
   const adapter = { type: 'whatsapp', send: jest.fn(), uploadMedia: jest.fn() };
   const adapters = { for: jest.fn().mockReturnValue(adapter) };
+  const media = {
+    prepare: jest.fn().mockResolvedValue(null),
+    attachmentOf: jest.fn(),
+    toProvider: jest.fn(),
+  };
   const fanout = { emitStatusPatch: jest.fn(), emitError: jest.fn() };
   const sendContext = {
     get: jest.fn().mockResolvedValue({
@@ -62,6 +67,7 @@ function build() {
     fanout as never,
     sendContext as never,
     adapters as never,
+    media as never,
     eventBus as never,
     logger as never,
   );
@@ -72,6 +78,7 @@ function build() {
     messages,
     adapter,
     adapters,
+    media,
     fanout,
     sendContext,
     eventBus,
@@ -400,5 +407,156 @@ describe('AgentMessageSender channel routing', () => {
       code: null,
       message: 'Customer has no address on the conversation channel',
     });
+  });
+});
+
+describe('AgentMessageSender media', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const UPLOAD_ID = '0b9f6a3e-5c1d-4f7e-9a2b-3c4d5e6f7a8b';
+  const imageJob: AgentSendJob = {
+    ...data,
+    msg: { type: 'image', uploadId: UPLOAD_ID, caption: 'Mira' },
+  };
+  const file = {
+    storageUrl: `/uploads/co-1/${UPLOAD_ID}.png`,
+    mimeType: 'image/png',
+    filename: 'foto.png',
+    sizeBytes: 2048,
+    durationMs: null,
+    width: 640,
+    height: 480,
+  };
+  const attachment = {
+    id: 'att-1',
+    storageUrl: file.storageUrl,
+    mimeType: 'image/png',
+  };
+
+  it('persists the staged file, uploads it once and sends it by provider id', async () => {
+    const { sender, conversations, adapter, media, messages } = build();
+    media.prepare.mockResolvedValue(file);
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentOf.mockResolvedValue(attachment);
+    media.toProvider.mockResolvedValue({ ok: true, providerMediaId: 'media-1' });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-1' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+
+    await sender.send(imageJob);
+
+    expect(conversations.saveOutbound).toHaveBeenCalledWith(
+      'conv-1',
+      {
+        type: 'image',
+        content: { body: 'Mira', filename: 'foto.png' },
+        clientMessageId: 'client-1',
+        mediaUrl: file.storageUrl,
+        mimeType: 'image/png',
+        sizeBytes: 2048,
+        durationMs: null,
+        width: 640,
+        height: 480,
+      },
+      { id: 'member-1', type: 'member' },
+      'co-1',
+    );
+    expect(media.toProvider).toHaveBeenCalledWith(
+      adapter,
+      { channelId: 'channel-1', companyId: 'co-1' },
+      attachment,
+    );
+    expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', {
+      type: 'image',
+      media: { providerMediaId: 'media-1', mimeType: 'image/png' },
+      caption: 'Mira',
+    });
+  });
+
+  it('keeps a visible failed row when the upload expired', async () => {
+    const { sender, conversations, adapter, media, messages } = build();
+    media.prepare.mockRejectedValue(new Error('Upload not found or expired'));
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentOf.mockResolvedValue(null);
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.send(imageJob);
+
+    const [, content] = conversations.saveOutbound.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(content).not.toHaveProperty('mediaUrl');
+    expect(adapter.send).not.toHaveBeenCalled();
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: null,
+      message: 'Upload not found or expired',
+    });
+  });
+
+  it('retries a failed media row with the file it already holds', async () => {
+    const { sender, conversations, adapter, media, messages } = build();
+    // After 24 h the staged metadata is gone, but the row kept its file.
+    media.prepare.mockRejectedValue(new Error('Upload not found or expired'));
+    conversations.saveOutbound.mockResolvedValue({
+      message: message({ status: 'failed' }),
+      created: false,
+    });
+    messages.resetFailedForRetry.mockResolvedValue(message({ status: 'pending' }));
+    media.attachmentOf.mockResolvedValue({ ...attachment, externalMediaId: 'media-1' });
+    media.toProvider.mockResolvedValue({ ok: true, providerMediaId: 'media-1' });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-2' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+
+    await sender.send(imageJob);
+
+    expect(adapter.send).toHaveBeenCalledTimes(1);
+    expect(messages.markSent).toHaveBeenCalledWith('msg-1', 'wamid-2');
+  });
+
+  it('fails the row when the provider refuses the upload', async () => {
+    const { sender, conversations, adapter, media, messages } = build();
+    media.prepare.mockResolvedValue(file);
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentOf.mockResolvedValue(attachment);
+    media.toProvider.mockResolvedValue({
+      ok: false,
+      error: { authFault: false, retryable: false, code: '131053', message: 'Media upload error' },
+    });
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.send(imageJob);
+
+    expect(adapter.send).not.toHaveBeenCalled();
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: '131053',
+      message: 'Media upload error',
+    });
+  });
+
+  it('maps each media kind to its provider message', async () => {
+    const { sender, conversations, adapter, media, messages } = build();
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.prepare.mockResolvedValue(file);
+    media.attachmentOf.mockResolvedValue(attachment);
+    media.toProvider.mockResolvedValue({ ok: true, providerMediaId: 'media-1' });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-1' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+    const providerMedia = { providerMediaId: 'media-1', mimeType: 'image/png' };
+
+    const cases: Array<[AgentSendJob['msg'], unknown]> = [
+      [{ type: 'audio', uploadId: UPLOAD_ID, voice: true }, { type: 'audio', media: providerMedia, voice: true }],
+      [{ type: 'video', uploadId: UPLOAD_ID }, { type: 'video', media: providerMedia, caption: undefined }],
+      [
+        { type: 'document', uploadId: UPLOAD_ID, filename: 'cotizacion.pdf' },
+        { type: 'document', media: providerMedia, filename: 'cotizacion.pdf', caption: undefined },
+      ],
+      [{ type: 'sticker', source: { attachmentId: 'att-9' } }, { type: 'sticker', media: providerMedia }],
+    ];
+
+    for (const [msg, expected] of cases) {
+      adapter.send.mockClear();
+      await sender.send({ ...data, msg });
+      expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', expected);
+    }
   });
 });

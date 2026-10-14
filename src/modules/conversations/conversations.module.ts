@@ -37,6 +37,7 @@ import { ConversationAccessService } from './realtime/conversation-access.servic
 import { ConversationFanoutService } from './realtime/conversation-fanout.service';
 import { ConversationSendContextService } from './send-context/conversation-send-context.service';
 import { AgentMessageSender } from './outbound/agent-message-sender.service';
+import { OutgoingMediaService } from './outbound/outgoing-media.service';
 import { ChannelsModule } from '../channels/channels.module';
 import { MediaModule } from '../media/media.module';
 import { ConversationUploadsService } from './uploads/conversation-uploads.service';
@@ -83,6 +84,7 @@ const commandHandlers = [
     ConversationFanoutService,
     ConversationSendContextService,
     AgentMessageSender,
+    OutgoingMediaService,
     ConversationUploadsService,
     ConversationAssignmentService,
     ConversationAssignmentNotifier,

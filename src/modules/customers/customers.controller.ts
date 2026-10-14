@@ -138,6 +138,14 @@ export class CustomersController {
     return this.customersService.findByPhone(phone);
   }
 
+  @Get(':id/row')
+  @ApiOperation({ summary: 'One customer as a table row (deep links, "ver cliente")' })
+  @ZodSerializerDto(CustomerRowSchema)
+  @ApiOkResponse({ schema: zodResponseSchema(CustomerRowSchema) })
+  findRow(@Param('id') id: string) {
+    return this.customersService.findRow(id);
+  }
+
   @Put(':id/tags')
   @ApiOperation({ summary: 'Replace the tags of a customer' })
   @ZodSerializerDto(CustomerRowSchema)

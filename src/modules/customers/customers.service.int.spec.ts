@@ -317,6 +317,30 @@ describe('CustomersService (integration)', () => {
     });
   });
 
+  describe('findRow', () => {
+    it('returns the table row of an own customer and 404 for foreign or deleted ones', async () => {
+      const mine = await seedCompany();
+      const theirs = await seedCompany();
+      const owner = await seedMember(mine);
+      const own = await seedCustomer(mine, { displayName: 'Mia', ownerMemberId: owner.id });
+      const foreign = await seedCustomer(theirs, { displayName: 'Otra' });
+      const gone = await seedCustomer(mine, { displayName: 'Borrada', phoneNumber: '+51933333333' });
+      await dataSource.getRepository(Customer).softDelete(gone.id);
+      actIn(mine);
+
+      expect(await service.findRow(own.id)).toMatchObject({
+        id: own.id,
+        displayName: 'Mia',
+        owner: { memberId: owner.id },
+        tags: [],
+        conversationsCount: 0,
+        openConversation: null,
+      });
+      await expect(service.findRow(foreign.id)).rejects.toMatchObject({ status: 404 });
+      await expect(service.findRow(gone.id)).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
   describe('remove and bulk delete', () => {
     it('soft deletes inside the company only', async () => {
       const mine = await seedCompany();

@@ -522,6 +522,14 @@ export class CustomersService {
     return customer;
   }
 
+  /** `GET /customers/:id/row`: one table row of the active company (404 otherwise). */
+  async findRow(id: string): Promise<CustomerRow> {
+    const companyId = this.companyId;
+    await this.findOwned(companyId, id);
+
+    return this.rowFor(companyId, id);
+  }
+
   /** A stage or owner id from another company must never be stored. */
   private async assertReferences(
     companyId: string,

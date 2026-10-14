@@ -206,6 +206,23 @@ export const StageUploadSchema = z.object({
 });
 export type StageUploadInput = z.infer<typeof StageUploadSchema>;
 
+/**
+ * Why `POST /conversations/:id/uploads` refused a file (`code` of the error
+ * body), so the app can explain it in the agent's language.
+ */
+export const UPLOAD_ERROR_CODES = [
+  'channel_unsupported',
+  'content_mismatch',
+  'type_not_allowed',
+  'too_large',
+  'sticker_dimensions',
+  'sticker_too_large',
+  'fragmented_video',
+  'unreadable',
+] as const;
+export const UploadErrorCodeSchema = z.enum(UPLOAD_ERROR_CODES);
+export type UploadErrorCode = z.infer<typeof UploadErrorCodeSchema>;
+
 /** `POST /conversations/:id/uploads` answer: a file ready to be sent. */
 export const StagedUploadSchema = z.object({
   uploadId: UploadIdSchema,

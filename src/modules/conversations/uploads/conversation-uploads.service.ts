@@ -2,11 +2,10 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 import {
-  BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
-  PayloadTooLargeException,
-  UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import { open, readFile, rm, writeFile } from 'node:fs/promises';
 
@@ -15,6 +14,7 @@ import {
   type ChannelCapabilities,
   type StagedUpload,
   type StageUploadInput,
+  type UploadErrorCode,
 } from '@contracts';
 import { readImageInfo, type ImageInfo } from '@modules/media/inspect/image-info';
 import {
@@ -25,6 +25,7 @@ import {
   SNIFF_BYTES,
   trustedMimeType,
 } from '@modules/media/inspect/media-sniffer';
+import { isFragmentedMp4 } from '@modules/media/inspect/mp4-layout';
 import {
   MediaNormalizerChain,
   type MediaFile,
@@ -120,7 +121,9 @@ export class ConversationUploadsService {
   ): Promise<InspectedFile> {
     const rule = capabilities?.media[input.kind];
     if (!capabilities || !rule) {
-      throw new UnsupportedMediaTypeException(
+      throw refusal(
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+        'channel_unsupported',
         `This channel cannot send ${input.kind} files`,
       );
     }
@@ -128,7 +131,9 @@ export class ConversationUploadsService {
     const head = await readHead(upload.path);
     const detected = trustedMimeType(upload.mimetype, head);
     if (!detected) {
-      throw new UnsupportedMediaTypeException(
+      throw refusal(
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+        'content_mismatch',
         'The file content is not a supported type',
       );
     }
@@ -160,13 +165,24 @@ export class ConversationUploadsService {
     }
 
     if (!rule.mimeTypes.includes(file.mimeType)) {
-      throw new UnsupportedMediaTypeException(
+      throw refusal(
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+        'type_not_allowed',
         `${file.mimeType} cannot be sent as ${input.kind}`,
       );
     }
     if (file.sizeBytes > rule.maxBytes) {
-      throw new PayloadTooLargeException(
+      throw refusal(
+        HttpStatus.PAYLOAD_TOO_LARGE,
+        'too_large',
         `${input.kind} files are limited to ${rule.maxBytes} bytes`,
+      );
+    }
+    if (rule.progressiveOnly && isFragmentedMp4(head)) {
+      throw refusal(
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+        'fragmented_video',
+        'Fragmented MP4 (browser recordings) cannot be sent on this channel',
       );
     }
     if (input.kind === 'sticker') assertSticker(file, capabilities);
@@ -185,17 +201,33 @@ function assertSticker(
 
   const { image } = file;
   if (!image || image.width !== rules.width || image.height !== rules.height) {
-    throw new BadRequestException(
+    throw refusal(
+      HttpStatus.BAD_REQUEST,
+      'sticker_dimensions',
       `Stickers must be ${rules.width}x${rules.height} pixels`,
     );
   }
 
   const maxBytes = image.animated ? rules.maxAnimatedBytes : rules.maxStaticBytes;
   if (file.sizeBytes > maxBytes) {
-    throw new PayloadTooLargeException(
+    throw refusal(
+      HttpStatus.PAYLOAD_TOO_LARGE,
+      'sticker_too_large',
       `${image.animated ? 'Animated' : 'Static'} stickers are limited to ${maxBytes} bytes`,
     );
   }
+}
+
+/**
+ * A refused upload: HTTP status plus a stable `code` the app translates for
+ * the agent (the `message` stays the developer-facing English).
+ */
+function refusal(
+  status: HttpStatus,
+  code: UploadErrorCode,
+  message: string,
+): HttpException {
+  return new HttpException({ statusCode: status, code, message }, status);
 }
 
 /** A file the normalizer cannot read (corrupt, unsupported layout) is refused. */
@@ -206,7 +238,9 @@ function normalizeOrRefuse(
   try {
     return Promise.resolve(normalizer.normalize(file));
   } catch (error: unknown) {
-    throw new UnsupportedMediaTypeException(
+    throw refusal(
+      HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+      'unreadable',
       `The file could not be converted: ${error instanceof Error ? error.message : String(error)}`,
     );
   }

@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import {
-  BadRequestException,
-  NotFoundException,
-  PayloadTooLargeException,
-  UnsupportedMediaTypeException,
-} from '@nestjs/common';
+import { HttpException, NotFoundException } from '@nestjs/common';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -36,6 +31,27 @@ const webpSticker = (size: number, padding = 0) =>
     0, 0, 0, 0x9d, 0x01, 0x2a, ...u16le(size), ...u16le(size),
     ...new Array<number>(padding).fill(0),
   ]);
+
+/** ISO media boxes: `box('moov', box('mvhd'), …)`. */
+const box = (type: string, ...children: Buffer[]) => {
+  const body = Buffer.concat(children);
+  const header = Buffer.alloc(8);
+  header.writeUInt32BE(8 + body.length);
+  header.write(type, 4, 'latin1');
+  return Buffer.concat([header, body]);
+};
+const ftyp = () => Buffer.concat([box('ftyp', Buffer.from('isom\0\0\0\0isomiso2avc1mp41'))]);
+
+/** Expects a coded refusal: HTTP status plus the code the app translates. */
+const refused = async (promise: Promise<unknown>, status: number, code: string) => {
+  const error = await promise.then(
+    () => null,
+    (reason: unknown) => reason,
+  );
+  expect(error).toBeInstanceOf(HttpException);
+  expect((error as HttpException).getStatus()).toBe(status);
+  expect((error as HttpException).getResponse()).toMatchObject({ code });
+};
 
 const memoryCache = () => {
   const store = new Map<string, unknown>();
@@ -123,9 +139,11 @@ describe('ConversationUploadsService', () => {
   it('refuses content that does not match a supported type', async () => {
     const exe = upload(Buffer.from('MZ\x90\x00'), 'image/png', 'virus.png');
 
-    await expect(
+    await refused(
       service.stage('conv-1', 'co-1', exe, { kind: 'image' }),
-    ).rejects.toBeInstanceOf(UnsupportedMediaTypeException);
+      415,
+      'content_mismatch',
+    );
   });
 
   it('refuses a type the channel does not take for that kind', async () => {
@@ -133,18 +151,22 @@ describe('ConversationUploadsService', () => {
     // does not accept it either.
     const gif = upload(Buffer.from('GIF89a\x01\x00\x01\x00'), 'image/gif', 'a.gif');
 
-    await expect(
+    await refused(
       service.stage('conv-1', 'co-1', gif, { kind: 'image' }),
-    ).rejects.toThrow('image/gif cannot be sent as image');
+      415,
+      'type_not_allowed',
+    );
   });
 
   it('refuses files over the per-kind limit', async () => {
     const big = upload(png(), 'image/png', 'big.png');
     big.size = 6 * 1024 * 1024;
 
-    await expect(
+    await refused(
       service.stage('conv-1', 'co-1', big, { kind: 'image' }),
-    ).rejects.toBeInstanceOf(PayloadTooLargeException);
+      413,
+      'too_large',
+    );
   });
 
   it('refuses channels that cannot send media', async () => {
@@ -156,11 +178,13 @@ describe('ConversationUploadsService', () => {
       recipient: '1',
     });
 
-    await expect(
+    await refused(
       service.stage('conv-1', 'co-1', upload(png(), 'image/png', 'a.png'), {
         kind: 'image',
       }),
-    ).rejects.toThrow('This channel cannot send image files');
+      415,
+      'channel_unsupported',
+    );
   });
 
   it('refuses a conversation of another company', async () => {
@@ -183,23 +207,61 @@ describe('ConversationUploadsService', () => {
   });
 
   it('refuses stickers with the wrong size or weight', async () => {
-    await expect(
+    await refused(
       service.stage(
         'conv-1',
         'co-1',
         upload(webpSticker(256), 'image/webp', 's.webp'),
         { kind: 'sticker' },
       ),
-    ).rejects.toBeInstanceOf(BadRequestException);
+      400,
+      'sticker_dimensions',
+    );
 
-    await expect(
+    await refused(
       service.stage(
         'conv-1',
         'co-1',
         upload(webpSticker(512, 101 * 1024), 'image/webp', 's.webp'),
         { kind: 'sticker' },
       ),
-    ).rejects.toThrow('Static stickers are limited to 102400 bytes');
+      413,
+      'sticker_too_large',
+    );
+  });
+
+  it('refuses a fragmented MP4 (browser recording) that WhatsApp would bounce', async () => {
+    const fragmented = Buffer.concat([
+      ftyp(),
+      box('moov', box('mvhd'), box('trak'), box('mvex')),
+      box('moof'),
+      box('mdat'),
+    ]);
+
+    await refused(
+      service.stage('conv-1', 'co-1', upload(fragmented, 'video/mp4', 'grabacion.mp4'), {
+        kind: 'video',
+      }),
+      415,
+      'fragmented_video',
+    );
+  });
+
+  it('accepts a progressive MP4', async () => {
+    const progressive = Buffer.concat([
+      ftyp(),
+      box('moov', box('mvhd'), box('trak')),
+      box('mdat'),
+    ]);
+
+    const staged = await service.stage(
+      'conv-1',
+      'co-1',
+      upload(progressive, 'video/mp4', 'clip.mp4'),
+      { kind: 'video' },
+    );
+
+    expect(staged).toMatchObject({ kind: 'video', mimeType: 'video/mp4' });
   });
 
   it('normalizes a Chrome voice recording into the channel voice format', async () => {

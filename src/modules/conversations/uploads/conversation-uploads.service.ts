@@ -25,7 +25,12 @@ import {
   SNIFF_BYTES,
   trustedMimeType,
 } from '@modules/media/inspect/media-sniffer';
-import { MediaNormalizerChain } from '@modules/media/normalize/media-normalizer';
+import {
+  MediaNormalizerChain,
+  type MediaFile,
+  type MediaNormalizer,
+  type NormalizedMedia,
+} from '@modules/media/normalize/media-normalizer';
 import {
   StagedUploadStore,
   type StagedFile,
@@ -139,7 +144,7 @@ export class ConversationUploadsService {
 
     const normalizer = this.normalizers.find(detected, rule.mimeTypes);
     if (normalizer) {
-      const output = normalizer.normalize({
+      const output = await normalizeOrRefuse(normalizer, {
         data: await readFile(upload.path),
         mimeType: detected,
       });
@@ -189,6 +194,20 @@ function assertSticker(
   if (file.sizeBytes > maxBytes) {
     throw new PayloadTooLargeException(
       `${image.animated ? 'Animated' : 'Static'} stickers are limited to ${maxBytes} bytes`,
+    );
+  }
+}
+
+/** A file the normalizer cannot read (corrupt, unsupported layout) is refused. */
+function normalizeOrRefuse(
+  normalizer: MediaNormalizer,
+  file: MediaFile,
+): Promise<NormalizedMedia> {
+  try {
+    return Promise.resolve(normalizer.normalize(file));
+  } catch (error: unknown) {
+    throw new UnsupportedMediaTypeException(
+      `The file could not be converted: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }

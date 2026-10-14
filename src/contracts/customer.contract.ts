@@ -127,8 +127,9 @@ export const CustomerTableQuerySchema = TableQueryBaseSchema.extend({
   ownerMemberId: z.array(z.string()).optional(),
   tagId: z.array(z.string()).optional(),
   source: z.array(CustomerSourceSchema).optional(),
-  lastInteractionFrom: z.coerce.date().optional(),
-  lastInteractionTo: z.coerce.date().optional(),
+  /** ISO 8601 instants; strings (not Date) so the body documents cleanly. */
+  lastInteractionFrom: z.iso.datetime({ offset: true }).optional(),
+  lastInteractionTo: z.iso.datetime({ offset: true }).optional(),
 });
 export type CustomerTableQuery = z.infer<typeof CustomerTableQuerySchema>;
 

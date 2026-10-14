@@ -24,10 +24,7 @@ import {
 } from '@contracts';
 import {
   PlatformCompanyQueryDto,
-  PlatformCompanyRowDto,
-  PlatformCompanyTableDto,
   PlatformCreateCompanyDto,
-  PlatformCreateCompanyResultDto,
   PlatformDeleteCompanyResultDto,
   PlatformUpdateCompanyDto,
 } from './dto/platform.dto';
@@ -51,7 +48,7 @@ export class PlatformCompaniesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Companies table with member, customer and channel counts' })
   @ZodSerializerDto(PlatformCompanyTableResponseSchema)
-  @ApiOkResponse({ type: PlatformCompanyTableDto })
+  @ApiOkResponse({ description: 'Page of companies with their counts' })
   table(@Body() query: PlatformCompanyQueryDto) {
     return this.companies.table(query);
   }
@@ -59,7 +56,7 @@ export class PlatformCompaniesController {
   @Post()
   @ApiOperation({ summary: 'Create a company, optionally with its first admin' })
   @ZodSerializerDto(PlatformCreateCompanyResultSchema)
-  @ApiOkResponse({ type: PlatformCreateCompanyResultDto })
+  @ApiOkResponse({ description: 'The company and, when created, the first admin password (shown once)' })
   create(
     @Body() dto: PlatformCreateCompanyDto,
     @CurrentUser('sub') userId: string,
@@ -70,7 +67,7 @@ export class PlatformCompaniesController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update a company; a status change revokes its members sessions' })
   @ZodSerializerDto(PlatformCompanyRowSchema)
-  @ApiOkResponse({ type: PlatformCompanyRowDto })
+  @ApiOkResponse({ description: 'The company row' })
   update(
     @Param('id') id: string,
     @Body() dto: PlatformUpdateCompanyDto,
@@ -91,7 +88,7 @@ export class PlatformCompaniesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Restore a soft-deleted company' })
   @ZodSerializerDto(PlatformCompanyRowSchema)
-  @ApiOkResponse({ type: PlatformCompanyRowDto })
+  @ApiOkResponse({ description: 'The company row' })
   restore(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     return this.companies.restore(id, userId);
   }

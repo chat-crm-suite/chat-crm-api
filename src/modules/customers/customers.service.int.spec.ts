@@ -549,8 +549,8 @@ describe('CustomersService (integration)', () => {
       expect(await run({ tagId: [cold.id] })).toEqual([ana.id, beto.id].sort());
       expect(await run({ tagId: [vip.id], source: ['import'] })).toEqual([]);
       expect(await run({ source: ['import', 'manual'] })).toEqual([beto.id, carla.id].sort());
-      expect(await run({ lastInteractionFrom: new Date('2026-02-01T00:00:00Z') })).toEqual([beto.id]);
-      expect(await run({ lastInteractionTo: new Date('2026-02-01T00:00:00Z') })).toEqual([ana.id]);
+      expect(await run({ lastInteractionFrom: '2026-02-01T00:00:00Z' })).toEqual([beto.id]);
+      expect(await run({ lastInteractionTo: '2026-02-01T00:00:00Z' })).toEqual([ana.id]);
 
       const page = await service.table(query({ tagId: [cold.id] }));
       expect(page.meta.totalItems).toBe(2);

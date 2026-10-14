@@ -698,10 +698,10 @@ export class CustomersService {
       ).setParameter('tagIds', query.tagId);
     }
     if (query.lastInteractionFrom) {
-      qb.andWhere('customer.lastInteractionAt >= :from', { from: query.lastInteractionFrom });
+      qb.andWhere('customer.lastInteractionAt >= :from', { from: new Date(query.lastInteractionFrom) });
     }
     if (query.lastInteractionTo) {
-      qb.andWhere('customer.lastInteractionAt <= :to', { to: query.lastInteractionTo });
+      qb.andWhere('customer.lastInteractionAt <= :to', { to: new Date(query.lastInteractionTo) });
     }
 
     return qb;

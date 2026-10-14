@@ -17,7 +17,7 @@ import { ZodSerializerDto } from 'nestjs-zod';
 
 import { CurrentUser, UserScoped } from '@auth';
 import { PlatformStatusSchema, type PlatformStatus } from '@contracts';
-import { PlatformStatusDto, PlatformUnlockDto } from './dto/platform.dto';
+import { PlatformUnlockDto } from './dto/platform.dto';
 import {
   PLATFORM_COOKIE,
   PLATFORM_TOKEN_TTL_SECONDS,
@@ -50,7 +50,7 @@ export class PlatformController {
   @Get('status')
   @ApiOperation({ summary: 'Platform console availability and lock state' })
   @ZodSerializerDto(PlatformStatusSchema)
-  @ApiOkResponse({ type: PlatformStatusDto })
+  @ApiOkResponse({ description: 'Console status' })
   status(
     @CurrentUser('sub') userId: string,
     @Req() req: Request,
@@ -62,7 +62,7 @@ export class PlatformController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Unlock the console with the console password (platform admins)' })
   @ZodSerializerDto(PlatformStatusSchema)
-  @ApiOkResponse({ type: PlatformStatusDto })
+  @ApiOkResponse({ description: 'Console status' })
   async unlock(
     @CurrentUser('sub') userId: string,
     @Body() dto: PlatformUnlockDto,
@@ -82,7 +82,7 @@ export class PlatformController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Lock the console again' })
   @ZodSerializerDto(PlatformStatusSchema)
-  @ApiOkResponse({ type: PlatformStatusDto })
+  @ApiOkResponse({ description: 'Console status' })
   lock(
     @CurrentUser('sub') userId: string,
     @Res({ passthrough: true }) res: Response,

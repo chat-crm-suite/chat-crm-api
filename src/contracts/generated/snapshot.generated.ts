@@ -7191,6 +7191,87 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       }
     },
     "company": {
+      "AssignmentSettingsSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "autoAssignEnabled": {
+              "type": "boolean"
+            },
+            "autoAssignMaxOpen": {
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
+              "type": "integer"
+            },
+            "autoAssignNotifySupervisors": {
+              "type": "boolean"
+            },
+            "autoAssignSticky": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "autoAssignEnabled",
+            "autoAssignMaxOpen",
+            "autoAssignNotifySupervisors",
+            "autoAssignSticky"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "CompanyProfileSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "email": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "phoneNumber": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "enum": [
+                "active",
+                "inactive",
+                "suspended"
+              ],
+              "type": "string"
+            },
+            "timezone": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "status",
+            "timezone"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "CompanyStatusSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -7241,6 +7322,564 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "PlatformCompanyQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "includeDeleted": {
+              "default": false,
+              "type": "boolean"
+            },
+            "page": {
+              "default": 1,
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "perPage": {
+              "default": 10,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "q": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "sort": {
+              "default": [],
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "desc": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "desc",
+                  "id"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "status": {
+              "items": {
+                "enum": [
+                  "active",
+                  "inactive",
+                  "suspended"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "includeDeleted",
+            "page",
+            "perPage",
+            "sort"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "PlatformCompanyRowSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "channelsCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "createdAt": {},
+            "customersCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "deletedAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "email": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "membersCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "phoneNumber": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "enum": [
+                "active",
+                "inactive",
+                "suspended"
+              ],
+              "type": "string"
+            },
+            "timezone": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channelsCount",
+            "createdAt",
+            "customersCount",
+            "deletedAt",
+            "id",
+            "membersCount",
+            "name",
+            "status",
+            "timezone"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "PlatformCompanyTableResponseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "items": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "address": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "channelsCount": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "createdAt": {},
+                  "customersCount": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "deletedAt": {
+                    "anyOf": [
+                      {},
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "membersCount": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "phoneNumber": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "active",
+                      "inactive",
+                      "suspended"
+                    ],
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "channelsCount",
+                  "createdAt",
+                  "customersCount",
+                  "deletedAt",
+                  "id",
+                  "membersCount",
+                  "name",
+                  "status",
+                  "timezone"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "currentPage": {
+                  "type": "number"
+                },
+                "itemCount": {
+                  "type": "number"
+                },
+                "itemsPerPage": {
+                  "type": "number"
+                },
+                "totalItems": {
+                  "type": "number"
+                },
+                "totalPages": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "currentPage",
+                "itemCount",
+                "itemsPerPage",
+                "totalItems",
+                "totalPages"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "items",
+            "meta"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "PlatformCreateCompanyResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "adminOutcome": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "created",
+                    "linked",
+                    "restored"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "company": {
+              "additionalProperties": false,
+              "properties": {
+                "address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "channelsCount": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "createdAt": {},
+                "customersCount": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "deletedAt": {
+                  "anyOf": [
+                    {},
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "email": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "membersCount": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "phoneNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "enum": [
+                    "active",
+                    "inactive",
+                    "suspended"
+                  ],
+                  "type": "string"
+                },
+                "timezone": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "channelsCount",
+                "createdAt",
+                "customersCount",
+                "deletedAt",
+                "id",
+                "membersCount",
+                "name",
+                "status",
+                "timezone"
+              ],
+              "type": "object"
+            },
+            "initialPassword": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "company"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "PlatformCreateCompanySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            "admin": {
+              "additionalProperties": false,
+              "properties": {
+                "email": {
+                  "format": "email",
+                  "maxLength": 255,
+                  "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                  "type": "string"
+                },
+                "firstName": {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                "lastName": {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                "username": {
+                  "maxLength": 100,
+                  "minLength": 3,
+                  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "email"
+              ],
+              "type": "object"
+            },
+            "email": {
+              "format": "email",
+              "maxLength": 255,
+              "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 255,
+              "minLength": 1,
+              "type": "string"
+            },
+            "phoneNumber": {
+              "maxLength": 20,
+              "type": "string"
+            },
+            "timezone": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "PlatformDeleteCompanyResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "affectedMembers": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "affectedMembers"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "PlatformStatusSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "expiresAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "retryAfterSec": {
+              "anyOf": [
+                {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unlocked": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "enabled",
+            "unlocked"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "PlatformUnlockSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "password": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "password"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "PlatformUpdateCompanySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            "email": {
+              "format": "email",
+              "maxLength": 255,
+              "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 255,
+              "minLength": 1,
+              "type": "string"
+            },
+            "phoneNumber": {
+              "maxLength": 20,
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "active",
+                "inactive",
+                "suspended"
+              ],
+              "type": "string"
+            },
+            "timezone": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "UpdateAssignmentSettingsSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -7259,6 +7898,39 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             },
             "autoAssignSticky": {
               "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "UpdateCompanyProfileSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "address": {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            "email": {
+              "format": "email",
+              "maxLength": 255,
+              "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 255,
+              "minLength": 1,
+              "type": "string"
+            },
+            "phoneNumber": {
+              "maxLength": 20,
+              "type": "string"
+            },
+            "timezone": {
+              "maxLength": 64,
+              "type": "string"
             }
           },
           "type": "object"
@@ -7309,7 +7981,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "claim",
           "manual",
           "transfer",
-          "escalation"
+          "escalation",
+          "release"
         ]
       },
       "AssignConversationSchema": {
@@ -7340,7 +8013,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "claim",
             "manual",
             "transfer",
-            "escalation"
+            "escalation",
+            "release"
           ],
           "type": "string"
         },
@@ -7885,6 +8559,47 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       }
     },
     "customer": {
+      "BulkDeleteCustomersResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "deleted": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "deleted"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "BulkDeleteCustomersSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "ids": {
+              "items": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "ids"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "CUSTOMER_SOURCES": {
         "kind": "value",
         "value": [
@@ -7959,6 +8674,28 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "CreateTagSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 50,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "CustomFieldTypeSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -7971,6 +8708,285 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "multiselect"
           ],
           "type": "string"
+        },
+        "kind": "schema"
+      },
+      "CustomerConflictSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "const": "customer_exists",
+              "type": "string"
+            },
+            "customerId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "customerId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "CustomerImportResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "created": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "restored": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "skipped": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "created",
+            "restored",
+            "skipped"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "CustomerMutationResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "customer": {
+              "additionalProperties": false,
+              "properties": {
+                "avatarUrl": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "conversationsCount": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "createdAt": {},
+                "displayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "email": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "firstName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "lastInteractionAt": {
+                  "anyOf": [
+                    {},
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "lastName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "openConversation": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "assignedMemberId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "open",
+                            "pending",
+                            "closed",
+                            "archived"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "assignedMemberId",
+                        "id",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "owner": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "avatarUrl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "memberId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "memberId",
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ownerMemberId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "phoneNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pipelineStageId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source": {
+                  "enum": [
+                    "whatsapp",
+                    "manual",
+                    "import",
+                    "api"
+                  ],
+                  "type": "string"
+                },
+                "stage": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "color": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "tags": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "color": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "updatedAt": {}
+              },
+              "required": [
+                "conversationsCount",
+                "createdAt",
+                "id",
+                "openConversation",
+                "owner",
+                "source",
+                "stage",
+                "tags",
+                "updatedAt"
+              ],
+              "type": "object"
+            },
+            "restored": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "customer",
+            "restored"
+          ],
+          "type": "object"
         },
         "kind": "schema"
       },
@@ -8060,6 +9076,221 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "CustomerRowSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "avatarUrl": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "conversationsCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "createdAt": {},
+            "displayName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "email": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "firstName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "lastInteractionAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lastName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "openConversation": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "assignedMemberId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "open",
+                        "pending",
+                        "closed",
+                        "archived"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "assignedMemberId",
+                    "id",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "owner": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "avatarUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "memberId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "memberId",
+                    "name"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "ownerMemberId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "phoneNumber": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pipelineStageId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "source": {
+              "enum": [
+                "whatsapp",
+                "manual",
+                "import",
+                "api"
+              ],
+              "type": "string"
+            },
+            "stage": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "color": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tags": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "updatedAt": {}
+          },
+          "required": [
+            "conversationsCount",
+            "createdAt",
+            "id",
+            "openConversation",
+            "owner",
+            "source",
+            "stage",
+            "tags",
+            "updatedAt"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "CustomerSourceSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -8070,6 +9301,142 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "api"
           ],
           "type": "string"
+        },
+        "kind": "schema"
+      },
+      "CustomerTableQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "lastInteractionFrom": {},
+            "lastInteractionTo": {},
+            "ownerMemberId": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "page": {
+              "default": 1,
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "perPage": {
+              "default": 10,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "q": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "sort": {
+              "default": [],
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "desc": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "desc",
+                  "id"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "source": {
+              "items": {
+                "enum": [
+                  "whatsapp",
+                  "manual",
+                  "import",
+                  "api"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "stageId": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "tagId": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "page",
+            "perPage",
+            "sort"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "NO_OWNER_FILTER": {
+        "kind": "value",
+        "value": "none"
+      },
+      "SetCustomerTagsSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "tagIds": {
+              "items": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            }
+          },
+          "required": [
+            "tagIds"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TagSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "type": "object"
         },
         "kind": "schema"
       },
@@ -8335,6 +9702,231 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "CreateMemberResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "initialPassword": {
+              "type": "string"
+            },
+            "member": {
+              "additionalProperties": false,
+              "properties": {
+                "acceptsAutoAssign": {
+                  "type": "boolean"
+                },
+                "avatarUrl": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "capacity": {
+                  "anyOf": [
+                    {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "email": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "firstName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "joinedAt": {},
+                "lastLoginAt": {
+                  "anyOf": [
+                    {},
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "lastName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "maxOpenConversations": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "openConversations": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "phoneNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "presence": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "memberId": {
+                      "type": "string"
+                    },
+                    "since": {},
+                    "state": {
+                      "enum": [
+                        "available",
+                        "away",
+                        "offline"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "memberId",
+                    "since",
+                    "state"
+                  ],
+                  "type": "object"
+                },
+                "role": {
+                  "enum": [
+                    "admin",
+                    "supervisor",
+                    "agent"
+                  ],
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "active",
+                    "inactive",
+                    "suspended"
+                  ],
+                  "type": "string"
+                },
+                "userId": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "acceptsAutoAssign",
+                "capacity",
+                "id",
+                "joinedAt",
+                "openConversations",
+                "presence",
+                "role",
+                "status",
+                "userId",
+                "username"
+              ],
+              "type": "object"
+            },
+            "outcome": {
+              "enum": [
+                "created",
+                "linked",
+                "restored"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "member",
+            "outcome"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "CreateMemberSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "acceptsAutoAssign": {
+              "type": "boolean"
+            },
+            "email": {
+              "format": "email",
+              "maxLength": 255,
+              "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+              "type": "string"
+            },
+            "firstName": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "lastName": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "maxOpenConversations": {
+              "anyOf": [
+                {
+                  "maximum": 9007199254740991,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "phoneNumber": {
+              "maxLength": 20,
+              "type": "string"
+            },
+            "role": {
+              "enum": [
+                "admin",
+                "supervisor",
+                "agent"
+              ],
+              "type": "string"
+            },
+            "username": {
+              "maxLength": 100,
+              "minLength": 3,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "email",
+            "role"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "MEMBER_CREATE_OUTCOMES": {
+        "kind": "value",
+        "value": [
+          "created",
+          "linked",
+          "restored"
+        ]
+      },
       "MEMBER_ROLES": {
         "kind": "value",
         "value": [
@@ -8350,6 +9942,22 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "inactive",
           "suspended"
         ]
+      },
+      "MEMBER_USERNAME_REGEX": {
+        "kind": "value",
+        "value": {}
+      },
+      "MemberCreateOutcomeSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "created",
+            "linked",
+            "restored"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
       },
       "MemberRoleSchema": {
         "jsonSchema": {
@@ -8413,6 +10021,618 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "role",
             "status"
           ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "RemoveMemberResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "releasedConversations": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "releasedConversations"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ResetMemberPasswordResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "password": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "password"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TeamCountsSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "byPresence": {
+              "additionalProperties": false,
+              "properties": {
+                "available": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "away": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "offline": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "available",
+                "away",
+                "offline"
+              ],
+              "type": "object"
+            },
+            "byRole": {
+              "additionalProperties": false,
+              "properties": {
+                "admin": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "agent": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "supervisor": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "admin",
+                "agent",
+                "supervisor"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "byPresence",
+            "byRole"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TeamMemberRowSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "acceptsAutoAssign": {
+              "type": "boolean"
+            },
+            "avatarUrl": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "capacity": {
+              "anyOf": [
+                {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "email": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "firstName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "joinedAt": {},
+            "lastLoginAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lastName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "maxOpenConversations": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "openConversations": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "phoneNumber": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "presence": {
+              "additionalProperties": false,
+              "properties": {
+                "memberId": {
+                  "type": "string"
+                },
+                "since": {},
+                "state": {
+                  "enum": [
+                    "available",
+                    "away",
+                    "offline"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "memberId",
+                "since",
+                "state"
+              ],
+              "type": "object"
+            },
+            "role": {
+              "enum": [
+                "admin",
+                "supervisor",
+                "agent"
+              ],
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "active",
+                "inactive",
+                "suspended"
+              ],
+              "type": "string"
+            },
+            "userId": {
+              "type": "string"
+            },
+            "username": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "acceptsAutoAssign",
+            "capacity",
+            "id",
+            "joinedAt",
+            "openConversations",
+            "presence",
+            "role",
+            "status",
+            "userId",
+            "username"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TeamTableQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "default": 1,
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "perPage": {
+              "default": 10,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "presence": {
+              "items": {
+                "enum": [
+                  "available",
+                  "away",
+                  "offline"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "q": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "role": {
+              "items": {
+                "enum": [
+                  "admin",
+                  "supervisor",
+                  "agent"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "sort": {
+              "default": [],
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "desc": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "desc",
+                  "id"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "status": {
+              "items": {
+                "enum": [
+                  "active",
+                  "inactive",
+                  "suspended"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "page",
+            "perPage",
+            "sort"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TeamTableResponseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "items": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "acceptsAutoAssign": {
+                    "type": "boolean"
+                  },
+                  "avatarUrl": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "capacity": {
+                    "anyOf": [
+                      {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "email": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "firstName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "joinedAt": {},
+                  "lastLoginAt": {
+                    "anyOf": [
+                      {},
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "lastName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "maxOpenConversations": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "openConversations": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "phoneNumber": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "presence": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "memberId": {
+                        "type": "string"
+                      },
+                      "since": {},
+                      "state": {
+                        "enum": [
+                          "available",
+                          "away",
+                          "offline"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "memberId",
+                      "since",
+                      "state"
+                    ],
+                    "type": "object"
+                  },
+                  "role": {
+                    "enum": [
+                      "admin",
+                      "supervisor",
+                      "agent"
+                    ],
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "active",
+                      "inactive",
+                      "suspended"
+                    ],
+                    "type": "string"
+                  },
+                  "userId": {
+                    "type": "string"
+                  },
+                  "username": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "acceptsAutoAssign",
+                  "capacity",
+                  "id",
+                  "joinedAt",
+                  "openConversations",
+                  "presence",
+                  "role",
+                  "status",
+                  "userId",
+                  "username"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "meta": {
+              "additionalProperties": false,
+              "properties": {
+                "counts": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "byPresence": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "available": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "away": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "offline": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "available",
+                        "away",
+                        "offline"
+                      ],
+                      "type": "object"
+                    },
+                    "byRole": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "admin": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "agent": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "supervisor": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "admin",
+                        "agent",
+                        "supervisor"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "byPresence",
+                    "byRole"
+                  ],
+                  "type": "object"
+                },
+                "currentPage": {
+                  "type": "number"
+                },
+                "itemCount": {
+                  "type": "number"
+                },
+                "itemsPerPage": {
+                  "type": "number"
+                },
+                "totalItems": {
+                  "type": "number"
+                },
+                "totalPages": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "counts",
+                "currentPage",
+                "itemCount",
+                "itemsPerPage",
+                "totalItems",
+                "totalPages"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "items",
+            "meta"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "UpdateMemberSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "acceptsAutoAssign": {
+              "type": "boolean"
+            },
+            "firstName": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "lastName": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "maxOpenConversations": {
+              "anyOf": [
+                {
+                  "maximum": 9007199254740991,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "phoneNumber": {
+              "maxLength": 20,
+              "type": "string"
+            },
+            "role": {
+              "enum": [
+                "admin",
+                "supervisor",
+                "agent"
+              ],
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "active",
+                "inactive",
+                "suspended"
+              ],
+              "type": "string"
+            }
+          },
           "type": "object"
         },
         "kind": "schema"
@@ -10094,6 +12314,53 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "kind": "schema"
       }
     },
+    "notification": {
+      "NOTIFICATION_TYPES": {
+        "kind": "value",
+        "value": [
+          "conversation_assigned",
+          "queue_unassigned",
+          "spend_budget"
+        ]
+      },
+      "NotificationPreferencesSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "muted": {
+              "default": [],
+              "items": {
+                "enum": [
+                  "conversation_assigned",
+                  "queue_unassigned",
+                  "spend_budget"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "muted"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "NotificationTypeSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "conversation_assigned",
+            "queue_unassigned",
+            "spend_budget"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      }
+    },
     "pagination": {
       "PaginationMetaSchema": {
         "jsonSchema": {
@@ -10122,6 +12389,54 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "itemsPerPage",
             "totalItems",
             "totalPages"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TableQueryBaseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "page": {
+              "default": 1,
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "perPage": {
+              "default": 10,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "sort": {
+              "default": [],
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "desc": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "desc",
+                  "id"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "page",
+            "perPage",
+            "sort"
           ],
           "type": "object"
         },
@@ -10890,6 +13205,14 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "value": {
           "conversation": "conversation"
         }
+      },
+      "WorkspaceSocketEvent": {
+        "kind": "value",
+        "value": {
+          "CompanyUpdated": "company:updated",
+          "CustomersChanged": "customers:changed",
+          "TeamChanged": "team:changed"
+        }
       }
     },
     "spend": {
@@ -11584,6 +13907,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       }
     },
     "user": {
+      "AVATAR_MAX_BYTES": {
+        "kind": "value",
+        "value": 2097152
+      },
       "AuthUserSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -11680,6 +14007,45 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "AvatarUploadResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "avatarUrl": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "avatarUrl"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ChangePasswordSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "currentPassword": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "newPassword": {
+              "maxLength": 128,
+              "minLength": 8,
+              "type": "string"
+            }
+          },
+          "required": [
+            "currentPassword",
+            "newPassword"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "CreateUserSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -11717,6 +14083,34 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "password",
             "username"
           ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "UpdateProfileSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "email": {
+              "format": "email",
+              "maxLength": 255,
+              "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+              "type": "string"
+            },
+            "firstName": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "lastName": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "phoneNumber": {
+              "maxLength": 20,
+              "type": "string"
+            }
+          },
           "type": "object"
         },
         "kind": "schema"
@@ -11869,4 +14263,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "6e79e8a1935bef37493b67ba0db9f395b2167e89122c55b9c025e6cbfb1b08af";
+export const CONTRACTS_SNAPSHOT_HASH = "3218e155ceebf984aada121a55c77fa214d2e30a4446a1dfa49dc484611c24d2";

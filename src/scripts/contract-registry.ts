@@ -23,6 +23,7 @@ import * as customer from '../contracts/customer.contract';
 import * as ia from '../contracts/ia.contract';
 import * as member from '../contracts/member.contract';
 import * as message from '../contracts/message.contract';
+import * as notification from '../contracts/notification.contract';
 import * as pagination from '../contracts/pagination.contract';
 import * as presence from '../contracts/presence.contract';
 import * as serviceSettings from '../contracts/service-settings.contract';
@@ -45,6 +46,7 @@ export const CONTRACT_MODULES = {
   ia,
   member,
   message,
+  notification,
   pagination,
   presence,
   'service-settings': serviceSettings,

@@ -3,6 +3,13 @@
 
 import { z } from 'zod';
 
+import {
+  paginatedSchema,
+  PaginationMetaSchema,
+  TableQueryBaseSchema,
+} from './pagination.contract';
+import { PresenceSchema, PresenceStateSchema } from './presence.contract';
+
 /**
  * Company member contracts (v2).
  *
@@ -55,3 +62,109 @@ export type CompanyMemberResponse = z.infer<
 export type CompanyMemberListQuery = z.infer<
   typeof CompanyMemberListQuerySchema
 >;
+
+/**
+ * Team management (Equipo). `company_members` rows of the active company with
+ * the user identity, live load and presence. Soft-deleted members never
+ * appear; removing one releases its open conversations to the queue.
+ */
+export const TeamMemberRowSchema = CompanyMemberResponseSchema.extend({
+  avatarUrl: z.string().nullish(),
+  phoneNumber: z.string().nullish(),
+  lastLoginAt: z.coerce.date().nullish(),
+  /** Conversations in `open`/`pending` currently assigned to the member. */
+  openConversations: z.number().int().min(0),
+  /** Effective capacity: member override, else the company setting. */
+  capacity: z.number().int().nullable(),
+  /** Overlaid live (never cached). */
+  presence: PresenceSchema,
+});
+export type TeamMemberRow = z.infer<typeof TeamMemberRowSchema>;
+
+/** `POST /company-members/table` body. */
+export const TeamTableQuerySchema = TableQueryBaseSchema.extend({
+  q: z.string().trim().max(100).optional(),
+  role: z.array(MemberRoleSchema).optional(),
+  status: z.array(MemberStatusSchema).optional(),
+  presence: z.array(PresenceStateSchema).optional(),
+});
+export type TeamTableQuery = z.infer<typeof TeamTableQuerySchema>;
+
+/** Header chips; every key is present (zeros on an empty company). */
+export const TeamCountsSchema = z.object({
+  byRole: z.object({
+    admin: z.number().int(),
+    supervisor: z.number().int(),
+    agent: z.number().int(),
+  }),
+  byPresence: z.object({
+    available: z.number().int(),
+    away: z.number().int(),
+    offline: z.number().int(),
+  }),
+});
+export type TeamCounts = z.infer<typeof TeamCountsSchema>;
+
+export const TeamTableResponseSchema = paginatedSchema(
+  TeamMemberRowSchema,
+).extend({
+  meta: PaginationMetaSchema.extend({ counts: TeamCountsSchema }),
+});
+export type TeamTableResponse = z.infer<typeof TeamTableResponseSchema>;
+
+export const MEMBER_USERNAME_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** `POST /company-members`. Links an existing account when `email` matches. */
+export const CreateMemberSchema = z.object({
+  email: z.email().max(255),
+  role: MemberRoleSchema,
+  username: z.string().min(3).max(100).regex(MEMBER_USERNAME_REGEX).optional(),
+  firstName: z.string().trim().max(100).optional(),
+  lastName: z.string().trim().max(100).optional(),
+  phoneNumber: z.string().max(20).optional(),
+  acceptsAutoAssign: z.boolean().optional(),
+  maxOpenConversations: z.number().int().min(1).nullable().optional(),
+});
+export type CreateMemberInput = z.infer<typeof CreateMemberSchema>;
+
+export const MEMBER_CREATE_OUTCOMES = ['created', 'linked', 'restored'] as const;
+export const MemberCreateOutcomeSchema = z.enum(MEMBER_CREATE_OUTCOMES);
+export type MemberCreateOutcome = z.infer<typeof MemberCreateOutcomeSchema>;
+
+export const CreateMemberResultSchema = z.object({
+  member: TeamMemberRowSchema,
+  outcome: MemberCreateOutcomeSchema,
+  /** Only when `outcome === 'created'`; shown once, never stored in clear. */
+  initialPassword: z.string().optional(),
+});
+export type CreateMemberResult = z.infer<typeof CreateMemberResultSchema>;
+
+/**
+ * `PATCH /company-members/:id`. Identity fields (names, phone) only apply
+ * when the account belongs to a single company, otherwise 409.
+ */
+export const UpdateMemberSchema = z.object({
+  role: MemberRoleSchema.optional(),
+  status: MemberStatusSchema.optional(),
+  acceptsAutoAssign: z.boolean().optional(),
+  maxOpenConversations: z.number().int().min(1).nullable().optional(),
+  firstName: z.string().trim().max(100).optional(),
+  lastName: z.string().trim().max(100).optional(),
+  phoneNumber: z.string().max(20).optional(),
+});
+export type UpdateMemberInput = z.infer<typeof UpdateMemberSchema>;
+
+/** `POST /company-members/:id/reset-password`. Shown once. */
+export const ResetMemberPasswordResultSchema = z.object({
+  password: z.string(),
+});
+export type ResetMemberPasswordResult = z.infer<
+  typeof ResetMemberPasswordResultSchema
+>;
+
+/** `DELETE /company-members/:id`. */
+export const RemoveMemberResultSchema = z.object({
+  /** Open conversations sent back to the unassigned queue. */
+  releasedConversations: z.number().int().min(0),
+});
+export type RemoveMemberResult = z.infer<typeof RemoveMemberResultSchema>;

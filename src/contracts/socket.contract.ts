@@ -19,3 +19,16 @@ export const SOCKET_NAMESPACES = {
 
 export type SocketNamespace =
   (typeof SOCKET_NAMESPACES)[keyof typeof SOCKET_NAMESPACES];
+
+/**
+ * Invalidation pings on the `conversation` namespace, emitted to the
+ * `company:{id}` room after a mutation. Payloads carry only optional ids:
+ * clients refetch the affected queries (presence uses `presence:changed`).
+ */
+export const WorkspaceSocketEvent = {
+  TeamChanged: 'team:changed',
+  CustomersChanged: 'customers:changed',
+  CompanyUpdated: 'company:updated',
+} as const;
+export type WorkspaceSocketEvent =
+  (typeof WorkspaceSocketEvent)[keyof typeof WorkspaceSocketEvent];

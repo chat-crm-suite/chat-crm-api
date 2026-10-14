@@ -4,6 +4,7 @@
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -11,7 +12,11 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import type { MemberRole, MemberStatus } from '@contracts';
+import type {
+  MemberRole,
+  MemberStatus,
+  NotificationPreferences,
+} from '@contracts';
 import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
@@ -54,9 +59,28 @@ export class CompanyMember extends UuidV7Entity {
   @Column({ name: 'joined_at', type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   joinedAt: Date;
 
+  /** Member that added this one (audit); null for the setup/console admin. */
+  @Column({ name: 'created_by_member_id', type: 'varchar', length: 36, nullable: true })
+  createdByMemberId?: string | null;
+
+  @ManyToOne(() => CompanyMember, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'created_by_member_id' })
+  createdByMember?: CompanyMember | null;
+
+  /** Per-member notification preferences (`NotificationPreferences`). */
+  @Column({ name: 'notification_prefs', type: 'json', nullable: true })
+  notificationPrefs?: NotificationPreferences | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  /**
+   * Soft delete: the member leaves the company but keeps its history. Adding
+   * the same account again restores this row (unique `(company, user)`).
+   */
+  @DeleteDateColumn({ nullable: true })
+  deletedAt?: Date;
 }

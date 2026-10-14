@@ -31,6 +31,7 @@ import { ConversationsService } from './conversations.service';
 import { AssignConversationDto } from './dto/assign-conversation.dto';
 import { ConversationSentimentDto } from './dto/conversation-sentiment.dto';
 import { AssignmentOutcome } from './assignment/assignment.types';
+import { ConversationAccessService } from './realtime/conversation-access.service';
 
 @Controller('conversations')
 export class ConversationsController {
@@ -38,6 +39,7 @@ export class ConversationsController {
     private readonly service: ConversationsService,
     private readonly messages: MessageService,
     private readonly sentiment: SentimentService,
+    private readonly access: ConversationAccessService,
     private readonly cls: ClsService,
   ) {}
 
@@ -144,9 +146,20 @@ export class ConversationsController {
     return { message: 'conversation claimed', outcome, conversationId };
   }
 
+  /**
+   * Thread history, under the same rules as joining its socket room: the
+   * conversation must belong to the active company and the role must reach
+   * it (agents: own or queued conversations).
+   */
   @Get(':id/messages')
   @ZodSerializerDto(ConversationMessageSchema.array())
-  findMessages(@Param('id') id: string) {
+  async findMessages(@Param('id') id: string) {
+    await this.access.assertCanJoinConversation(id, {
+      userId: this.cls.get<string>(CLS_USER_ID) ?? null,
+      companyId: this.cls.get<string>(CLS_COMPANY_ID) ?? null,
+      authenticated: true,
+    });
+
     return this.messages.getConversationMessages(id);
   }
 

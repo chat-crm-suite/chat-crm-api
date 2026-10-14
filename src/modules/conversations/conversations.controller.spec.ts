@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { INestApplication, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  INestApplication,
+  NotFoundException,
+} from '@nestjs/common';
 import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthGuard } from '@nestjs/passport';
@@ -14,6 +18,7 @@ import { SentimentService } from '../analysis/sentiment/sentiment.service';
 import { MessageService } from '../message/message.service';
 import { ConversationsController } from './conversations.controller';
 import { ConversationsService } from './conversations.service';
+import { ConversationAccessService } from './realtime/conversation-access.service';
 
 /**
  * T4: `GET /conversations/:id/sentiment` delegates to the sentiment service,
@@ -24,6 +29,8 @@ describe('ConversationsController sentiment endpoint (T4)', () => {
   let app: INestApplication<App>;
 
   const getConversationSentiment = jest.fn();
+  const getConversationMessages = jest.fn();
+  const assertCanJoinConversation = jest.fn();
   const clsGet = jest.fn();
 
   beforeAll(async () => {
@@ -31,7 +38,11 @@ describe('ConversationsController sentiment endpoint (T4)', () => {
       controllers: [ConversationsController],
       providers: [
         { provide: ConversationsService, useValue: {} },
-        { provide: MessageService, useValue: {} },
+        { provide: MessageService, useValue: { getConversationMessages } },
+        {
+          provide: ConversationAccessService,
+          useValue: { assertCanJoinConversation },
+        },
         {
           provide: SentimentService,
           useValue: { getConversationSentiment },
@@ -57,6 +68,47 @@ describe('ConversationsController sentiment endpoint (T4)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clsGet.mockReturnValue('company-1');
+  });
+
+  describe('GET /conversations/:id/messages', () => {
+    const message = {
+      id: 'msg-1',
+      conversationId: 'conv-1',
+      clientMessageId: null,
+      timestamp: '2026-10-13T10:00:00.000Z',
+      status: 'delivered',
+      sender: { id: 'cust-1', type: 'customer' },
+      msg: { type: 'text', text: 'hola' },
+    };
+
+    it('checks access like the socket join, then returns the thread', async () => {
+      clsGet.mockImplementation((key: string) =>
+        key.includes('company') ? 'company-1' : 'user-1',
+      );
+      getConversationMessages.mockResolvedValue([message]);
+
+      const response = await request(app.getHttpServer())
+        .get('/conversations/conv-1/messages')
+        .expect(200);
+
+      expect(assertCanJoinConversation).toHaveBeenCalledWith('conv-1', {
+        userId: 'user-1',
+        companyId: 'company-1',
+        authenticated: true,
+      });
+      expect(response.body).toEqual([message]);
+    });
+
+    it('refuses a conversation the caller may not reach', async () => {
+      assertCanJoinConversation.mockRejectedValueOnce(
+        new ForbiddenException('Conversation access denied'),
+      );
+
+      await request(app.getHttpServer())
+        .get('/conversations/conv-other/messages')
+        .expect(403);
+      expect(getConversationMessages).not.toHaveBeenCalled();
+    });
   });
 
   it('returns the tone of the requested conversation scoped to the company', async () => {

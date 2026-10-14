@@ -173,6 +173,9 @@ export class ConversationAssignmentService {
 
       const active = await this.findActiveAssignment(manager, conversationId);
       let assignedByMemberId: string | null = null;
+      // Moving an owned conversation to someone else is a transfer: analytics
+      // reads "from" as the previous assignment row.
+      const isTransfer = !!active && active.memberId !== memberId;
 
       if (active && active.memberId !== memberId) {
         if (requesterId) {
@@ -198,7 +201,7 @@ export class ConversationAssignmentService {
         manager,
         conversationId,
         memberId,
-        'manual',
+        isTransfer ? 'transfer' : 'manual',
         assignedByMemberId,
       );
       return AssignmentOutcome.ASSIGNED;

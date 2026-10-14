@@ -40,7 +40,7 @@ export const DEFAULT_SLA_FIRST_RESPONSE_SECONDS = 300;
 export const DEFAULT_SLA_TARGET_SHARE = 0.8;
 
 export const ServiceSettingsSchema = z.object({
-  /** Null = 24/7 on the server timezone (`APP_TZ`). */
+  /** Null = 24/7 on the company timezone. */
   businessHours: BusinessHoursSchema.nullable(),
   slaFirstResponseSeconds: z.number().int().min(30).max(86_400),
   /** Target share answered within the SLA (Erlang C goal). */

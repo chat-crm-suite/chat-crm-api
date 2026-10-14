@@ -25,7 +25,6 @@ export * from './customer.contract';
 export * from './ia.contract';
 export * from './member.contract';
 export * from './message.contract';
-export * from './metrics.contract';
 export * from './pagination.contract';
 export * from './presence.contract';
 export * from './service-settings.contract';

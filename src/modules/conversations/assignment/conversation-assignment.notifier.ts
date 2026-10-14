@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { EventBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, In } from 'typeorm';
 
+import { AnalyticsSignalEvent } from '../../analytics/events/analytics.events';
 import { CompanySettings } from '../../company/entities/company-settings.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -33,6 +35,7 @@ export class ConversationAssignmentNotifier {
     private readonly gateway: ConversationGateway,
     private readonly dataSource: DataSource,
     private readonly logger: PinoLogger,
+    @Optional() private readonly eventBus?: EventBus,
   ) {
     this.logger.setContext(ConversationAssignmentNotifier.name);
   }
@@ -51,6 +54,9 @@ export class ConversationAssignmentNotifier {
           select: { id: true, userId: true, companyId: true },
         });
       if (!member) return;
+
+      // Owner, load and the waiting list of the floor changed.
+      this.eventBus?.publish(new AnalyticsSignalEvent(member.companyId, ['live']));
 
       // Agents that were reading the queued thread lose it to the new owner.
       await this.gateway.revokeConversationAccess(
@@ -94,6 +100,8 @@ export class ConversationAssignmentNotifier {
     try {
       const company = companyId ?? (await this.resolveCompanyId(conversationId));
       if (!company) return;
+
+      this.eventBus?.publish(new AnalyticsSignalEvent(company, ['live']));
 
       const settings = await this.dataSource
         .getRepository(CompanySettings)

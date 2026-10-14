@@ -9,6 +9,7 @@ import { Company } from './entities/company.entity';
 import { CompanySettings } from './entities/company-settings.entity';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
 import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
+import { ServiceSettingsModule } from './service-settings/service-settings.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
       CompanyMember,
       PipelineStage,
     ]),
+    ServiceSettingsModule,
   ],
   controllers: [CompanyController],
   providers: [CompanyService],

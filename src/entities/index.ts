@@ -3,6 +3,8 @@
 
 export { Analysis } from '../modules/analysis/entities/analysis.entity';
 export { SentimentResult } from '../modules/analysis/entities/sentiment-result.entity';
+export { Case } from '../modules/cases/entities/case.entity';
+export { CaseReply } from '../modules/cases/entities/case-reply.entity';
 export { Channel } from '../modules/channels/entities/channel.entity';
 export { MessageTemplate } from '../modules/channels/entities/message-template.entity';
 export { Company } from '../modules/company/entities/company.entity';
@@ -23,5 +25,8 @@ export { Message } from '../modules/message/entities/message.entity';
 export { MessageAttachment } from '../modules/message/entities/message-attachment.entity';
 export { MessageStatusEvent } from '../modules/message/entities/message-status-event.entity';
 export { Notification } from '../modules/notifications/entities/notification.entity';
+export { PresenceInterval } from '../modules/presence/entities/presence-interval.entity';
+export { ChannelCharge } from '../modules/spend/entities/channel-charge.entity';
+export { ChannelRate } from '../modules/spend/entities/channel-rate.entity';
 export { User } from '../modules/users/entities/user.entity';
 export { WhatsappInboundEvent } from '../integrations/whatsapp/entities/whatsapp-inbound-event.entity';

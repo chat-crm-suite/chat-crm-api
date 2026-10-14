@@ -135,7 +135,7 @@ export class WhatsAppInboundReplayService implements OnApplicationBootstrap {
       return;
     }
 
-    const payload = event.payload as { timestamp?: unknown } | null;
+    const payload = event.payload as { timestamp?: unknown; pricing?: unknown } | null;
 
     await this.commandBus.execute(
       new UpdateMessageStatusCommand(
@@ -143,6 +143,7 @@ export class WhatsAppInboundReplayService implements OnApplicationBootstrap {
         state,
         toStatusDate(payload?.timestamp),
         toStatusError(event.payload),
+        payload?.pricing,
       ),
     );
   }

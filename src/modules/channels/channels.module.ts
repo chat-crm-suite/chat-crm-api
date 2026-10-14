@@ -9,11 +9,12 @@ import { ChannelsService } from './channels.service';
 import { Channel } from './entities/channel.entity';
 import { MessageTemplate } from './entities/message-template.entity';
 import { ChannelAdapterRegistry } from './ports/channel-adapter.registry';
+import { ChannelPricingRegistry } from './ports/channel-pricing.registry';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Channel, MessageTemplate])],
   controllers: [ChannelsController],
-  providers: [ChannelsService, ChannelAdapterRegistry],
-  exports: [ChannelsService, ChannelAdapterRegistry],
+  providers: [ChannelsService, ChannelAdapterRegistry, ChannelPricingRegistry],
+  exports: [ChannelsService, ChannelAdapterRegistry, ChannelPricingRegistry],
 })
 export class ChannelsModule {}

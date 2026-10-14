@@ -659,32 +659,43 @@ async function repliesPhase(records) {
   phase('⑨', 'WhatsApp replies');
 
   const ids = new Set(records.map((record) => record.id));
+  const statusOf = (record, status) =>
+    transcript.events.find(
+      (entry) =>
+        entry.event === 'status' &&
+        entry.payload?.id === record.id &&
+        entry.payload.status === status,
+    );
+  const failures = [];
+
   for (const record of records) {
     // Meta can send `read` before `delivered` (or skip the delivered webhook
     // when the chat is opened quickly); the API then ignores a late delivered
     // as a regression by design, so either receipt proves the phone got it.
+    // A `failed` webhook after the accepted send ends the wait at once.
     const receipt = await waitFor(() => {
-      const delivered = transcript.events.find(
-        (entry) =>
-          entry.event === 'status' &&
-          entry.payload?.id === record.id &&
-          entry.payload.status === 'delivered',
-      );
-      if (delivered) return { kind: 'delivered', entry: delivered };
-      const read = transcript.events.find(
-        (entry) =>
-          entry.event === 'status' &&
-          entry.payload?.id === record.id &&
-          entry.payload.status === 'read',
-      );
-      return read ? { kind: 'read', entry: read } : null;
+      for (const kind of ['failed', 'delivered', 'read']) {
+        const entry = statusOf(record, kind);
+        if (entry) return { kind, entry };
+      }
+      return null;
     }, 30000);
 
+    const label = record.item.kind.padEnd(8);
+
     if (!receipt) {
-      bad(
-        `${record.item.kind}: Meta accepted it but neither the delivered nor the read receipt arrived within 30s.`,
-      );
-      throw new RunError('⑨');
+      bad(`${label} Meta accepted it but neither the delivered nor the read receipt arrived within 30s.`);
+      failures.push(record.item.kind);
+      continue;
+    }
+    if (receipt.kind === 'failed') {
+      const { errorCode, errorMessage } = receipt.entry.payload;
+      bad(`${label} Meta accepted it, then rejected it: ${errorMessage ?? 'no detail'} (code ${errorCode ?? 'unknown'}).`);
+      if (String(errorCode) === '131053') {
+        note('Meta could not process the file (e.g. a fragmented MP4 or an unsupported codec).');
+      }
+      failures.push(record.item.kind);
+      continue;
     }
 
     record.deliveredAt = Date.now();
@@ -692,9 +703,14 @@ async function repliesPhase(records) {
     const receiptTime = seconds(record.deliveredAt - record.sentAt);
     ok(
       receipt.kind === 'delivered'
-        ? `${record.item.kind.padEnd(8)} accepted by Meta → reached the phone (sent ${sentTime} · delivered ${receiptTime})`
-        : `${record.item.kind.padEnd(8)} accepted by Meta → read by the phone (sent ${sentTime} · read ${receiptTime}; delivered implied)`,
+        ? `${label} accepted by Meta → reached the phone (sent ${sentTime} · delivered ${receiptTime})`
+        : `${label} accepted by Meta → read by the phone (sent ${sentTime} · read ${receiptTime}; delivered implied)`,
     );
+  }
+
+  if (failures.length) {
+    note(`Did not reach the phone: ${failures.join(', ')}.`);
+    throw new RunError('⑨');
   }
 
   const read = await waitFor(

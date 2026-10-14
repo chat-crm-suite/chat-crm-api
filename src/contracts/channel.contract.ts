@@ -121,6 +121,11 @@ const MB = 1024 * KB;
 export interface MediaRule {
   readonly mimeTypes: readonly string[];
   readonly maxBytes: number;
+  /**
+   * Only progressive MP4 (one `moov` with the sample tables). Fragmented MP4,
+   * what browsers record, is refused by the provider after sending.
+   */
+  readonly progressiveOnly?: boolean;
 }
 
 /**
@@ -152,7 +157,12 @@ export interface ChannelCapabilities {
 const WHATSAPP_CAPABILITIES: ChannelCapabilities = {
   media: {
     image: { mimeTypes: ['image/jpeg', 'image/png'], maxBytes: 5 * MB },
-    video: { mimeTypes: ['video/mp4', 'video/3gpp'], maxBytes: 16 * MB },
+    video: {
+      mimeTypes: ['video/mp4', 'video/3gpp'],
+      maxBytes: 16 * MB,
+      // Graph answers 131053 ("media file scrutiny failed") to fragmented MP4.
+      progressiveOnly: true,
+    },
     audio: {
       mimeTypes: [
         'audio/aac',

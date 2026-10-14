@@ -18,6 +18,7 @@
  *   --password <pass>   chat-crm password (or CHATCRM_PASSWORD env)
  *   --to <phone>        customer phone of the conversation to reuse (required)
  *   --api <url>         API base (default: API_BASE env or http://localhost:3000)
+ *   --company <id>      company to act in (default: the first membership)
  *   --only <kinds>      comma list of kinds to send (default: all)
  *   --help              show the usage text
  *
@@ -62,6 +63,7 @@ Options:
   --password <pass>   chat-crm password (or CHATCRM_PASSWORD env)
   --to <phone>        customer phone of the conversation to reuse (required)
   --api <url>         API base (default: API_BASE env or http://localhost:3000)
+  --company <id>      company to act in (default: the first membership)
   --only <kinds>      comma list of kinds to send (default: all)
   --help              show this help
 
@@ -108,6 +110,7 @@ const API = (
   process.env.API_BASE ??
   'http://localhost:3000'
 ).replace(/\/+$/, '');
+const companyArg = readArg('company');
 const kinds = (readArg('only') ?? ALL_KINDS.join(','))
   .split(',')
   .map((kind) => kind.trim())
@@ -409,20 +412,32 @@ async function accessPhase() {
   token = decodeURIComponent(
     cookie.split(';')[0].slice('access_token='.length),
   );
-  userId = JSON.parse(
+  const claims = JSON.parse(
     Buffer.from(token.split('.')[1], 'base64url').toString('utf8'),
-  ).sub;
+  );
+  userId = claims.sub;
 
-  const companies = await api('GET', '/auth/me/companies');
-  if (
-    !companies.ok ||
-    !Array.isArray(companies.json) ||
-    companies.json.length === 0
-  ) {
-    bad(`Could not resolve the company (status ${companies.status}).`);
+  // The token lists the user's active memberships; the API honors the one
+  // sent as `x-company-id` on every request.
+  const memberships = Array.isArray(claims.memberships) ? claims.memberships : [];
+  const membership = companyArg
+    ? memberships.find((entry) => entry.cid === companyArg)
+    : memberships[0];
+  if (!membership) {
+    bad(
+      companyArg
+        ? `The user is not an active member of company ${companyArg}.`
+        : 'The user has no active company membership.',
+    );
+    if (memberships.length > 1) {
+      note(`Memberships: ${memberships.map((entry) => entry.cid).join(', ')}`);
+    }
     throw new RunError('①');
   }
-  companyId = companies.json[0];
+  companyId = membership.cid;
+  if (!companyArg && memberships.length > 1) {
+    warn(`Several companies: using ${companyId} (pick one with --company <id>).`);
+  }
 
   let companyName = companyId.slice(0, 8);
   try {

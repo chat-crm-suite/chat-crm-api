@@ -15,7 +15,7 @@ import { SetupModule } from '../modules/setup/setup.module';
 import { JwtStrategy } from '../strategies/jwt.strategy';
 import { AdminBootstrapService } from './admin-bootstrap.service';
 import { getJwtSecret, JWT_EXPIRES_IN_SECONDS } from './jwt.config';
-import { JwtAuthGuard, TenantGuard } from './guards/index';
+import { JwtAuthGuard, RolesGuard, TenantGuard } from './guards/index';
 import { AuthSessionModule } from './session/auth-session.module';
 
 @Module({
@@ -35,9 +35,10 @@ import { AuthSessionModule } from './session/auth-session.module';
     AuthService,
     JwtStrategy,
     AdminBootstrapService,
-    // Order matters: the session is verified before the tenant is resolved.
+    // Order matters: session, then tenant, then the role inside that tenant.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: TenantGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
   controllers: [AuthController],
 })

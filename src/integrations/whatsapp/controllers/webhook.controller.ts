@@ -227,9 +227,7 @@ export class WebhookController {
       switch (status.status as unknown as WhatsappNotificationStatusStatus) {
         case WhatsappNotificationStatusStatus.Sent:
           this.dispatchStatusUpdate(status, 'sent', freshStatuses);
-          this.logger.debug(
-            `Sent message with id ${status.id} | ${JSON.stringify(status.pricing)}`,
-          );
+          this.logger.debug(`Sent message with id ${status.id}`);
           break;
         case WhatsappNotificationStatusStatus.Delivered:
           this.dispatchStatusUpdate(status, 'delivered', freshStatuses);
@@ -288,6 +286,7 @@ export class WebhookController {
           state,
           toStatusDate(status.timestamp),
           error,
+          status.pricing,
         ),
       )
       .then(() => this.intake.markReplayed(status.id, kind))

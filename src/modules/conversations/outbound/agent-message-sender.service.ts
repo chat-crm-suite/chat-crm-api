@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { EventBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
-import type { OutgoingMessage } from '@contracts';
+import { BILLABLE_SENDS_PAUSED_ERROR, type OutgoingMessage } from '@contracts';
 import type {
   ChannelFailure,
   ProviderMedia,
@@ -15,6 +15,7 @@ import { ChannelAdapterRegistry } from '@modules/channels/ports/channel-adapter.
 import type { Message } from '@modules/message/entities/message.entity';
 import { toMessageStatusPatch } from '@modules/message/mappers/message-status-patch.mapper';
 import { MessageService } from '@modules/message/message.service';
+import { SpendService } from '@modules/spend/spend.service';
 import type { AgentSendJob } from '../commands/send-conversation-message.command';
 import {
   ConversationsService,
@@ -49,6 +50,7 @@ export class AgentMessageSender {
     private readonly media: OutgoingMediaService,
     private readonly eventBus: EventBus,
     private readonly logger: PinoLogger,
+    @Optional() private readonly spend?: SpendService,
   ) {
     this.logger.setContext(AgentMessageSender.name);
   }
@@ -115,6 +117,24 @@ export class AgentMessageSender {
       return this.failSend(
         message,
         failure(`No ${context.channelType} adapter is installed`),
+        job.msg.type,
+      );
+    }
+
+    // An admin paused billable sends (budget): free messages still go out.
+    if (
+      await this.spend?.isBillableSendBlocked(
+        context.companyId,
+        context.channelType,
+        job.msg.type,
+      )
+    ) {
+      return this.failSend(
+        message,
+        {
+          ...failure('Billable sends are paused for this company'),
+          code: BILLABLE_SENDS_PAUSED_ERROR,
+        },
         job.msg.type,
       );
     }

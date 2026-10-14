@@ -24,5 +24,7 @@ export class UpdateMessageStatusCommand {
     public readonly status: DeliveryStatus,
     public readonly occurredAt: Date,
     public readonly error?: DeliveryStatusError | null,
+    /** Raw provider cost report (WhatsApp `pricing`), read by the spend module. */
+    public readonly costReport?: unknown,
   ) {}
 }

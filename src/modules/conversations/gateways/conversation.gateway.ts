@@ -13,7 +13,7 @@ import {
 import { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { PinoLogger } from 'nestjs-pino';
 import { CommandBus } from '@nestjs/cqrs';
-import { ForbiddenException, UseFilters, UsePipes } from '@nestjs/common';
+import { ForbiddenException, Optional, UseFilters, UsePipes } from '@nestjs/common';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { JwtService } from '@nestjs/jwt';
 
@@ -28,6 +28,7 @@ import { findMembership } from '@auth/membership';
 import { SessionRevocationService } from '@auth/session/session-revocation.service';
 import { SendConversationMessageDto } from '../dto/send-conversation-message.dto';
 import { SendConversationMessageCommand } from '../commands/send-conversation-message.command';
+import { PresenceService } from '../../presence/presence.service';
 import { ConversationAccessService } from '../realtime/conversation-access.service';
 
 /** Socket data set once at connect time from the verified cookie. */
@@ -77,6 +78,7 @@ export class ConversationGateway
     private readonly access: ConversationAccessService,
     private readonly jwt: JwtService,
     private readonly sessions: SessionRevocationService,
+    @Optional() private readonly presence?: PresenceService,
   ) {
     this.logger.setContext(ConversationGateway.name);
   }
@@ -205,10 +207,41 @@ export class ConversationGateway
       { userId: user.sub, companies: user.memberships.length },
       'client connection',
     );
+
+    void this.trackPresence(user, true);
   }
 
-  handleDisconnect(client: ConversationSocket) {
+  async handleDisconnect(client: ConversationSocket) {
     this.logger.debug({ userId: client.data.user?.sub }, 'client disconnect');
+
+    const user = client.data.user;
+    if (!user) return;
+    // Other tabs keep the member online; only the last socket counts.
+    const remaining = (await this.server?.in(userRoom(user.sub)).fetchSockets()) ?? [];
+    if (!remaining.length) await this.trackPresence(user, false);
+  }
+
+  /**
+   * Presence follows the user's sockets in every company of the token. A
+   * presence failure never affects the socket itself.
+   */
+  private async trackPresence(user: JwtPayload, online: boolean): Promise<void> {
+    if (!this.presence) return;
+
+    for (const membership of user.memberships) {
+      try {
+        if (online) {
+          await this.presence.connected(membership.cid, membership.mid);
+        } else {
+          await this.presence.disconnected(membership.cid, membership.mid);
+        }
+      } catch (error) {
+        this.logger.warn(
+          { memberId: membership.mid, error: String(error) },
+          'Presence update failed',
+        );
+      }
+    }
   }
 
   /**

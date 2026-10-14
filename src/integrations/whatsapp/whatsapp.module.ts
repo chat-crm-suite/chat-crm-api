@@ -45,6 +45,7 @@ import {
   InboundReceivedMetricsHandler,
 } from './observability/inbound-metrics.subscriber';
 import { WhatsAppChannelAdapter } from './outbound/whatsapp-channel.adapter';
+import { WhatsAppPricingAdapter } from './pricing/whatsapp-pricing.adapter';
 import { WhatsAppService } from './whatsapp.service';
 
 @Module({
@@ -64,6 +65,7 @@ import { WhatsAppService } from './whatsapp.service';
   providers: [
     WhatsAppService,
     WhatsAppChannelAdapter,
+    WhatsAppPricingAdapter,
     WhatsAppIntakeService,
     WhatsAppInboundReplayService,
     InboundMessageSavedHandler,

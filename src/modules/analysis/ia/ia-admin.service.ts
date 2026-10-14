@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Optional } from '@nestjs/common';
+import { EventBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
 import type { IaState } from '@contracts';
 import { CompanyMemberService } from '../../company-members/company-member.service';
+import { IaStatusChangedEvent } from '../../analytics/events/analytics.events';
+import { CircuitBreakerService } from './circuit-breaker.service';
+import { toIaStatus } from './ia-status.service';
 import { KillSwitchService } from './kill-switch.service';
 
 /**
@@ -20,6 +24,8 @@ export class IaAdminService {
     private readonly killSwitch: KillSwitchService,
     private readonly members: CompanyMemberService,
     private readonly logger: PinoLogger,
+    @Optional() private readonly breaker?: CircuitBreakerService,
+    @Optional() private readonly eventBus?: EventBus,
   ) {
     this.logger.setContext(IaAdminService.name);
   }
@@ -44,6 +50,11 @@ export class IaAdminService {
         },
         'IA kill switch toggled',
       );
+
+      if (this.eventBus) {
+        const breaker = (await this.breaker?.getState()) ?? 'closed';
+        this.eventBus.publish(new IaStatusChangedEvent(toIaStatus(state, breaker)));
+      }
 
       return { enabled: state };
     } catch (err: unknown) {

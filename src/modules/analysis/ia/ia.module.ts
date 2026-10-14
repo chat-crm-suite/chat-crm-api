@@ -12,6 +12,8 @@ import {
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { IaAdminController } from './ia-admin.controller';
 import { IaAdminService } from './ia-admin.service';
+import { IaStatusController } from './ia-status.controller';
+import { IaStatusService } from './ia-status.service';
 import { createIaRedis, IA_REDIS } from './ia-redis.provider';
 import { KillSwitchService } from './kill-switch.service';
 
@@ -22,7 +24,7 @@ import { KillSwitchService } from './kill-switch.service';
  */
 @Module({
   imports: [CompanyMembersModule],
-  controllers: [IaAdminController],
+  controllers: [IaAdminController, IaStatusController],
   providers: [
     {
       provide: IA_REDIS,
@@ -36,7 +38,8 @@ import { KillSwitchService } from './kill-switch.service';
     KillSwitchService,
     CircuitBreakerService,
     IaAdminService,
+    IaStatusService,
   ],
-  exports: [IA_REDIS, KillSwitchService, CircuitBreakerService],
+  exports: [IA_REDIS, KillSwitchService, CircuitBreakerService, IaStatusService],
 })
 export class IaModule {}

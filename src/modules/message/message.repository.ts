@@ -105,13 +105,17 @@ export class MessageRepository {
         );
       }
 
+      // `createdAt` is a DB default, not hydrated after insert.
+      const at = message.createdAt ?? new Date();
       await manager.update(
         Conversation,
         { id: data.conversationId },
         {
           lastMessageId: message.id,
-          // `createdAt` is a DB default, not hydrated after insert.
-          lastMessageAt: message.createdAt ?? new Date(),
+          lastMessageAt: at,
+          ...(data.direction === 'inbound'
+            ? { lastInboundAt: at }
+            : { lastOutboundAt: at }),
         },
       );
 

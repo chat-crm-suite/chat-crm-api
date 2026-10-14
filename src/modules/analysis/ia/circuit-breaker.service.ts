@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { EventBus } from '@nestjs/cqrs';
 import { Redis } from 'ioredis';
 import { PinoLogger } from 'nestjs-pino';
 
@@ -10,7 +11,9 @@ import {
   type CircuitBreakerOptions,
 } from './circuit-breaker.config';
 import { IA_REDIS } from './ia-redis.provider';
+import { IaStatusChangedEvent } from '../../analytics/events/analytics.events';
 import { safely } from './ia-safety';
+import { KILL_SWITCH_KEY } from './kill-switch.service';
 
 /** Logical state of the IA circuit breaker. */
 export type CircuitBreakerState = 'closed' | 'open' | 'half-open';
@@ -36,6 +39,7 @@ export class CircuitBreakerService {
     private readonly logger: PinoLogger,
     @Inject(IA_REDIS) private readonly redis: Redis,
     @Inject(IA_CB_OPTIONS) private readonly options: CircuitBreakerOptions,
+    @Optional() private readonly eventBus?: EventBus,
   ) {
     this.logger.setContext(CircuitBreakerService.name);
   }
@@ -198,6 +202,7 @@ export class CircuitBreakerService {
             { previousState: state },
             'Circuit breaker closed after a successful call',
           );
+          await this.announce('closed');
         }
       },
       'Circuit breaker success could not be recorded; ignored',
@@ -223,5 +228,21 @@ export class CircuitBreakerService {
     await this.redis.set(CB_OPENED_AT_KEY, String(Date.now()), 'PX', ttl);
     await this.redis.set(CB_OPEN_DURATION_KEY, String(durationMs), 'PX', ttl);
     await this.redis.set(CB_STATE_KEY, 'open', 'PX', ttl);
+    await this.announce('open');
+  }
+
+  /** Tells clients the IA availability changed (tone features show/hide). */
+  private async announce(breaker: CircuitBreakerState): Promise<void> {
+    if (!this.eventBus) return;
+    const enabled = (await this.redis.get(KILL_SWITCH_KEY)) !== 'false';
+    const available = enabled && breaker !== 'open';
+    this.eventBus.publish(
+      new IaStatusChangedEvent({
+        status: !enabled ? 'disabled' : available ? 'active' : 'unavailable',
+        enabled,
+        available,
+        breaker,
+      }),
+    );
   }
 }

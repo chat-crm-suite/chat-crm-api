@@ -13,6 +13,8 @@ import { CompanyMember } from '../company-members/entities/company-member.entity
 import { CustomersModule } from '../customers/customers.module';
 import { MessageModule } from '../message/message.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PresenceModule } from '../presence/presence.module';
+import { SpendModule } from '../spend/spend.module';
 import { ConversationAssignmentService } from './assignment/conversation-assignment.service';
 import { ConversationAssignmentNotifier } from './assignment/conversation-assignment.notifier';
 import {
@@ -82,6 +84,8 @@ const commandHandlers = [
     NotificationsModule,
     CustomersModule,
     SentimentModule,
+    PresenceModule,
+    SpendModule,
   ],
   controllers: [ConversationsController],
   providers: [

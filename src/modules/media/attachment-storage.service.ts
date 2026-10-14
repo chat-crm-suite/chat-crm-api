@@ -7,7 +7,8 @@ import {
   Injectable,
   Optional,
 } from '@nestjs/common';
-import { join, posix, resolve, sep } from 'node:path';
+import { copyFile, mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
+import { dirname, join, posix, resolve, sep } from 'node:path';
 
 /** Storage root override, mainly for tests and non-default deployments. */
 export const ATTACHMENT_STORAGE_ROOT = 'ATTACHMENT_STORAGE_ROOT';
@@ -36,6 +37,67 @@ export class AttachmentStorageService {
     this.root = resolve(storageRoot ?? join(process.cwd(), 'uploads'));
   }
 
+  /**
+   * Moves a local file (a finished upload, a normalized output) into the
+   * company's storage at `relativePath` and returns its private storage URL.
+   * Works across devices (temp dir on another volume) by copying.
+   */
+  async ingest(
+    companyId: string,
+    sourcePath: string,
+    relativePath: string,
+  ): Promise<string> {
+    const storageUrl = this.toStorageUrl(companyId, relativePath);
+    const target = this.resolve(companyId, storageUrl);
+
+    await mkdir(dirname(target), { recursive: true });
+    await moveFile(sourcePath, target);
+
+    return storageUrl;
+  }
+
+  /** Moves a stored file to another path of the same company storage. */
+  async move(
+    companyId: string,
+    storageUrl: string,
+    relativePath: string,
+  ): Promise<string> {
+    return this.ingest(companyId, this.resolve(companyId, storageUrl), relativePath);
+  }
+
+  /** Deletes a stored file; a missing file is not an error. */
+  async remove(companyId: string, storageUrl: string): Promise<void> {
+    await rm(this.resolve(companyId, storageUrl), { force: true });
+  }
+
+  /**
+   * Deletes files under every company's `folder` last modified before
+   * `olderThan`, returning how many were removed (e.g. abandoned uploads).
+   */
+  async sweep(folder: string, olderThan: Date): Promise<number> {
+    let removed = 0;
+    const companies = await readdir(this.root, { withFileTypes: true }).catch(
+      () => [],
+    );
+
+    for (const company of companies) {
+      if (!company.isDirectory()) continue;
+
+      const dir = join(this.root, company.name, folder);
+      const files = await readdir(dir).catch(() => [] as string[]);
+      for (const file of files) {
+        const path = join(dir, file);
+        const info = await stat(path).catch(() => null);
+        if (!info?.isFile() || info.mtime >= olderThan) continue;
+
+        await rm(path, { force: true });
+        removed += 1;
+      }
+    }
+
+    return removed;
+  }
+
   /** Absolute path of a stored file, guaranteed to be inside `companyId`. */
   resolve(companyId: string, storageUrl?: string | null): string {
     const relative = this.toCompanyRelativePath(companyId, storageUrl);
@@ -50,6 +112,10 @@ export class AttachmentStorageService {
     }
 
     return absolutePath;
+  }
+
+  private toStorageUrl(companyId: string, relativePath: string): string {
+    return `${PRIVATE_STORAGE_PREFIX}${companyId}/${relativePath}`;
   }
 
   /** `<companyId>/<file>` for a private storage URL, or a ForbiddenException. */
@@ -84,5 +150,17 @@ export class AttachmentStorageService {
     }
 
     return normalized;
+  }
+}
+
+/** `rename`, falling back to copy + delete across devices (EXDEV). */
+async function moveFile(source: string, target: string): Promise<void> {
+  try {
+    await rename(source, target);
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException)?.code !== 'EXDEV') throw error;
+
+    await copyFile(source, target);
+    await rm(source, { force: true });
   }
 }

@@ -3546,6 +3546,34 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "StageUploadSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "durationMs": {
+              "exclusiveMinimum": 0,
+              "maximum": 86400000,
+              "type": "integer"
+            },
+            "kind": {
+              "enum": [
+                "image",
+                "audio",
+                "video",
+                "document",
+                "sticker"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "StagedUploadSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -4541,4 +4569,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "ab041d895b8ff2d09c3b7f12d49da2b2c1a2d1cf0e246d792d4d75cfd3f10f4f";
+export const CONTRACTS_SNAPSHOT_HASH = "1bde61ebba22afaa2d9b79ffa6f6a074fc8fe4274571d6aac6f727fed5c90f99";

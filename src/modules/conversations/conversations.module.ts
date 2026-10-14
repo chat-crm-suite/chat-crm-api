@@ -38,6 +38,8 @@ import { ConversationFanoutService } from './realtime/conversation-fanout.servic
 import { ConversationSendContextService } from './send-context/conversation-send-context.service';
 import { AgentMessageSender } from './outbound/agent-message-sender.service';
 import { ChannelsModule } from '../channels/channels.module';
+import { MediaModule } from '../media/media.module';
+import { ConversationUploadsService } from './uploads/conversation-uploads.service';
 import { UserSessionsRevokedHandler } from './realtime/user-sessions-revoked.handler';
 
 const commandHandlers = [
@@ -67,6 +69,7 @@ const commandHandlers = [
     }),
     MessageModule,
     ChannelsModule,
+    MediaModule,
     NotificationsModule,
     CustomersModule,
     SentimentModule,
@@ -80,6 +83,7 @@ const commandHandlers = [
     ConversationFanoutService,
     ConversationSendContextService,
     AgentMessageSender,
+    ConversationUploadsService,
     ConversationAssignmentService,
     ConversationAssignmentNotifier,
     ConversationProcessor,

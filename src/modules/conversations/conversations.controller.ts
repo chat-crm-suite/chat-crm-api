@@ -17,21 +17,29 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { tmpdir } from 'node:os';
 import { ApiOkResponse } from '@nestjs/swagger';
 import { ClsService } from 'nestjs-cls';
 import { ZodSerializerDto } from 'nestjs-zod';
 
-import { ConversationMessageSchema } from '@contracts';
+import {
+  ConversationMessageSchema,
+  MAX_UPLOAD_BYTES,
+  StagedUploadSchema,
+} from '@contracts';
 
-import { multerConfig } from '../../config/multer.config';
+import { RemoveUploadedFileInterceptor } from '@common/interceptors/remove-uploaded-file.interceptor';
 import { CLS_COMPANY_ID, CLS_USER_ID } from '../../config/cls.keys';
 import { SentimentService } from '../analysis/sentiment/sentiment.service';
 import { MessageService } from '../message/message.service';
 import { ConversationsService } from './conversations.service';
 import { AssignConversationDto } from './dto/assign-conversation.dto';
+import { StageUploadDto } from './dto/stage-upload.dto';
 import { ConversationSentimentDto } from './dto/conversation-sentiment.dto';
 import { AssignmentOutcome } from './assignment/assignment.types';
 import { ConversationAccessService } from './realtime/conversation-access.service';
+import { ConversationUploadsService } from './uploads/conversation-uploads.service';
 
 @Controller('conversations')
 export class ConversationsController {
@@ -40,18 +48,34 @@ export class ConversationsController {
     private readonly messages: MessageService,
     private readonly sentiment: SentimentService,
     private readonly access: ConversationAccessService,
+    private readonly uploads: ConversationUploadsService,
     private readonly cls: ClsService,
   ) {}
 
-  @Post('upload')
-  @UseInterceptors(FileInterceptor('file', multerConfig))
-  uploadFile(@UploadedFile() file: Express.Multer.File) {
-    return {
-      message: 'Archivo recibido',
-      filename: file.filename,
-      size: file.size,
-      pathFile: `/uploads/${file.filename}`,
-    };
+  /**
+   * Stages a file to send in this conversation (multipart `file` + `kind`).
+   * The file streams to a temp dir (never buffered), then is checked against
+   * the channel's capabilities and kept 24 h until a send references its
+   * `uploadId`.
+   */
+  @Post(':id/uploads')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({ destination: tmpdir() }),
+      limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
+    }),
+    RemoveUploadedFileInterceptor,
+  )
+  @ZodSerializerDto(StagedUploadSchema)
+  async stageUpload(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: StageUploadDto,
+  ) {
+    if (!file) throw new BadRequestException('A file is required');
+
+    const companyId = await this.assertConversationAccess(id);
+    return this.uploads.stage(id, companyId, file, body);
   }
 
   @Get('assignments/:conversationId')
@@ -154,11 +178,7 @@ export class ConversationsController {
   @Get(':id/messages')
   @ZodSerializerDto(ConversationMessageSchema.array())
   async findMessages(@Param('id') id: string) {
-    await this.access.assertCanJoinConversation(id, {
-      userId: this.cls.get<string>(CLS_USER_ID) ?? null,
-      companyId: this.cls.get<string>(CLS_COMPANY_ID) ?? null,
-      authenticated: true,
-    });
+    await this.assertConversationAccess(id);
 
     return this.messages.getConversationMessages(id);
   }
@@ -179,5 +199,21 @@ export class ConversationsController {
     }
 
     return this.sentiment.getConversationSentiment(id, companyId);
+  }
+
+  /**
+   * Same rules as joining the conversation's socket room: it belongs to the
+   * active company and the role reaches it. Returns that company.
+   */
+  private async assertConversationAccess(conversationId: string) {
+    const companyId = this.cls.get<string>(CLS_COMPANY_ID) ?? null;
+
+    await this.access.assertCanJoinConversation(conversationId, {
+      userId: this.cls.get<string>(CLS_USER_ID) ?? null,
+      companyId,
+      authenticated: true,
+    });
+
+    return companyId;
   }
 }

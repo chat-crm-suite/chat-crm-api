@@ -19,6 +19,7 @@ import { MessageService } from '../message/message.service';
 import { ConversationsController } from './conversations.controller';
 import { ConversationsService } from './conversations.service';
 import { ConversationAccessService } from './realtime/conversation-access.service';
+import { ConversationUploadsService } from './uploads/conversation-uploads.service';
 
 /**
  * T4: `GET /conversations/:id/sentiment` delegates to the sentiment service,
@@ -31,6 +32,7 @@ describe('ConversationsController sentiment endpoint (T4)', () => {
   const getConversationSentiment = jest.fn();
   const getConversationMessages = jest.fn();
   const assertCanJoinConversation = jest.fn();
+  const stage = jest.fn();
   const clsGet = jest.fn();
 
   beforeAll(async () => {
@@ -43,6 +45,7 @@ describe('ConversationsController sentiment endpoint (T4)', () => {
           provide: ConversationAccessService,
           useValue: { assertCanJoinConversation },
         },
+        { provide: ConversationUploadsService, useValue: { stage } },
         {
           provide: SentimentService,
           useValue: { getConversationSentiment },
@@ -68,6 +71,73 @@ describe('ConversationsController sentiment endpoint (T4)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clsGet.mockReturnValue('company-1');
+  });
+
+  describe('POST /conversations/:id/uploads', () => {
+    const staged = {
+      uploadId: '0b9f6a3e-5c1d-4f7e-9a2b-3c4d5e6f7a8b',
+      kind: 'document',
+      mimeType: 'application/pdf',
+      sizeBytes: 9,
+      filename: 'cotizacion.pdf',
+      durationMs: null,
+      width: null,
+      height: null,
+      expiresAt: '2026-10-14T10:00:00.000Z',
+    };
+
+    it('stages the multipart file after the access check', async () => {
+      stage.mockResolvedValue({ ...staged, expiresAt: new Date(staged.expiresAt) });
+
+      const response = await request(app.getHttpServer())
+        .post('/conversations/conv-1/uploads')
+        .field('kind', 'document')
+        .attach('file', Buffer.from('%PDF-1.7'), 'cotizacion.pdf')
+        .expect(201);
+
+      expect(response.body).toEqual(staged);
+      expect(assertCanJoinConversation).toHaveBeenCalledWith(
+        'conv-1',
+        expect.objectContaining({ companyId: 'company-1' }),
+      );
+      const [conversationId, companyId, file, body] = stage.mock.calls[0] as [
+        string,
+        string,
+        { originalname: string; path: string },
+        unknown,
+      ];
+      expect([conversationId, companyId]).toEqual(['conv-1', 'company-1']);
+      expect(file.originalname).toBe('cotizacion.pdf');
+      expect(body).toEqual({ kind: 'document' });
+    });
+
+    it('requires a valid kind and a file', async () => {
+      await request(app.getHttpServer())
+        .post('/conversations/conv-1/uploads')
+        .field('kind', 'location')
+        .attach('file', Buffer.from('x'), 'a.txt')
+        .expect(400);
+
+      await request(app.getHttpServer())
+        .post('/conversations/conv-1/uploads')
+        .field('kind', 'image')
+        .expect(400);
+
+      expect(stage).not.toHaveBeenCalled();
+    });
+
+    it('refuses uploads into a conversation the caller may not reach', async () => {
+      assertCanJoinConversation.mockRejectedValueOnce(
+        new ForbiddenException('Conversation access denied'),
+      );
+
+      await request(app.getHttpServer())
+        .post('/conversations/conv-other/uploads')
+        .field('kind', 'image')
+        .attach('file', Buffer.from('x'), 'a.png')
+        .expect(403);
+      expect(stage).not.toHaveBeenCalled();
+    });
   });
 
   describe('GET /conversations/:id/messages', () => {

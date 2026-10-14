@@ -22,7 +22,7 @@ import {
   AttachmentSignatureService,
   type AttachmentGrant,
 } from './attachment-signature.service';
-import { AttachmentStorageService } from './attachment-storage.service';
+import { AttachmentStorageService } from '../media/attachment-storage.service';
 
 /** A storage file cleared for delivery, with our own media URL. */
 export interface ResolvedAttachment {

@@ -195,6 +195,17 @@ export const ConversationMessageSchema = z.object({
 });
 export type ConversationMessage = z.infer<typeof ConversationMessageSchema>;
 
+/**
+ * `POST /conversations/:id/uploads` multipart fields (besides `file`). The
+ * kind is the sender's intent: a png can go as an image or as a document.
+ */
+export const StageUploadSchema = z.object({
+  kind: AttachmentTypeSchema,
+  /** Duration measured by the client recorder (audio/video), if known. */
+  durationMs: z.coerce.number().int().positive().max(24 * 60 * 60 * 1000).optional(),
+});
+export type StageUploadInput = z.infer<typeof StageUploadSchema>;
+
 /** `POST /conversations/:id/uploads` answer: a file ready to be sent. */
 export const StagedUploadSchema = z.object({
   uploadId: UploadIdSchema,

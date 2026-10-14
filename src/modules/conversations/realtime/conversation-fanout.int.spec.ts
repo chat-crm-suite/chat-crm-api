@@ -68,6 +68,7 @@ describe('Realtime fanout (T6)', () => {
     access = new ConversationAccessService(dataSource, assignment, logger);
 
     const gateway = {
+      revokeConversationAccess: () => Promise.resolve(),
       server: {
         to: (room: string) => ({
           except: (exceptRoom: string) => ({
@@ -218,10 +219,11 @@ describe('Realtime fanout (T6)', () => {
     await fanout.emitMessage(conversation.id, {
       id: 'msg-1',
       conversationId: conversation.id,
+      clientMessageId: null,
       timestamp: new Date(),
       status: 'delivered',
       sender: { id: 'cust-1', type: 'customer' },
-      msg: { type: 'text', content: { body: 'hola' } },
+      msg: { type: 'text', text: 'hola' },
     });
 
     const rooms = events.map((entry) => entry.room);

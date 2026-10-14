@@ -13,10 +13,16 @@ import {
 import { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { PinoLogger } from 'nestjs-pino';
 import { CommandBus } from '@nestjs/cqrs';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, UseFilters, UsePipes } from '@nestjs/common';
+import { ZodValidationPipe } from 'nestjs-zod';
 import { JwtService } from '@nestjs/jwt';
 
-import { ConversationSocketEvent, SOCKET_NAMESPACES } from '@contracts';
+import {
+  ConversationSocketEvent,
+  SOCKET_NAMESPACES,
+  type SendMessageAck,
+} from '@contracts';
+import { WsAckExceptionFilter } from '@common/filters/ws-ack-exception.filter';
 import type { JwtPayload } from '@auth/auth.types';
 import { findMembership } from '@auth/membership';
 import { SessionRevocationService } from '@auth/session/session-revocation.service';
@@ -27,6 +33,12 @@ import { ConversationAccessService } from '../realtime/conversation-access.servi
 /** Socket data set once at connect time from the verified cookie. */
 export interface ConversationSocketData {
   user?: JwtPayload;
+  /**
+   * Conversations this socket was authorized to join, with the company the
+   * grant was checked against. Sends trust this grant (plus the live room
+   * membership) instead of re-querying access on every message.
+   */
+  conversations?: Record<string, string>;
 }
 
 export type ConversationSocket = Socket<
@@ -40,6 +52,9 @@ export type ConversationSocket = Socket<
 export const userRoom = (userId: string) => `user:${userId}`;
 /** Room for company-wide fan-out. */
 export const companyRoom = (companyId: string) => `company:${companyId}`;
+/** Room of one conversation thread (joined only after the access check). */
+export const conversationRoom = (conversationId: string) =>
+  `conversation:${conversationId}`;
 
 /**
  * Identity comes only from the verified `access_token` cookie, checked once
@@ -67,7 +82,12 @@ export class ConversationGateway
   }
 
   @WebSocketServer()
-  server!: Server;
+  server!: Server<
+    DefaultEventsMap,
+    DefaultEventsMap,
+    DefaultEventsMap,
+    ConversationSocketData
+  >;
 
   /**
    * `{ room: conversationId, companyId }`: the company must be one of the
@@ -88,40 +108,47 @@ export class ConversationGateway
       authenticated: true,
     });
 
-    void client.join(`conversation:${room}`);
+    client.data.conversations = {
+      ...client.data.conversations,
+      [room]: membership.cid,
+    };
+    void client.join(conversationRoom(room));
     this.logger.debug({ room }, 'Client joined room');
     client.emit(ConversationSocketEvent.Joined, { room });
   }
 
   /**
    * `conversation:message:send` payload:
-   * { room: conversationId, companyId, to, msg: {type, content} }.
-   * The sender is always the socket's own member in that company (a
-   * client-supplied sender is ignored), and the conversation must be one the
-   * member may access.
+   * { room: conversationId, companyId, clientMessageId, msg }.
+   * Only a socket that joined the conversation (access checked then, revoked
+   * on reassignment) may send, so the hot path runs no access queries. The
+   * sender is always the socket's own member in the conversation's company (a
+   * client-supplied sender is ignored).
+   *
+   * Acknowledged once the send is durably queued: `{ ok: true }`, or
+   * `{ ok: false, code }` for invalid payloads and refused access.
    */
   @SubscribeMessage(ConversationSocketEvent.SendMessage)
+  @UsePipes(ZodValidationPipe)
+  @UseFilters(WsAckExceptionFilter)
   async handleSendMessage(
     @ConnectedSocket() client: ConversationSocket,
     @MessageBody() data: SendConversationMessageDto,
-  ) {
+  ): Promise<SendMessageAck> {
+    const receivedAt = Date.now();
     const user = this.requireUser(client);
-    const membership = this.resolveMembership(user, data.companyId);
+    const membership = this.requireJoinedMembership(client, user, data);
 
-    await this.access.assertCanJoinConversation(data.room, {
-      userId: user.sub,
-      companyId: membership.cid,
-      authenticated: true,
-    });
-
-    this.logger.debug('Execute Command: SendConversationMessageCommand');
-    void this.commandBus.execute(
+    await this.commandBus.execute(
       new SendConversationMessageCommand({
         ...data,
         companyId: membership.cid,
         sender: { id: membership.mid, type: 'member' },
+        receivedAt,
       }),
     );
+
+    return { ok: true };
   }
 
   async hasSockets(roomName: string): Promise<boolean> {
@@ -131,6 +158,29 @@ export class ConversationGateway
       'Sockets connected',
     );
     return sockets !== undefined && sockets.length > 0;
+  }
+
+  /**
+   * After a (re)assignment, agents other than the new owner lose the thread:
+   * their sockets leave the room, so their next send is refused. Admins and
+   * supervisors keep it, matching the join rules.
+   */
+  async revokeConversationAccess(
+    conversationId: string,
+    companyId: string,
+    ownerMemberId: string,
+  ): Promise<void> {
+    const room = conversationRoom(conversationId);
+    const sockets = (await this.server?.in(room).fetchSockets()) ?? [];
+
+    for (const socket of sockets) {
+      const membership = findMembership(socket.data.user, companyId);
+      const keepsAccess =
+        membership &&
+        (membership.role !== 'agent' || membership.mid === ownerMemberId);
+
+      if (!keepsAccess) socket.leave(room);
+    }
   }
 
   /** Drops every live socket of the user (memberships changed). */
@@ -180,6 +230,27 @@ export class ConversationGateway
       this.logger.warn({ error: String(error) }, 'Socket access token rejected');
       return null;
     }
+  }
+
+  /**
+   * The membership a send acts as: the company granted when the socket joined
+   * the conversation, provided the socket is still in its room. A payload
+   * naming another company is refused.
+   */
+  private requireJoinedMembership(
+    client: ConversationSocket,
+    user: JwtPayload,
+    data: Pick<SendConversationMessageDto, 'room' | 'companyId'>,
+  ) {
+    const grantedCompanyId = client.data.conversations?.[data.room];
+    if (!grantedCompanyId || !client.rooms.has(conversationRoom(data.room))) {
+      throw new ForbiddenException('Join the conversation before sending');
+    }
+    if (data.companyId && data.companyId !== grantedCompanyId) {
+      throw new ForbiddenException('Conversation belongs to another company');
+    }
+
+    return this.resolveMembership(user, grantedCompanyId);
   }
 
   private requireUser(client: ConversationSocket): JwtPayload {

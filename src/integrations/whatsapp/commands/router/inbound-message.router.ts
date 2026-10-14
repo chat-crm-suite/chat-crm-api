@@ -83,7 +83,6 @@ export class InboundMessageRouter {
           externalId: context.messageId,
           content: {
             body: content.text.body,
-            preview_url: content.text.preview_url,
           },
         },
         transmission,

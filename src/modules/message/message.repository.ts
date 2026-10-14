@@ -313,6 +313,14 @@ export class MessageRepository {
     });
   }
 
+  /** Remembers the provider's id for an uploaded outbound file (retries reuse it). */
+  async setAttachmentExternalMediaId(
+    attachmentId: string,
+    externalMediaId: string,
+  ): Promise<void> {
+    await this.attachments.update({ id: attachmentId }, { externalMediaId });
+  }
+
   /** T3 enrichment input: attachments still waiting for their file. */
   findPendingMediaAttachments(messageId: string): Promise<MessageAttachment[]> {
     return this.attachments.find({

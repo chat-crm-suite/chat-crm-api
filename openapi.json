@@ -543,20 +543,6 @@
         ]
       }
     },
-    "/conversations/upload": {
-      "post": {
-        "operationId": "ConversationsController_uploadFile",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Conversations"
-        ]
-      }
-    },
     "/conversations/assignments/{conversationId}": {
       "get": {
         "operationId": "ConversationsController_assignments",
@@ -1501,6 +1487,39 @@
           "InboundMetrics"
         ]
       }
+    },
+    "/conversations/{id}/uploads": {
+      "post": {
+        "operationId": "ConversationsController_stageUpload",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Conversations"
+        ]
+      }
     }
   },
   "info": {
@@ -2157,6 +2176,30 @@
             "type": "boolean"
           }
         }
+      },
+      "StageUploadDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "audio",
+              "video",
+              "document",
+              "sticker"
+            ]
+          },
+          "durationMs": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "maximum": 86400000,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "kind"
+        ]
       }
     }
   }

@@ -52,6 +52,13 @@ export class ConversationAssignmentNotifier {
         });
       if (!member) return;
 
+      // Agents that were reading the queued thread lose it to the new owner.
+      await this.gateway.revokeConversationAccess(
+        conversationId,
+        member.companyId,
+        memberId,
+      );
+
       let payload: unknown = { conversationId, memberId };
 
       if (notifyMember) {

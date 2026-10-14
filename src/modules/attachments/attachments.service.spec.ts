@@ -12,7 +12,7 @@ import type { MessageAttachment } from '../message/entities/message-attachment.e
 import type { Message } from '../message/entities/message.entity';
 import type { MessageService } from '../message/message.service';
 import type { AttachmentSignatureService } from './attachment-signature.service';
-import type { AttachmentStorageService } from './attachment-storage.service';
+import type { AttachmentStorageService } from '../media/attachment-storage.service';
 import { AttachmentsService } from './attachments.service';
 import type { JwtPayload } from '@auth/auth.types';
 

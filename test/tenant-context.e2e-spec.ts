@@ -31,7 +31,7 @@ import { AttachmentSignatureService } from '@modules/attachments/attachment-sign
 import {
   ATTACHMENT_STORAGE_ROOT,
   AttachmentStorageService,
-} from '@modules/attachments/attachment-storage.service';
+} from '@modules/media/attachment-storage.service';
 import { AttachmentsController } from '@modules/attachments/attachments.controller';
 import { AttachmentsService } from '@modules/attachments/attachments.service';
 import { Channel } from '@modules/channels/entities/channel.entity';

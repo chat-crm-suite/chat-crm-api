@@ -5,9 +5,10 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 
-import { ConversationMessageDto } from '../../dto/conversation-message.dto';
-import { SendConversationMessageDto } from '../../dto/send-conversation-message.dto';
-import { SaveConversationMessageCommand } from '../save-conversation-message.command';
+import {
+  SaveConversationMessageCommand,
+  type SaveMessageJob,
+} from '../save-conversation-message.command';
 
 @CommandHandler(SaveConversationMessageCommand)
 export class SaveConversationMessageHandler
@@ -15,7 +16,7 @@ export class SaveConversationMessageHandler
 {
   constructor(
     @InjectQueue('chat')
-    private readonly queue: Queue<SendConversationMessageDto | ConversationMessageDto>,
+    private readonly queue: Queue<SaveMessageJob>,
   ) {}
 
   execute({ data }: SaveConversationMessageCommand): Promise<unknown> {

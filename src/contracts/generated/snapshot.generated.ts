@@ -368,6 +368,69 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       }
     },
     "channel": {
+      "CHANNEL_CAPABILITIES": {
+        "kind": "value",
+        "value": {
+          "whatsapp": {
+            "captionMaxLength": 1024,
+            "media": {
+              "audio": {
+                "maxBytes": 16777216,
+                "mimeTypes": [
+                  "audio/aac",
+                  "audio/amr",
+                  "audio/mpeg",
+                  "audio/mp4",
+                  "audio/ogg"
+                ]
+              },
+              "document": {
+                "maxBytes": 104857600,
+                "mimeTypes": [
+                  "application/pdf",
+                  "application/msword",
+                  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                  "application/vnd.ms-excel",
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                  "application/vnd.ms-powerpoint",
+                  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                  "text/plain",
+                  "text/csv"
+                ]
+              },
+              "image": {
+                "maxBytes": 5242880,
+                "mimeTypes": [
+                  "image/jpeg",
+                  "image/png"
+                ]
+              },
+              "sticker": {
+                "maxBytes": 512000,
+                "mimeTypes": [
+                  "image/webp"
+                ]
+              },
+              "video": {
+                "maxBytes": 16777216,
+                "mimeTypes": [
+                  "video/mp4",
+                  "video/3gpp"
+                ]
+              }
+            },
+            "replyWindowMs": 86400000,
+            "sticker": {
+              "height": 512,
+              "maxAnimatedBytes": 512000,
+              "maxStaticBytes": 102400,
+              "width": 512
+            },
+            "textMaxLength": 4096,
+            "voiceMimeType": "audio/ogg"
+          }
+        }
+      },
       "CHANNEL_STATUSES": {
         "kind": "value",
         "value": [
@@ -575,6 +638,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       "DEFAULT_WHATSAPP_API_VERSION": {
         "kind": "value",
         "value": "v22.0"
+      },
+      "MAX_UPLOAD_BYTES": {
+        "kind": "value",
+        "value": 104857600
       },
       "UpdateChannelSchema": {
         "jsonSchema": {
@@ -810,6 +877,9 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "type": "object"
         },
         "kind": "schema"
+      },
+      "channelCapabilities": {
+        "kind": "factory"
       }
     },
     "company": {
@@ -1019,6 +1089,18 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
+            "channelType": {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            },
             "createdAt": {},
             "customer": {
               "additionalProperties": false,
@@ -1101,6 +1183,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             }
           },
           "required": [
+            "channelType",
             "createdAt",
             "customer",
             "id",
@@ -1297,47 +1380,6 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
-      "MessageContentSchema": {
-        "jsonSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "anyOf": [
-            {
-              "additionalProperties": false,
-              "properties": {
-                "body": {
-                  "type": "string"
-                },
-                "preview_url": {
-                  "type": "boolean"
-                }
-              },
-              "required": [
-                "body"
-              ],
-              "type": "object"
-            },
-            {
-              "additionalProperties": false,
-              "properties": {
-                "caption": {
-                  "type": "string"
-                },
-                "filename": {
-                  "type": "string"
-                },
-                "id": {
-                  "type": "string"
-                },
-                "link": {
-                  "type": "string"
-                }
-              },
-              "type": "object"
-            }
-          ]
-        },
-        "kind": "schema"
-      },
       "SendConversationMessageSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1345,168 +1387,189 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "properties": {
             "clientMessageId": {
               "maxLength": 64,
+              "minLength": 1,
               "type": "string"
             },
             "companyId": {
               "type": "string"
             },
             "msg": {
-              "additionalProperties": false,
-              "properties": {
-                "content": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "body": {
-                          "type": "string"
-                        },
-                        "preview_url": {
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "body"
-                      ],
-                      "type": "object"
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "text": {
+                      "maxLength": 4096,
+                      "minLength": 1,
+                      "type": "string"
                     },
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "caption": {
-                          "type": "string"
-                        },
-                        "filename": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "link": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
+                    "type": {
+                      "const": "text",
+                      "type": "string"
                     }
-                  ]
-                },
-                "type": {
-                  "enum": [
+                  },
+                  "required": [
                     "text",
-                    "image",
-                    "audio",
-                    "video",
-                    "document",
-                    "sticker",
-                    "location",
-                    "contact",
-                    "template",
-                    "interactive",
-                    "reaction"
+                    "type"
                   ],
-                  "type": "string"
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "caption": {
+                      "maxLength": 1024,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "type": {
+                      "const": "image",
+                      "type": "string"
+                    },
+                    "uploadId": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "uploadId"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "caption": {
+                      "maxLength": 1024,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "type": {
+                      "const": "video",
+                      "type": "string"
+                    },
+                    "uploadId": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "uploadId"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "const": "audio",
+                      "type": "string"
+                    },
+                    "uploadId": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "voice": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "uploadId",
+                    "voice"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "caption": {
+                      "maxLength": 1024,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "filename": {
+                      "maxLength": 240,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "type": {
+                      "const": "document",
+                      "type": "string"
+                    },
+                    "uploadId": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "filename",
+                    "type",
+                    "uploadId"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "source": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "uploadId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "uploadId"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "attachmentId": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "attachmentId"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "type": {
+                      "const": "sticker",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "type"
+                  ],
+                  "type": "object"
                 }
-              },
-              "required": [
-                "content",
-                "type"
-              ],
-              "type": "object"
+              ]
             },
             "room": {
               "type": "string"
-            },
-            "sender": {
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "type": {
-                  "enum": [
-                    "customer",
-                    "member",
-                    "system",
-                    "bot"
-                  ],
-                  "type": "string"
-                }
-              },
-              "required": [
-                "id",
-                "type"
-              ],
-              "type": "object"
-            },
-            "to": {
-              "type": "string"
             }
           },
           "required": [
+            "clientMessageId",
             "msg",
-            "room",
-            "sender",
-            "to"
-          ],
-          "type": "object"
-        },
-        "kind": "schema"
-      },
-      "WhatsAppDocumentContentSchema": {
-        "jsonSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "additionalProperties": false,
-          "properties": {
-            "caption": {
-              "type": "string"
-            },
-            "filename": {
-              "type": "string"
-            },
-            "id": {
-              "type": "string"
-            },
-            "link": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "kind": "schema"
-      },
-      "WhatsAppMediaContentSchema": {
-        "jsonSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "additionalProperties": false,
-          "properties": {
-            "caption": {
-              "type": "string"
-            },
-            "id": {
-              "type": "string"
-            },
-            "link": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "kind": "schema"
-      },
-      "WhatsAppTextContentSchema": {
-        "jsonSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "additionalProperties": false,
-          "properties": {
-            "body": {
-              "type": "string"
-            },
-            "preview_url": {
-              "type": "boolean"
-            }
-          },
-          "required": [
-            "body"
+            "room"
           ],
           "type": "object"
         },
@@ -2014,6 +2077,568 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "CAPTION_MAX_LENGTH": {
+        "kind": "value",
+        "value": 1024
+      },
+      "ConversationMessageSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "clientMessageId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "conversationId": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "msg": {
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "text": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "const": "text",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "text",
+                    "type"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "caption": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "media": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attachmentId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "durationMs": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "height": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "mimeType": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sizeBytes": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "pending",
+                            "ready",
+                            "failed"
+                          ],
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "width": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "attachmentId",
+                        "durationMs",
+                        "height",
+                        "mimeType",
+                        "sizeBytes",
+                        "status",
+                        "url",
+                        "width"
+                      ],
+                      "type": "object"
+                    },
+                    "type": {
+                      "const": "image",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "caption",
+                    "media",
+                    "type"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "caption": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "media": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attachmentId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "durationMs": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "height": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "mimeType": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sizeBytes": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "pending",
+                            "ready",
+                            "failed"
+                          ],
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "width": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "attachmentId",
+                        "durationMs",
+                        "height",
+                        "mimeType",
+                        "sizeBytes",
+                        "status",
+                        "url",
+                        "width"
+                      ],
+                      "type": "object"
+                    },
+                    "type": {
+                      "const": "video",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "caption",
+                    "media",
+                    "type"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "media": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attachmentId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "durationMs": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "height": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "mimeType": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sizeBytes": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "pending",
+                            "ready",
+                            "failed"
+                          ],
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "width": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "attachmentId",
+                        "durationMs",
+                        "height",
+                        "mimeType",
+                        "sizeBytes",
+                        "status",
+                        "url",
+                        "width"
+                      ],
+                      "type": "object"
+                    },
+                    "type": {
+                      "const": "audio",
+                      "type": "string"
+                    },
+                    "voice": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "media",
+                    "type",
+                    "voice"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "caption": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "filename": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "media": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attachmentId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "durationMs": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "height": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "mimeType": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sizeBytes": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "pending",
+                            "ready",
+                            "failed"
+                          ],
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "width": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "attachmentId",
+                        "durationMs",
+                        "height",
+                        "mimeType",
+                        "sizeBytes",
+                        "status",
+                        "url",
+                        "width"
+                      ],
+                      "type": "object"
+                    },
+                    "type": {
+                      "const": "document",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "caption",
+                    "filename",
+                    "media",
+                    "type"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "media": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attachmentId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "durationMs": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "height": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "mimeType": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sizeBytes": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "pending",
+                            "ready",
+                            "failed"
+                          ],
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "width": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "attachmentId",
+                        "durationMs",
+                        "height",
+                        "mimeType",
+                        "sizeBytes",
+                        "status",
+                        "url",
+                        "width"
+                      ],
+                      "type": "object"
+                    },
+                    "type": {
+                      "const": "sticker",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "media",
+                    "type"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "originalType": {
+                      "enum": [
+                        "text",
+                        "image",
+                        "audio",
+                        "video",
+                        "document",
+                        "sticker",
+                        "location",
+                        "contact",
+                        "template",
+                        "interactive",
+                        "reaction"
+                      ],
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "type": {
+                      "const": "unsupported",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "originalType",
+                    "text",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              ]
+            },
+            "sender": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "customer",
+                    "member",
+                    "system",
+                    "bot"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "type"
+              ],
+              "type": "object"
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "sent",
+                "delivered",
+                "read",
+                "failed"
+              ],
+              "type": "string"
+            },
+            "timestamp": {}
+          },
+          "required": [
+            "clientMessageId",
+            "conversationId",
+            "id",
+            "msg",
+            "sender",
+            "status",
+            "timestamp"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "FILENAME_MAX_LENGTH": {
+        "kind": "value",
+        "value": 240
+      },
       "MESSAGE_DIRECTIONS": {
         "kind": "value",
         "value": [
@@ -2055,6 +2680,76 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "interactive",
           "reaction"
         ]
+      },
+      "MediaRefSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "attachmentId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "durationMs": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "height": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "mimeType": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "sizeBytes": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "ready",
+                "failed"
+              ],
+              "type": "string"
+            },
+            "url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "width": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "attachmentId",
+            "durationMs",
+            "height",
+            "mimeType",
+            "sizeBytes",
+            "status",
+            "url",
+            "width"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
       },
       "MessageDirectionSchema": {
         "jsonSchema": {
@@ -2113,6 +2808,874 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "type": "string"
         },
         "kind": "schema"
+      },
+      "MessageViewSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "text": {
+                  "type": "string"
+                },
+                "type": {
+                  "const": "text",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "type"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "caption": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "media": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attachmentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "durationMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "mimeType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sizeBytes": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "enum": [
+                        "pending",
+                        "ready",
+                        "failed"
+                      ],
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "attachmentId",
+                    "durationMs",
+                    "height",
+                    "mimeType",
+                    "sizeBytes",
+                    "status",
+                    "url",
+                    "width"
+                  ],
+                  "type": "object"
+                },
+                "type": {
+                  "const": "image",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "caption",
+                "media",
+                "type"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "caption": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "media": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attachmentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "durationMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "mimeType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sizeBytes": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "enum": [
+                        "pending",
+                        "ready",
+                        "failed"
+                      ],
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "attachmentId",
+                    "durationMs",
+                    "height",
+                    "mimeType",
+                    "sizeBytes",
+                    "status",
+                    "url",
+                    "width"
+                  ],
+                  "type": "object"
+                },
+                "type": {
+                  "const": "video",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "caption",
+                "media",
+                "type"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "media": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attachmentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "durationMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "mimeType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sizeBytes": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "enum": [
+                        "pending",
+                        "ready",
+                        "failed"
+                      ],
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "attachmentId",
+                    "durationMs",
+                    "height",
+                    "mimeType",
+                    "sizeBytes",
+                    "status",
+                    "url",
+                    "width"
+                  ],
+                  "type": "object"
+                },
+                "type": {
+                  "const": "audio",
+                  "type": "string"
+                },
+                "voice": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "media",
+                "type",
+                "voice"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "caption": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "filename": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "media": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attachmentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "durationMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "mimeType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sizeBytes": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "enum": [
+                        "pending",
+                        "ready",
+                        "failed"
+                      ],
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "attachmentId",
+                    "durationMs",
+                    "height",
+                    "mimeType",
+                    "sizeBytes",
+                    "status",
+                    "url",
+                    "width"
+                  ],
+                  "type": "object"
+                },
+                "type": {
+                  "const": "document",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "caption",
+                "filename",
+                "media",
+                "type"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "media": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attachmentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "durationMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "mimeType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sizeBytes": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "enum": [
+                        "pending",
+                        "ready",
+                        "failed"
+                      ],
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "attachmentId",
+                    "durationMs",
+                    "height",
+                    "mimeType",
+                    "sizeBytes",
+                    "status",
+                    "url",
+                    "width"
+                  ],
+                  "type": "object"
+                },
+                "type": {
+                  "const": "sticker",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "media",
+                "type"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "originalType": {
+                  "enum": [
+                    "text",
+                    "image",
+                    "audio",
+                    "video",
+                    "document",
+                    "sticker",
+                    "location",
+                    "contact",
+                    "template",
+                    "interactive",
+                    "reaction"
+                  ],
+                  "type": "string"
+                },
+                "text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "type": {
+                  "const": "unsupported",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "originalType",
+                "text",
+                "type"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "kind": "schema"
+      },
+      "OutgoingMessageSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "text": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": {
+                  "const": "text",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "type"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "caption": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": {
+                  "const": "image",
+                  "type": "string"
+                },
+                "uploadId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "uploadId"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "caption": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": {
+                  "const": "video",
+                  "type": "string"
+                },
+                "uploadId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "uploadId"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "type": {
+                  "const": "audio",
+                  "type": "string"
+                },
+                "uploadId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                },
+                "voice": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "type",
+                "uploadId",
+                "voice"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "caption": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "filename": {
+                  "maxLength": 240,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": {
+                  "const": "document",
+                  "type": "string"
+                },
+                "uploadId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "filename",
+                "type",
+                "uploadId"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "source": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "uploadId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "uploadId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attachmentId": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "attachmentId"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": {
+                  "const": "sticker",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "type"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "kind": "schema"
+      },
+      "SEND_MESSAGE_ERROR_CODES": {
+        "kind": "value",
+        "value": [
+          "validation",
+          "forbidden",
+          "not_found",
+          "internal"
+        ]
+      },
+      "SendMessageAckSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "ok": {
+                  "const": true,
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "ok"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "enum": [
+                    "validation",
+                    "forbidden",
+                    "not_found",
+                    "internal"
+                  ],
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "ok": {
+                  "const": false,
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "ok"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "kind": "schema"
+      },
+      "SendMessageErrorCodeSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "validation",
+            "forbidden",
+            "not_found",
+            "internal"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "StageUploadSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "durationMs": {
+              "exclusiveMinimum": 0,
+              "maximum": 86400000,
+              "type": "integer"
+            },
+            "kind": {
+              "enum": [
+                "image",
+                "audio",
+                "video",
+                "document",
+                "sticker"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "StagedUploadSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "durationMs": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "expiresAt": {},
+            "filename": {
+              "type": "string"
+            },
+            "height": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "kind": {
+              "enum": [
+                "image",
+                "audio",
+                "video",
+                "document",
+                "sticker"
+              ],
+              "type": "string"
+            },
+            "mimeType": {
+              "type": "string"
+            },
+            "sizeBytes": {
+              "type": "number"
+            },
+            "uploadId": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            },
+            "width": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "durationMs",
+            "expiresAt",
+            "filename",
+            "height",
+            "kind",
+            "mimeType",
+            "sizeBytes",
+            "uploadId",
+            "width"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "StickerSourceSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "uploadId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uploadId"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "attachmentId": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "attachmentId"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "kind": "schema"
+      },
+      "TEXT_MAX_LENGTH": {
+        "kind": "value",
+        "value": 4096
       }
     },
     "metrics": {
@@ -3006,4 +4569,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "005b6d2ad164ca5720b5285e649875fa355511e62759bb212be9e309a1720a1b";
+export const CONTRACTS_SNAPSHOT_HASH = "1bde61ebba22afaa2d9b79ffa6f6a074fc8fe4274571d6aac6f727fed5c90f99";

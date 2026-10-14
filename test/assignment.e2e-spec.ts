@@ -57,6 +57,7 @@ describe('ConversationAssignmentService (e2e)', () => {
     service = new ConversationAssignmentService(dataSource, logger);
 
     const gateway = {
+      revokeConversationAccess: () => Promise.resolve(),
       server: {
         to: (room: string) => ({
           emit: (event: string, payload: unknown) => {

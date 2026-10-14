@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 import { SaveConversationMessageCommand } from '@modules/conversations/commands/save-conversation-message.command';
-import type { ConversationMessageDto } from '@modules/conversations/dto/conversation-message.dto';
+import type { SaveMessageJob } from '@modules/conversations/commands/save-conversation-message.command';
 import type { ChannelTransmission } from '@modules/channels/channels.service';
 import { InboundMessageRouter } from './inbound-message.router';
 
@@ -57,7 +57,7 @@ function build() {
 
 const savedPayload = (
   execute: jest.Mock<Promise<unknown>, [unknown]>,
-): ConversationMessageDto | undefined => {
+): SaveMessageJob | undefined => {
   const command = execute.mock.calls[0]?.[0];
 
   return command instanceof SaveConversationMessageCommand

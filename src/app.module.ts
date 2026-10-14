@@ -17,9 +17,6 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CoreModules } from '@modules';
 import { IntegrationsModules } from './integrations/index';
-import { ServeStaticModule } from '@nestjs/serve-static';
-
-import { join } from 'path';
 
 @Module({
   imports: [
@@ -28,10 +25,6 @@ import { join } from 'path';
     AuthModule,
     CoreModules,
     IntegrationsModules,
-    ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'uploads'),
-      serveRoot: '/uploads',
-    }),
   ],
   controllers: [AppController],
   providers: [AppService,

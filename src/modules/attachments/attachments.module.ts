@@ -4,9 +4,9 @@
 import { Module } from '@nestjs/common';
 
 import { ConversationsModule } from '../conversations/conversations.module';
+import { MediaModule } from '../media/media.module';
 import { MessageModule } from '../message/message.module';
 import { AttachmentSignatureService } from './attachment-signature.service';
-import { AttachmentStorageService } from './attachment-storage.service';
 import { AttachmentsController } from './attachments.controller';
 import { AttachmentsService } from './attachments.service';
 
@@ -16,11 +16,10 @@ import { AttachmentsService } from './attachments.service';
  * and on the message module for the attachment lookup.
  */
 @Module({
-  imports: [ConversationsModule, MessageModule],
+  imports: [ConversationsModule, MessageModule, MediaModule],
   controllers: [AttachmentsController],
   providers: [
     AttachmentsService,
-    AttachmentStorageService,
     AttachmentSignatureService,
   ],
   exports: [AttachmentsService, AttachmentSignatureService],

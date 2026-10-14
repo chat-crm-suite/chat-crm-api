@@ -35,6 +35,12 @@ import { Conversation } from './entities/conversation.entity';
 import { ConversationGateway } from './gateways/conversation.gateway';
 import { ConversationAccessService } from './realtime/conversation-access.service';
 import { ConversationFanoutService } from './realtime/conversation-fanout.service';
+import { ConversationSendContextService } from './send-context/conversation-send-context.service';
+import { AgentMessageSender } from './outbound/agent-message-sender.service';
+import { OutgoingMediaService } from './outbound/outgoing-media.service';
+import { ChannelsModule } from '../channels/channels.module';
+import { MediaModule } from '../media/media.module';
+import { ConversationUploadsService } from './uploads/conversation-uploads.service';
 import { UserSessionsRevokedHandler } from './realtime/user-sessions-revoked.handler';
 
 const commandHandlers = [
@@ -56,13 +62,23 @@ const commandHandlers = [
       ConversationAssignment,
       CompanyMember,
     ]),
-    BullModule.registerQueue({ name: 'chat' }),
+    BullModule.registerQueue({
+      name: 'chat',
+      // Sends and saves are persisted as rows: finished jobs are only kept
+      // for a recent look in Redis, never forever.
+      defaultJobOptions: {
+        removeOnComplete: { count: 1000 },
+        removeOnFail: { age: 7 * 24 * 60 * 60 },
+      },
+    }),
     // Same secret as the HTTP auth layer: the socket verifies the existing
     // `access_token` cookie during the handshake.
     JwtModule.register({
       secret: getJwtSecret(),
     }),
     MessageModule,
+    ChannelsModule,
+    MediaModule,
     NotificationsModule,
     CustomersModule,
     SentimentModule,
@@ -74,6 +90,10 @@ const commandHandlers = [
     ConversationGateway,
     ConversationAccessService,
     ConversationFanoutService,
+    ConversationSendContextService,
+    AgentMessageSender,
+    OutgoingMediaService,
+    ConversationUploadsService,
     ConversationAssignmentService,
     ConversationAssignmentNotifier,
     ConversationProcessor,
@@ -88,6 +108,7 @@ const commandHandlers = [
     ConversationGateway,
     ConversationFanoutService,
     ConversationAccessService,
+    ConversationSendContextService,
   ],
 })
 export class ConversationsModule {}

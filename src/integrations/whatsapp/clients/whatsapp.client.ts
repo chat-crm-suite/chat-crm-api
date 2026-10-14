@@ -6,7 +6,7 @@ import { Injectable } from '@nestjs/common';
 import { firstValueFrom, map } from 'rxjs';
 import { AxiosError } from 'axios';
 import { PinoLogger } from 'nestjs-pino';
-import { createWriteStream, mkdirSync, statSync } from 'node:fs';
+import { createWriteStream, mkdirSync, openAsBlob, statSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Transform } from 'node:stream';
@@ -25,6 +25,8 @@ const RETRY_BASE_DELAY_MS = 500;
 const RETRY_MAX_DELAY_MS = 5_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_MEDIA_BYTES = 16 * 1024 * 1024;
+/** Large documents (up to 100 MB) need more time than a JSON send. */
+const MEDIA_UPLOAD_TIMEOUT_MS = 120_000;
 
 export interface WhatsAppSendResponse {
   messaging_product?: 'whatsapp';
@@ -37,6 +39,13 @@ interface WhatsAppMediaMetadata {
   url: string;
   mime_type: string;
   file_size?: number;
+}
+
+/** A local file to hand to Graph. */
+export interface UploadableMedia {
+  absolutePath: string;
+  mimeType: string;
+  filename: string;
 }
 
 export interface DownloadedMedia {
@@ -110,6 +119,47 @@ export class WhatsAppClient {
           .pipe(map((res) => res.data)),
       ),
     );
+  }
+
+  /**
+   * Uploads a stored file to Graph (`/{phone-number-id}/media`) and returns
+   * the media id outbound messages reference, so no public link is ever
+   * needed. The body streams from disk (`openAsBlob`) instead of buffering
+   * the file; transport faults retry with backoff.
+   */
+  async uploadMedia(
+    transmission: ChannelTransmission,
+    file: UploadableMedia,
+  ): Promise<string> {
+    const { channel, credentials } = transmission;
+    const url = `${graphBaseUrl(channel)}/${channel.externalAccountId}/media`;
+
+    const response = await this.withRetry(async () => {
+      const form = new FormData();
+      form.append('messaging_product', 'whatsapp');
+      form.append('type', file.mimeType);
+      form.append(
+        'file',
+        await openAsBlob(file.absolutePath, { type: file.mimeType }),
+        file.filename,
+      );
+
+      return firstValueFrom(
+        this.http
+          .post<{ id?: string }>(url, form, {
+            headers: authHeaders(credentials),
+            timeout: MEDIA_UPLOAD_TIMEOUT_MS,
+            maxBodyLength: Infinity,
+          })
+          .pipe(map((res) => res.data)),
+      );
+    });
+
+    if (!response?.id) {
+      throw new Error('WhatsApp media upload answered without an id');
+    }
+
+    return response.id;
   }
 
   /**

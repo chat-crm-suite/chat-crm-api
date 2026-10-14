@@ -57,13 +57,21 @@ describe('ConversationGateway', () => {
       headers?: Record<string, string>;
       auth?: Record<string, unknown>;
       user?: JwtPayload;
+      /** Conversations granted at join: conversationId -> companyId. */
+      joined?: Record<string, string>;
     } = {},
   ) => ({
     handshake: {
       auth: overrides.auth ?? {},
       headers: overrides.headers ?? {},
     },
-    data: overrides.user ? { user: overrides.user } : {},
+    data: {
+      ...(overrides.user ? { user: overrides.user } : {}),
+      ...(overrides.joined ? { conversations: overrides.joined } : {}),
+    },
+    rooms: new Set(
+      Object.keys(overrides.joined ?? {}).map((id) => `conversation:${id}`),
+    ),
     join: jest.fn(),
     emit: jest.fn(),
     disconnect: jest.fn(),
@@ -143,6 +151,7 @@ describe('ConversationGateway', () => {
         authenticated: true,
       });
       expect(client.join).toHaveBeenCalledWith('conversation:conv-1');
+      expect(client.data.conversations).toEqual({ 'conv-1': 'co-2' });
       expect(client.emit).toHaveBeenCalledWith(ConversationSocketEvent.Joined, {
         room: 'conv-1',
       });
@@ -208,23 +217,21 @@ describe('ConversationGateway', () => {
       ({
         room: 'conv-1',
         companyId: 'co-1',
-        to: '51999999999',
+        clientMessageId: 'client-1',
+        // A client-supplied sender is ignored: the socket's member sends.
         sender: { id: 'someone-else', type: 'customer' },
-        msg: { type: 'text', content: { body: 'Hola' } },
+        msg: { type: 'text', text: 'Hola' },
         ...overrides,
       }) as SendConversationMessageDto;
 
-    it('sends as the socket own member, ignoring a client-supplied sender', async () => {
+    const joined = () => socket({ user: claims, joined: { 'conv-1': 'co-1' } });
+
+    it('sends as the socket own member without re-querying access', async () => {
       const { gateway, access, commandBus } = build();
-      access.assertCanJoinConversation.mockResolvedValue({ room: 'conversation:conv-1' });
 
-      await gateway.handleSendMessage(socket({ user: claims }) as never, payload());
+      await gateway.handleSendMessage(joined() as never, payload());
 
-      expect(access.assertCanJoinConversation).toHaveBeenCalledWith('conv-1', {
-        userId: 'user-1',
-        companyId: 'co-1',
-        authenticated: true,
-      });
+      expect(access.assertCanJoinConversation).not.toHaveBeenCalled();
       const [[command]] = commandBus.execute.mock.calls as [[SendConversationMessageCommand]];
       expect(command).toBeInstanceOf(SendConversationMessageCommand);
       expect(command.data).toMatchObject({
@@ -234,29 +241,71 @@ describe('ConversationGateway', () => {
       });
     });
 
-    it('refuses to send into another company', async () => {
-      const { gateway, access, commandBus } = build();
+    it('uses the company granted at join when the payload omits it', async () => {
+      const { gateway, commandBus } = build();
 
-      await expect(
-        gateway.handleSendMessage(
-          socket({ user: claims }) as never,
-          payload({ companyId: 'co-9' }),
-        ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(access.assertCanJoinConversation).not.toHaveBeenCalled();
-      expect(commandBus.execute).not.toHaveBeenCalled();
+      await gateway.handleSendMessage(
+        joined() as never,
+        payload({ companyId: undefined }),
+      );
+
+      const [[command]] = commandBus.execute.mock.calls as [[SendConversationMessageCommand]];
+      expect(command.data).toMatchObject({ companyId: 'co-1' });
     });
 
-    it('refuses to send into a conversation the member may not access', async () => {
-      const { gateway, access, commandBus } = build();
-      access.assertCanJoinConversation.mockRejectedValue(
-        new ForbiddenException('Conversation access denied'),
-      );
+    it('refuses a conversation the socket never joined', async () => {
+      const { gateway, commandBus } = build();
 
       await expect(
         gateway.handleSendMessage(socket({ user: claims }) as never, payload()),
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(commandBus.execute).not.toHaveBeenCalled();
+    });
+
+    it('refuses once the socket left the room (access revoked)', async () => {
+      const { gateway, commandBus } = build();
+      const client = joined();
+      client.rooms.clear();
+
+      await expect(
+        gateway.handleSendMessage(client as never, payload()),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(commandBus.execute).not.toHaveBeenCalled();
+    });
+
+    it('refuses a payload naming another company than the grant', async () => {
+      const { gateway, commandBus } = build();
+
+      await expect(
+        gateway.handleSendMessage(joined() as never, payload({ companyId: 'co-2' })),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(commandBus.execute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('revokeConversationAccess', () => {
+    const remote = (memberships: JwtPayload['memberships']) => ({
+      data: { user: { ...claims, memberships } },
+      leave: jest.fn(),
+    });
+
+    it('removes agents other than the new owner and keeps admins', async () => {
+      const { gateway } = build();
+      const owner = remote([{ cid: 'co-1', mid: 'member-1', role: 'agent' }]);
+      const otherAgent = remote([{ cid: 'co-1', mid: 'member-9', role: 'agent' }]);
+      const supervisor = remote([{ cid: 'co-1', mid: 'member-5', role: 'supervisor' }]);
+      const fetchSockets = jest
+        .fn()
+        .mockResolvedValue([owner, otherAgent, supervisor]);
+      const inRoom = jest.fn().mockReturnValue({ fetchSockets });
+      gateway.server = { in: inRoom } as never;
+
+      await gateway.revokeConversationAccess('conv-1', 'co-1', 'member-1');
+
+      expect(inRoom).toHaveBeenCalledWith('conversation:conv-1');
+      expect(owner.leave).not.toHaveBeenCalled();
+      expect(supervisor.leave).not.toHaveBeenCalled();
+      expect(otherAgent.leave).toHaveBeenCalledWith('conversation:conv-1');
     });
   });
 

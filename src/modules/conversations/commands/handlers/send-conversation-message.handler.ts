@@ -6,24 +6,29 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PinoLogger } from 'nestjs-pino';
 
-import { SendConversationMessageDto } from '../../dto/send-conversation-message.dto';
-import { SendConversationMessageCommand } from '../send-conversation-message.command';
+import {
+  type AgentSendJob,
+  SendConversationMessageCommand,
+} from '../send-conversation-message.command';
 
 @CommandHandler(SendConversationMessageCommand)
 export class SendConversationMessageHandler
   implements ICommandHandler<SendConversationMessageCommand>
 {
   constructor(
-    @InjectQueue('chat') private readonly queue: Queue<SendConversationMessageDto>,
+    @InjectQueue('chat') private readonly queue: Queue<AgentSendJob>,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(SendConversationMessageHandler.name);
   }
 
-  execute(command: SendConversationMessageCommand): Promise<{ conversationId: string }> {
+  /** Resolves once the job is stored in Redis: the send can no longer be lost. */
+  async execute(
+    command: SendConversationMessageCommand,
+  ): Promise<{ conversationId: string }> {
     this.logger.debug('Execute Queue: chat');
-    void this.queue.add('send-message', command.data);
+    await this.queue.add('send-message', command.data);
 
-    return Promise.resolve({ conversationId: command.data.room });
+    return { conversationId: command.data.room };
   }
 }

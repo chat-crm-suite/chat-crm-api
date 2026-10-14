@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { ConversationSocketEvent } from '@contracts';
-import type { ConversationMessagePayload } from '../../message/message.types';
+import { ConversationSocketEvent, type ConversationMessage } from '@contracts';
 import type { ConversationAccessService } from './conversation-access.service';
 import { ConversationFanoutService } from './conversation-fanout.service';
 import type { ConversationGateway } from '../gateways/conversation.gateway';
@@ -28,13 +27,14 @@ describe('ConversationFanoutService (T6)', () => {
     logger as never,
   );
 
-  const payload: ConversationMessagePayload = {
+  const payload: ConversationMessage = {
     id: 'msg-1',
     conversationId: 'conv-1',
+    clientMessageId: null,
     timestamp: new Date('2026-10-05T12:00:00.000Z'),
     status: 'delivered',
     sender: { id: 'cust-1', type: 'customer' },
-    msg: { type: 'text', content: { body: 'hola' } },
+    msg: { type: 'text', text: 'hola' },
   };
 
   beforeEach(() => jest.clearAllMocks());

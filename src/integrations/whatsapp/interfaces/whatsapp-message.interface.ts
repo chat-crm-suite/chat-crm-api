@@ -2,31 +2,14 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 /**
- * @link https://developers.facebook.com/documentation/business-messaging/whatsapp/messages/text-messages#request-syntax
+ * WhatsApp Cloud API `POST /{phone-number-id}/messages` request bodies.
+ * @link https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
  */
-export interface WhatsAppTextMessage extends WhatsAppPayloadBase {
-  type: 'text';
-  text: WhatsAppTextContent;
-}
-
-/**
- * @link https://developers.facebook.com/documentation/business-messaging/whatsapp/messages/image-messages#request-syntax
- */
-export interface WhatsAppImageMessage extends WhatsAppPayloadBase {
-  type: 'image';
-  image: WhatsAppMediaContent;
-}
-
-/**
- * @link https://developers.facebook.com/documentation/business-messaging/whatsapp/messages/document-messages/#request-syntax
- */
-export interface WhatsAppDocumentMessage extends WhatsAppPayloadBase {
-  type: 'document';
-  document?: WhatsAppDocumentContent;
-}
-
-export interface WhatsAppRecipient {
-  to: string; // number format E.164: +51999999999
+export interface WhatsAppPayloadBase {
+  messaging_product: 'whatsapp';
+  recipient_type: 'individual';
+  /** `wa_id` or E.164 phone of the customer. */
+  to: string;
 }
 
 export interface WhatsAppTextContent {
@@ -34,38 +17,54 @@ export interface WhatsAppTextContent {
   preview_url?: boolean;
 }
 
+/** Media is referenced by the id Graph returned for an upload (or a link). */
 export interface WhatsAppMediaContent {
-  link?: string;       // URL public from hosted media
-  id?: string;         // ID uploaded media for meta
-  caption?: string;    // Media caption text
+  id?: string;
+  link?: string;
+  caption?: string;
 }
 
 export interface WhatsAppDocumentContent extends WhatsAppMediaContent {
   filename?: string;
 }
 
-/**
- * Respuesta de la API de WhatsApp Business
- */
-export interface WhatsAppApiResponse {
-  messaging_product: string;
-  contacts: Array<{ input: string; wa_id: string }>;
-  messages: Array<{ id: string }>;
+export interface WhatsAppTextMessage extends WhatsAppPayloadBase {
+  type: 'text';
+  text: WhatsAppTextContent;
 }
 
-/**
- * Base payload
- */
-export interface WhatsAppPayloadBase {
-  messaging_product: 'whatsapp';
-  recipient_type: 'individual';
-  to: string;
-  type: WhatsAppMessageType
+export interface WhatsAppImageMessage extends WhatsAppPayloadBase {
+  type: 'image';
+  image: WhatsAppMediaContent;
 }
 
-export type WhatsAppMessageContent = WhatsAppTextContent
-  | WhatsAppDocumentContent
-  | WhatsAppMediaContent;
+export interface WhatsAppVideoMessage extends WhatsAppPayloadBase {
+  type: 'video';
+  video: WhatsAppMediaContent;
+}
 
-export type WhatsAppPayload = WhatsAppTextMessage | WhatsAppImageMessage | WhatsAppDocumentMessage;
-export type WhatsAppMessageType = 'text' | 'image' | 'document';
+/** Audio takes no caption; an `audio/ogg` (opus) file renders as a voice note. */
+export interface WhatsAppAudioMessage extends WhatsAppPayloadBase {
+  type: 'audio';
+  audio: Pick<WhatsAppMediaContent, 'id' | 'link'>;
+}
+
+export interface WhatsAppDocumentMessage extends WhatsAppPayloadBase {
+  type: 'document';
+  document: WhatsAppDocumentContent;
+}
+
+export interface WhatsAppStickerMessage extends WhatsAppPayloadBase {
+  type: 'sticker';
+  sticker: Pick<WhatsAppMediaContent, 'id' | 'link'>;
+}
+
+export type WhatsAppPayload =
+  | WhatsAppTextMessage
+  | WhatsAppImageMessage
+  | WhatsAppVideoMessage
+  | WhatsAppAudioMessage
+  | WhatsAppDocumentMessage
+  | WhatsAppStickerMessage;
+
+export type WhatsAppMessageType = WhatsAppPayload['type'];

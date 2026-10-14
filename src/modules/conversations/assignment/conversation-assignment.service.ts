@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
-import { DataSource, EntityManager, IsNull } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull } from 'typeorm';
 
 import type { AssignmentReason, ChannelType, MessageType } from '@contracts';
 import { CompanySettings } from '../../company/entities/company-settings.entity';
@@ -208,6 +208,110 @@ export class ConversationAssignmentService {
     });
   }
 
+  /**
+   * A member left the company: every conversation still open that they own
+   * goes back to the queue. Closes the active assignment rows, clears
+   * `conversations.assigned_member_id` and leaves a zero-length history row
+   * with reason `release` (the reason of an assignment says how it began, so
+   * the original row keeps its own: analytics reads `transfer` from it).
+   *
+   * Pass the caller's `EntityManager` to join its transaction, or a company
+   * id to run in a transaction of its own. Returns the number released; the
+   * caller re-runs auto-assign / notifies after its commit
+   * (`releaseConversations` gives the ids for that).
+   */
+  async releaseAllForMember(
+    managerOrCompanyId: EntityManager | string,
+    memberId: string,
+  ): Promise<number> {
+    return (await this.releaseConversations(managerOrCompanyId, memberId)).length;
+  }
+
+  /** Same as `releaseAllForMember`, returning the ids of the released conversations. */
+  async releaseConversations(
+    managerOrCompanyId: EntityManager | string,
+    memberId: string,
+  ): Promise<string[]> {
+    if (typeof managerOrCompanyId === 'string') {
+      const companyId = managerOrCompanyId;
+      return this.dataSource.transaction((manager) =>
+        this.releaseWithin(manager, memberId, companyId),
+      );
+    }
+
+    return this.releaseWithin(managerOrCompanyId, memberId);
+  }
+
+  private async releaseWithin(
+    manager: EntityManager,
+    memberId: string,
+    companyId?: string,
+  ): Promise<string[]> {
+    const query = manager
+      .getRepository(ConversationAssignment)
+      .createQueryBuilder('ca')
+      .innerJoin('ca.conversation', 'conversation')
+      .select('ca.id', 'assignmentId')
+      .addSelect('ca.conversation_id', 'conversationId')
+      .where('ca.member_id = :memberId', { memberId })
+      .andWhere('ca.unassigned_at IS NULL')
+      .andWhere('conversation.status NOT IN (:...inactive)', {
+        inactive: ['closed', 'archived'],
+      });
+    if (companyId) {
+      query.andWhere('conversation.company_id = :companyId', { companyId });
+    }
+
+    const rows = await query.getRawMany<{
+      assignmentId: string;
+      conversationId: string;
+    }>();
+    const conversationIds = new Set(rows.map((row) => row.conversationId));
+
+    // The denormalized owner can outlive its assignment row: release those too.
+    const denormalized = manager
+      .getRepository(Conversation)
+      .createQueryBuilder('conversation')
+      .select('conversation.id', 'id')
+      .where('conversation.assigned_member_id = :memberId', { memberId })
+      .andWhere('conversation.status NOT IN (:...inactive)', {
+        inactive: ['closed', 'archived'],
+      });
+    if (companyId) {
+      denormalized.andWhere('conversation.company_id = :companyId', { companyId });
+    }
+    for (const { id } of await denormalized.getRawMany<{ id: string }>()) {
+      conversationIds.add(id);
+    }
+    if (!conversationIds.size) return [];
+
+    const now = new Date();
+    const history = manager.getRepository(ConversationAssignment);
+    if (rows.length) {
+      await history.update(
+        { id: In(rows.map((row) => row.assignmentId)) },
+        { unassignedAt: now },
+      );
+    }
+    await manager
+      .getRepository(Conversation)
+      .update({ id: In([...conversationIds]) }, { assignedMemberId: null });
+    await history.save(
+      [...conversationIds].map((conversationId) =>
+        history.create({
+          conversationId,
+          memberId,
+          reason: 'release',
+          assignedAt: now,
+          unassignedAt: now,
+          assignedByMemberId: null,
+        }),
+      ),
+    );
+
+    return [...conversationIds];
+  }
+
   /** Asignación activa de la conversación con su member (y usuario), o null. */
   getActiveAssignment(conversationId: string) {
     return this.dataSource.getRepository(ConversationAssignment).findOne({
@@ -224,8 +328,11 @@ export class ConversationAssignmentService {
     const conversations = await this.dataSource
       .getRepository(Conversation)
       .createQueryBuilder('conversation')
-      .innerJoinAndSelect('conversation.customer', 'customer')
       .innerJoinAndSelect('conversation.channel', 'channel')
+      // Joins below keep soft-deleted rows: a deleted customer must not make
+      // its conversation vanish (the query still filters `conversation.deleted_at`).
+      .withDeleted()
+      .innerJoinAndSelect('conversation.customer', 'customer')
       .leftJoinAndSelect('conversation.lastMessage', 'lastMessage')
       .where('conversation.company_id = :companyId', { companyId })
       .andWhere('conversation.status IN (:...statuses)', {
@@ -275,8 +382,11 @@ export class ConversationAssignmentService {
     const rows = await this.dataSource
       .getRepository(Conversation)
       .createQueryBuilder('conversation')
-      .innerJoin('conversation.customer', 'customer')
       .innerJoin('conversation.channel', 'channel')
+      // Joins below keep soft-deleted rows (a deleted customer keeps its
+      // conversation visible); `conversation.deleted_at` is filtered explicitly.
+      .withDeleted()
+      .innerJoin('conversation.customer', 'customer')
       .innerJoin('conversation.lastMessage', 'lastMessage')
       .leftJoin(
         ConversationAssignment,

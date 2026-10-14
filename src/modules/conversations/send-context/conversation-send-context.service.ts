@@ -73,6 +73,9 @@ export class ConversationSendContextService {
     const row = await this.conversations
       .createQueryBuilder('conversation')
       .innerJoin('conversation.channel', 'channel')
+      // Replying keeps working when the customer was soft-deleted (the query
+      // still filters `conversation.deleted_at`).
+      .withDeleted()
       .innerJoin('conversation.customer', 'customer')
       .leftJoin(
         CustomerIdentity,

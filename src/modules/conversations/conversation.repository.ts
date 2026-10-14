@@ -62,8 +62,11 @@ export class ConversationRepository {
     const conversations = await this.dataSource
       .getRepository(Conversation)
       .createQueryBuilder('conversation')
-      .innerJoinAndSelect('conversation.customer', 'customer')
       .innerJoinAndSelect('conversation.channel', 'channel')
+      // Joins below keep soft-deleted rows: a deleted customer must not make
+      // its conversation vanish (the query still filters `conversation.deleted_at`).
+      .withDeleted()
+      .innerJoinAndSelect('conversation.customer', 'customer')
       .innerJoin(
         ConversationAssignment,
         'ca',

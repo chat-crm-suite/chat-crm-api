@@ -12,6 +12,7 @@ import { MessageService } from '@modules/message/message.service';
 import { ConversationsService } from '@modules/conversations/conversations.service';
 import { MessageSavedEvent } from '@modules/conversations/events/message-saved.event';
 import { ConversationFanoutService } from '@modules/conversations/realtime/conversation-fanout.service';
+import { ConversationSendContextService } from '@modules/conversations/send-context/conversation-send-context.service';
 import { SendConversationMessageDto } from '@modules/conversations/dto/send-conversation-message.dto';
 import type { WhatsAppPayload } from '../interfaces/whatsapp-message.interface';
 import type { WhatsAppErrorInfo } from '../clients/whatsapp.client';
@@ -35,6 +36,7 @@ export class AgentMessageSender {
     private readonly messages: MessageService,
     private readonly whatsapp: WhatsAppService,
     private readonly fanout: ConversationFanoutService,
+    private readonly sendContext: ConversationSendContextService,
     private readonly eventBus: EventBus,
     private readonly logger: PinoLogger,
   ) {
@@ -113,10 +115,25 @@ export class AgentMessageSender {
       );
     }
 
+    // The destination comes from the conversation, never from the client.
+    const context = await this.sendContext.get(data.room);
+    if (!context?.recipient) {
+      return this.failSend(
+        message,
+        {
+          authFault: false,
+          retryable: false,
+          message: 'Customer has no address on the conversation channel',
+        },
+        data.msg.type,
+      );
+    }
+    const recipient = toE164(context.recipient);
+
     let payload: WhatsAppPayload;
     try {
       payload = getMessageStrategy(data.msg.type).toWhatsAppPayload(
-        data.to,
+        recipient,
         data.msg.content,
       );
     } catch (error: unknown) {
@@ -130,14 +147,17 @@ export class AgentMessageSender {
           message: error instanceof Error ? error.message : String(error),
         },
         data.msg.type,
-        data.to,
+        recipient,
       );
     }
 
-    const outcome = await this.whatsapp.deliverMessage(payload, data.companyId);
+    const outcome = await this.whatsapp.deliverMessage(
+      payload,
+      context.companyId,
+    );
 
     if (!outcome.ok) {
-      return this.failSend(message, outcome.error, data.msg.type, data.to);
+      return this.failSend(message, outcome.error, data.msg.type, recipient);
     }
 
     const wamid = outcome.response?.messages?.[0]?.id;
@@ -150,7 +170,7 @@ export class AgentMessageSender {
           message: 'WhatsApp send answered without a wamid',
         },
         data.msg.type,
-        data.to,
+        recipient,
       );
     }
 
@@ -191,4 +211,9 @@ export class AgentMessageSender {
 
     return failed ?? message;
   }
+}
+
+/** `wa_id` digits as the `+E.164` address the payload builders expect. */
+function toE164(recipient: string): string {
+  return recipient.startsWith('+') ? recipient : `+${recipient}`;
 }

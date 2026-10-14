@@ -35,6 +35,7 @@ import { Conversation } from './entities/conversation.entity';
 import { ConversationGateway } from './gateways/conversation.gateway';
 import { ConversationAccessService } from './realtime/conversation-access.service';
 import { ConversationFanoutService } from './realtime/conversation-fanout.service';
+import { ConversationSendContextService } from './send-context/conversation-send-context.service';
 import { UserSessionsRevokedHandler } from './realtime/user-sessions-revoked.handler';
 
 const commandHandlers = [
@@ -74,6 +75,7 @@ const commandHandlers = [
     ConversationGateway,
     ConversationAccessService,
     ConversationFanoutService,
+    ConversationSendContextService,
     ConversationAssignmentService,
     ConversationAssignmentNotifier,
     ConversationProcessor,
@@ -88,6 +90,7 @@ const commandHandlers = [
     ConversationGateway,
     ConversationFanoutService,
     ConversationAccessService,
+    ConversationSendContextService,
   ],
 })
 export class ConversationsModule {}

@@ -39,6 +39,15 @@ function build() {
   };
   const whatsapp = { deliverMessage: jest.fn() };
   const fanout = { emitStatusPatch: jest.fn(), emitError: jest.fn() };
+  const sendContext = {
+    get: jest.fn().mockResolvedValue({
+      conversationId: 'conv-1',
+      companyId: 'co-1',
+      channelId: 'channel-1',
+      channelType: 'whatsapp',
+      recipient: '51999000111',
+    }),
+  };
   const eventBus = { publish: jest.fn() };
   const logger = {
     debug: jest.fn(),
@@ -52,6 +61,7 @@ function build() {
     messages as never,
     whatsapp as never,
     fanout as never,
+    sendContext as never,
     eventBus as never,
     logger as never,
   );
@@ -62,6 +72,7 @@ function build() {
     messages,
     whatsapp,
     fanout,
+    sendContext,
     eventBus,
     logger,
   };
@@ -282,7 +293,8 @@ describe('AgentMessageSender failed retries (#8)', () => {
       expect.objectContaining({
         code: 131047,
         hasAction: true,
-        to: '+15551234567',
+        // The server-resolved recipient, never the client-supplied `to`.
+        to: '+51999000111',
       }),
     );
   });
@@ -316,6 +328,56 @@ describe('AgentMessageSender failed retries (#8)', () => {
       error_data: {
         details: 'Request whatsapp client error for text message',
       },
+    });
+  });
+});
+
+/**
+ * The destination is resolved on the server from the conversation: a client
+ * that names another phone in `to` can never redirect the send.
+ */
+describe('AgentMessageSender recipient', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const created = (conversations: { saveOutbound: jest.Mock }) =>
+    conversations.saveOutbound.mockResolvedValue({
+      message: message(),
+      created: true,
+    });
+
+  it("sends to the conversation customer's identity, not the client `to`", async () => {
+    const { sender, conversations, whatsapp, messages, sendContext } = build();
+    created(conversations);
+    whatsapp.deliverMessage.mockResolvedValue({
+      ok: true,
+      response: { messages: [{ id: 'wamid-1' }] },
+    });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+
+    await sender.send(
+      { ...data, to: '+19990000000' },
+      { attemptsMade: 0 },
+    );
+
+    expect(sendContext.get).toHaveBeenCalledWith('conv-1');
+    expect(whatsapp.deliverMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ to: '+51999000111' }),
+      'co-1',
+    );
+  });
+
+  it('fails the row without calling the provider when there is no recipient', async () => {
+    const { sender, conversations, whatsapp, messages, sendContext } = build();
+    created(conversations);
+    sendContext.get.mockResolvedValue(null);
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    expect(whatsapp.deliverMessage).not.toHaveBeenCalled();
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: null,
+      message: 'Customer has no address on the conversation channel',
     });
   });
 });

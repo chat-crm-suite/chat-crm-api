@@ -169,3 +169,14 @@ export const BulkDeleteCustomersResultSchema = z.object({
 export type BulkDeleteCustomersResult = z.infer<
   typeof BulkDeleteCustomersResultSchema
 >;
+
+/** `GET /customers/stages`: the company pipeline, ordered by `position`. */
+export const PipelineStageSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  position: z.number().int(),
+  color: z.string().nullish(),
+  isWon: z.boolean(),
+  isLost: z.boolean(),
+});
+export type PipelineStage = z.infer<typeof PipelineStageSchema>;

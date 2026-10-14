@@ -9,7 +9,7 @@ import {
   clearSQLiteTables,
   getSQLiteEntities,
   getTestSQLiteConfig,
-} from '../../../test/helpers/test-database.helper';
+} from '@helpers/test-database.helper';
 import { Company } from '../company/entities/company.entity';
 import { User } from '../users/entities/user.entity';
 import { CompanyMember } from './entities/company-member.entity';
@@ -25,9 +25,6 @@ describe('MemberProvisioningService (integration)', () => {
   let dataSource: DataSource;
   const service = new MemberProvisioningService();
   let company: Company;
-
-  const run = <T>(work: Parameters<DataSource['transaction']>[0]) =>
-    dataSource.transaction(work as never) as Promise<T>;
 
   const provision = (input: Partial<Parameters<MemberProvisioningService['provision']>[1]> = {}) =>
     dataSource.transaction((manager) =>
@@ -137,7 +134,7 @@ describe('MemberProvisioningService (integration)', () => {
 
   it('rolls back the account when the membership step fails', async () => {
     await expect(
-      run(async (manager) => {
+      dataSource.transaction(async (manager) => {
         await service.provision(manager, {
           companyId: company.id,
           email: 'ana@acme.test',

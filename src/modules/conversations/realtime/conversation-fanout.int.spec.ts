@@ -68,6 +68,7 @@ describe('Realtime fanout (T6)', () => {
     access = new ConversationAccessService(dataSource, assignment, logger);
 
     const gateway = {
+      revokeConversationAccess: () => Promise.resolve(),
       server: {
         to: (room: string) => ({
           except: (exceptRoom: string) => ({

@@ -43,6 +43,24 @@ describe('logger configuration (T5)', () => {
     return JSON.parse(lines[0]) as Record<string, unknown>;
   };
 
+  describe('secrets', () => {
+    it('never writes session cookies to the log', () => {
+      const line = captureOneLine({ NODE_ENV: 'production' }, (logger) =>
+        logger.info(
+          {
+            req: { headers: { cookie: 'access_token=SECRET; platform_token=SECRET2' } },
+            res: { headers: { 'set-cookie': ['access_token=SECRET'] } },
+          },
+          'request',
+        ),
+      );
+      const text = JSON.stringify(line);
+
+      expect(text).not.toContain('SECRET');
+      expect(text).toContain('[redacted]');
+    });
+  });
+
   describe('format selection', () => {
     it('emits JSON (no pretty transport) in production by default', () => {
       expect(pinoOptions({ NODE_ENV: 'production' }).transport).toBeUndefined();

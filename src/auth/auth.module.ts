@@ -9,6 +9,7 @@ import { PassportModule } from '@nestjs/passport';
 
 import { AuthService } from './auth.service';
 import { CompanyMembersModule } from '../modules/company-members/company-members.module';
+import { AccountController } from './account.controller';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '@modules';
 import { SetupModule } from '../modules/setup/setup.module';
@@ -40,6 +41,6 @@ import { AuthSessionModule } from './session/auth-session.module';
     { provide: APP_GUARD, useClass: TenantGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, AccountController],
 })
 export class AuthModule {}

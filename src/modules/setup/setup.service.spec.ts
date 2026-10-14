@@ -193,6 +193,15 @@ describe('SetupService', () => {
       });
     });
 
+    it('still counts a soft-deleted company, so the console cannot reopen the setup', async () => {
+      mockStatusCounts(1, 1, 1, 1);
+      const service = await build();
+
+      await service.status();
+
+      expect(companiesRepo.count).toHaveBeenCalledWith({ withDeleted: true });
+    });
+
     it('counts only active whatsapp channels as configured', async () => {
       mockStatusCounts(1, 1, 1, 1);
       const service = await build();

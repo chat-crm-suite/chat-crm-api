@@ -12,6 +12,7 @@ import {
   type BudgetThreshold,
   type ChannelRate as ChannelRateDto,
   type ChannelType,
+  NotificationTypeSchema,
   type SpendSummary,
 } from '../../contracts/index';
 import { isDuplicateKeyError } from '../../lib/helpers/query-error.helper';
@@ -38,7 +39,7 @@ import { ChannelCharge } from './entities/channel-charge.entity';
 import { ChannelRate } from './entities/channel-rate.entity';
 import type { ChannelStatusReportedEvent } from './events/channel-status-reported.event';
 
-export const BUDGET_NOTIFICATION_TYPE = 'spend_budget';
+export const BUDGET_NOTIFICATION_TYPE = NotificationTypeSchema.enum.spend_budget;
 const BUDGET_TITLES: Record<Exclude<BudgetThreshold, 'none'>, string> = {
   warning: 'Presupuesto de mensajería al 80 %',
   exceeded: 'Presupuesto de mensajería superado',
@@ -370,6 +371,8 @@ export class SpendService {
         body: BUDGET_BODIES[threshold],
         data: { ...data, threshold },
       });
+      if (!notification) continue;
+
       this.eventBus?.publish(
         new RealtimeNotificationEvent(admin.userId, {
           id: notification.id,

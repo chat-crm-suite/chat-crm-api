@@ -96,6 +96,7 @@ Las migraciones pendientes de la base de datos se aplican solas al arrancar la A
 | `CREDENTIALS_ENCRYPTION_KEY` | Clave AES-256-GCM para las credenciales de los canales (64 caracteres hex o base64 de 32 bytes) |
 | `WHATSAPP_APP_SECRET` | App Secret de Meta; verifica la firma de los webhooks |
 | `SETUP_TOKEN` | Lo pide la pantalla de configuración inicial en producción |
+| `PLATFORM_CONSOLE_PASSWORD` | Opcional. Habilita la consola de superadmin `/platform` (contraseña de los administradores de plataforma); vacío o `disabled` la mantiene apagada |
 
 `./deploy/gen-secrets.sh` rellena todos los secretos con valores aleatorios seguros. Variables opcionales con
 valor por defecto: `COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`,

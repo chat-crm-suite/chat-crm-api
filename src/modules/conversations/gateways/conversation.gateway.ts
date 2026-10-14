@@ -135,15 +135,16 @@ export class ConversationGateway
     @ConnectedSocket() client: ConversationSocket,
     @MessageBody() data: SendConversationMessageDto,
   ): Promise<SendMessageAck> {
+    const receivedAt = Date.now();
     const user = this.requireUser(client);
     const membership = this.requireJoinedMembership(client, user, data);
 
-    this.logger.debug('Execute Command: SendConversationMessageCommand');
     await this.commandBus.execute(
       new SendConversationMessageCommand({
         ...data,
         companyId: membership.cid,
         sender: { id: membership.mid, type: 'member' },
+        receivedAt,
       }),
     );
 

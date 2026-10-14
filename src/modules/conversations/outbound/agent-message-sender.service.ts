@@ -25,6 +25,7 @@ import { ConversationFanoutService } from '../realtime/conversation-fanout.servi
 import { ConversationSendContextService } from '../send-context/conversation-send-context.service';
 import { toLegacySendError } from './legacy-send-error';
 import { OutgoingMediaService, type OutgoingFile } from './outgoing-media.service';
+import { SendTimer } from './send-timer';
 
 /**
  * Channel-agnostic outbound pipeline (T5). An agent send is persisted first
@@ -56,6 +57,28 @@ export class AgentMessageSender {
     job: AgentSendJob,
     options?: { attemptsMade?: number },
   ): Promise<Message | null> {
+    const timer = new SendTimer(job.receivedAt);
+    const result = await this.deliver(job, timer, options?.attemptsMade ?? 0);
+
+    this.logger.info(
+      {
+        clientMessageId: job.clientMessageId,
+        messageId: result?.id,
+        type: job.msg.type,
+        status: result?.status,
+        ...timer.summary(),
+      },
+      'send.timing',
+    );
+
+    return result;
+  }
+
+  private async deliver(
+    job: AgentSendJob,
+    timer: SendTimer,
+    attemptsMade: number,
+  ): Promise<Message | null> {
     // An expired or foreign upload still leaves a visible (failed) row.
     const prepared = await this.media.prepare(job).then(
       (file) => ({ file, error: null }),
@@ -68,11 +91,12 @@ export class AgentMessageSender {
       job.sender,
       job.companyId,
     );
+    timer.mark('saved');
 
     const message = await this.claimSend(saved, {
       created,
       companyId: job.companyId,
-      attemptsMade: options?.attemptsMade ?? 0,
+      attemptsMade,
     });
     if (!message) return saved;
 
@@ -112,6 +136,7 @@ export class AgentMessageSender {
         { channelId: context.channelId, companyId: context.companyId },
         attachment,
       );
+      timer.mark('uploaded');
       if (!uploaded.ok) {
         return this.failSend(message, uploaded.error, job.msg.type);
       }
@@ -135,6 +160,7 @@ export class AgentMessageSender {
       context.recipient,
       resolved,
     );
+    timer.mark('delivered');
     if (!outcome.ok) {
       return this.failSend(
         message,

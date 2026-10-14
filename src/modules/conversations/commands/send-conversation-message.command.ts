@@ -14,6 +14,8 @@ import type { SendConversationMessageInput } from '@contracts';
 export interface AgentSendJob extends SendConversationMessageInput {
   companyId: string;
   sender: { id: string; type: 'member' };
+  /** When the gateway received the send (epoch ms), for `send.timing`. */
+  receivedAt?: number;
 }
 
 export class SendConversationMessageCommand extends Command<{

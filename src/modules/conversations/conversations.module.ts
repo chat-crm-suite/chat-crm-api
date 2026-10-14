@@ -62,7 +62,15 @@ const commandHandlers = [
       ConversationAssignment,
       CompanyMember,
     ]),
-    BullModule.registerQueue({ name: 'chat' }),
+    BullModule.registerQueue({
+      name: 'chat',
+      // Sends and saves are persisted as rows: finished jobs are only kept
+      // for a recent look in Redis, never forever.
+      defaultJobOptions: {
+        removeOnComplete: { count: 1000 },
+        removeOnFail: { age: 7 * 24 * 60 * 60 },
+      },
+    }),
     // Same secret as the HTTP auth layer: the socket verifies the existing
     // `access_token` cookie during the handshake.
     JwtModule.register({

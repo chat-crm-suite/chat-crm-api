@@ -56,6 +56,7 @@ function build() {
   const eventBus = { publish: jest.fn() };
   const logger = {
     debug: jest.fn(),
+    info: jest.fn(),
     error: jest.fn(),
     warn: jest.fn(),
     setContext: jest.fn(),
@@ -360,7 +361,27 @@ describe('AgentMessageSender channel routing', () => {
     expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', {
       type: 'text',
       text: 'hola',
-    });
+    });  });
+
+  it('logs one send.timing line correlated by clientMessageId', async () => {
+    const { sender, conversations, adapter, messages, logger } = build();
+    created(conversations);
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-1' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+
+    await sender.send({ ...data, receivedAt: Date.now() - 5 });
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientMessageId: 'client-1',
+        messageId: 'msg-1',
+        type: 'text',
+        status: 'sent',
+        queueMs: expect.any(Number) as number,
+        totalMs: expect.any(Number) as number,
+      }),
+      'send.timing',
+    );
   });
 
   it('persists the text as the message body', async () => {

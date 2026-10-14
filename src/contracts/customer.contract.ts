@@ -38,7 +38,11 @@ export const CreateCustomerSchema = z.object({
   ownerMemberId: z.uuid().optional(),
 });
 
-export const UpdateCustomerSchema = CreateCustomerSchema.partial();
+/** On update, `null` clears the owner or the stage ("Sin responsable"). */
+export const UpdateCustomerSchema = CreateCustomerSchema.partial().extend({
+  pipelineStageId: z.uuid().nullable().optional(),
+  ownerMemberId: z.uuid().nullable().optional(),
+});
 
 /** Entity shape returned by the customers endpoints. */
 export const CustomerResponseSchema = z.object({

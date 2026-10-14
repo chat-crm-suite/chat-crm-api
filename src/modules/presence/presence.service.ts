@@ -131,6 +131,36 @@ export class PresenceService implements OnApplicationBootstrap {
     return result;
   }
 
+  /**
+   * Presence of many members in one query, for tables. Members without an
+   * open interval are `offline` (their `since` is now: there is no live state
+   * to date).
+   */
+  async currentMany(
+    companyId: string,
+    memberIds: string[],
+  ): Promise<Map<string, Presence>> {
+    const now = new Date();
+    const result = new Map<string, Presence>();
+    for (const memberId of memberIds) {
+      result.set(memberId, { memberId, state: 'offline', since: now });
+    }
+    if (!memberIds.length) return result;
+
+    const open = await this.intervals.find({
+      where: { companyId, memberId: In(memberIds), endedAt: IsNull() },
+    });
+    for (const interval of open) {
+      result.set(interval.memberId, {
+        memberId: interval.memberId,
+        state: interval.state,
+        since: interval.startedAt,
+      });
+    }
+
+    return result;
+  }
+
   private findOpen(memberId: string): Promise<PresenceInterval | null> {
     return this.intervals.findOne({ where: { memberId, endedAt: IsNull() } });
   }

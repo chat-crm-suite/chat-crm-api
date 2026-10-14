@@ -44,6 +44,8 @@ import { ChannelsModule } from '../channels/channels.module';
 import { MediaModule } from '../media/media.module';
 import { ConversationUploadsService } from './uploads/conversation-uploads.service';
 import { UserSessionsRevokedHandler } from './realtime/user-sessions-revoked.handler';
+import { MemberConversationsReleasedHandler } from './realtime/member-conversations-released.handler';
+import { WorkspaceChangedHandler } from './realtime/workspace-changed.handler';
 
 const commandHandlers = [
   BroadcastConversationMessageHandler,
@@ -103,6 +105,8 @@ const commandHandlers = [
     ConversationProcessor,
     ConversationSaga,
     UserSessionsRevokedHandler,
+    WorkspaceChangedHandler,
+    MemberConversationsReleasedHandler,
     ...commandHandlers,
   ],
   exports: [

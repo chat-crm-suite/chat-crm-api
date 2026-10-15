@@ -141,7 +141,7 @@ export class WhatsAppService {
     await this.commandBus.execute(
       new FailWhatsAppMessageCommand(
         payload.to,
-        toLegacyWhatsAppError(info, payload.type),
+        toLegacyWhatsAppError(info, payload.type, payload.to),
       ),
     );
   }

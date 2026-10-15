@@ -3,7 +3,7 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { SendConversationMessageSchema } from '../../../contracts/index';
+import { SendConversationMessageSchema } from '@contracts';
 
 /**
  * `conversation:message:send` payload (frontend -> gateway).

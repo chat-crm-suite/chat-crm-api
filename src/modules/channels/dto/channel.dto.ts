@@ -6,7 +6,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   CreateChannelSchema,
   UpdateChannelSchema,
-} from '../../../contracts/index';
+} from '@contracts';
 
 export class CreateChannelDto extends createZodDto(CreateChannelSchema) {}
 

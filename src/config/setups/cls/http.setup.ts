@@ -3,18 +3,25 @@
 
 import { ClsService } from 'nestjs-cls';
 import { ExecutionContext } from '@nestjs/common';
-import { Request } from 'express';
-import { Payload } from '../../../auth/index';
 
-interface RequestAuth extends Request {
-  user: Payload;
-}
+import type { TenantRequest } from '@auth/guards/tenant.guard';
+import {
+  CLS_COMPANY_ID,
+  CLS_MEMBER_ID,
+  CLS_MEMBER_ROLE,
+  CLS_USER_ID,
+} from '../../cls.keys';
 
+/**
+ * Runs after the guards: the user comes from the verified JWT and the tenant
+ * scope from `TenantGuard`. The raw `x-company-id` header is never read here,
+ * so services can trust `company.id`.
+ */
 export function setupHttpContext(cls: ClsService, context: ExecutionContext) {
-  const req = context.switchToHttp().getRequest<RequestAuth>();
-  const companyId = req.headers['x-company-id'] as string;
-  const userId = req.user?.sub;
+  const req = context.switchToHttp().getRequest<TenantRequest>();
 
-  cls.set('company.id', companyId);
-  cls.set('user.id', userId);
+  cls.set(CLS_USER_ID, req.user?.sub);
+  cls.set(CLS_COMPANY_ID, req.tenant?.companyId);
+  cls.set(CLS_MEMBER_ID, req.tenant?.memberId);
+  cls.set(CLS_MEMBER_ROLE, req.tenant?.role);
 }

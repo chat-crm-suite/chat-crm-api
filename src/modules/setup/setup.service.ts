@@ -14,10 +14,8 @@ import { DataSource, Repository } from 'typeorm';
 
 import { Channel } from '../channels/entities/channel.entity';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
-import { CompanySettings } from '../company/entities/company-settings.entity';
+import { createCompanyWithDefaults } from '../company/company-provisioning';
 import { Company } from '../company/entities/company.entity';
-import { DEFAULT_PIPELINE_STAGES } from '../customers/pipeline-stages.defaults';
-import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
 import { User } from '../users/entities/user.entity';
 import { encryptCredentials } from '../../lib/helpers/credentials.helper';
 import { CreateSetupDto } from './dto/create-setup.dto';
@@ -81,7 +79,9 @@ export class SetupService {
 
   async status(): Promise<SetupStatus> {
     const [companies, admins, channels, users] = await Promise.all([
-      this.companies.count(),
+      // Soft-deleted companies still mean the install was set up: deleting the
+      // only company from the platform console must not reopen POST /setup.
+      this.companies.count({ withDeleted: true }),
       this.members.count({ where: { role: 'admin', status: 'active' } }),
       this.channels.count({ where: { type: 'whatsapp', status: 'active' } }),
       this.users.count(),
@@ -117,13 +117,11 @@ export class SetupService {
       const companies = manager.getRepository(Company);
       const members = manager.getRepository(CompanyMember);
       const channels = manager.getRepository(Channel);
-      const settings = manager.getRepository(CompanySettings);
-      const stages = manager.getRepository(PipelineStage);
 
       // Re-comprobación DENTRO de la transacción: evita que dos peticiones
       // simultáneas inicialicen la app dos veces.
       const [companyCount, adminCount] = await Promise.all([
-        companies.count(),
+        companies.count({ withDeleted: true }),
         members.count({ where: { role: 'admin', status: 'active' } }),
       ]);
       if (companyCount > 0 && adminCount > 0) {
@@ -140,21 +138,12 @@ export class SetupService {
       if (existingCompany) {
         company = existingCompany;
       } else {
-        company = await companies.save(
-          companies.create({
-            name: dto.company.name,
-            email: dto.company.email,
-            phoneNumber: dto.company.phoneNumber,
-            address: dto.company.address,
-          }),
-        );
-
-        await settings.save(settings.create({ companyId: company.id }));
-        await stages.save(
-          DEFAULT_PIPELINE_STAGES.map((stage) =>
-            stages.create({ ...stage, companyId: company.id }),
-          ),
-        );
+        company = await createCompanyWithDefaults(manager, {
+          name: dto.company.name,
+          email: dto.company.email,
+          phoneNumber: dto.company.phoneNumber,
+          address: dto.company.address,
+        });
       }
 
       // Reutiliza el admin si ya existe (bootstrap previo), verificando la
@@ -178,8 +167,15 @@ export class SetupService {
             lastName: dto.admin.lastName,
             email: dto.admin.email,
             phoneNumber: dto.admin.phoneNumber,
+            // The person who sets the install up owns it: they can open the
+            // platform console (still gated by PLATFORM_CONSOLE_PASSWORD).
+            isPlatformAdmin: true,
           }),
         );
+      }
+
+      if (!user.isPlatformAdmin) {
+        await users.update(user.id, { isPlatformAdmin: true });
       }
 
       const existingMember = await members.findOne({

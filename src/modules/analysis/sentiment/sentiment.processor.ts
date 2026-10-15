@@ -9,7 +9,10 @@ import { PinoLogger } from 'nestjs-pino';
 import { MessageAnalyzedEvent } from '../events/message-analyzed.event';
 import { SENTIMENT_QUEUE } from './sentiment.constants';
 import { SentimentService } from './sentiment.service';
-import type { SentimentAnalysisResult, SentimentPayload } from './sentiment.type';
+import type {
+  SentimentAnalysisResult,
+  SentimentPayload,
+} from './sentiment.type';
 
 type SentimentJob = Job<SentimentPayload>;
 
@@ -31,7 +34,9 @@ export class SentimentProcessor extends WorkerHost {
   @OnWorkerEvent('completed')
   onCompleted(job: SentimentJob, result: SentimentAnalysisResult | null) {
     if (!result) {
-      this.logger.warn(
+      // Expected skips (kill switch, breaker, IA down) already carry their own
+      // info/error log in the service; here it is only step detail.
+      this.logger.debug(
         { jobId: job.id, messageId: job.data.messageId },
         'Sentiment analysis produced no result',
       );

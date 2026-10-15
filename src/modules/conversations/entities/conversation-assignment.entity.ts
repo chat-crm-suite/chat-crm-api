@@ -9,8 +9,8 @@ import {
   ManyToOne,
 } from 'typeorm';
 
-import type { AssignmentReason } from '../../../contracts/index';
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import type { AssignmentReason } from '@contracts';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { Conversation } from './conversation.entity';
 

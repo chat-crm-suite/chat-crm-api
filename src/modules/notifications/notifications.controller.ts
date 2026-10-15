@@ -1,15 +1,24 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { BadRequestException, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { BadRequestException, Body, Controller, Get, Post, Put, Query } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import { ClsService } from 'nestjs-cls';
+import { createZodDto, ZodSerializerDto } from 'nestjs-zod';
 
-import { CLS_COMPANY_ID, CLS_USER_ID } from '../../config/cls.keys';
+import { NotificationPreferencesSchema } from '../../contracts/index';
+import {
+  CLS_COMPANY_ID,
+  CLS_MEMBER_ID,
+  CLS_USER_ID,
+} from '../../config/cls.keys';
 import { NotificationsService } from './notifications.service';
 
+export class NotificationPreferencesDto extends createZodDto(
+  NotificationPreferencesSchema,
+) {}
+
 @Controller('/notifications')
-@UseGuards(AuthGuard('jwt'))
 export class NotificationController {
   constructor(
     private readonly notificationService: NotificationsService,
@@ -33,6 +42,30 @@ export class NotificationController {
     const { userId, companyId } = this.context();
 
     return this.notificationService.markAllReadForUser(userId, companyId);
+  }
+
+  /** Types the current member muted (never stored nor emitted for them). */
+  @Get('preferences')
+  @ApiOperation({ summary: 'My notification preferences in the active company' })
+  @ZodSerializerDto(NotificationPreferencesSchema)
+  @ApiOkResponse({ type: NotificationPreferencesDto })
+  getPreferences() {
+    return this.notificationService.getPreferences(this.memberId());
+  }
+
+  @Put('preferences')
+  @ApiOperation({ summary: 'Replace my notification preferences in the active company' })
+  @ZodSerializerDto(NotificationPreferencesSchema)
+  @ApiOkResponse({ type: NotificationPreferencesDto })
+  setPreferences(@Body() dto: NotificationPreferencesDto) {
+    return this.notificationService.setPreferences(this.memberId(), dto);
+  }
+
+  private memberId(): string {
+    const memberId = this.cls.get<string>(CLS_MEMBER_ID);
+    if (!memberId) throw new BadRequestException('Company context required');
+
+    return memberId;
   }
 
   private context() {

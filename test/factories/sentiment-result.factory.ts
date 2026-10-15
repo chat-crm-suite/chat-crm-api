@@ -6,7 +6,7 @@ import { Factory } from 'fishery';
 
 import { Analysis } from '@modules/analysis/entities/analysis.entity';
 import { SentimentResult } from '@modules/analysis/entities/sentiment-result.entity';
-import type { SentimentLabel } from '../../src/contracts/index';
+import type { SentimentLabel } from '@contracts';
 
 import { AnalysisFactory } from './analysis.factory';
 import type { ManagerTransientParams } from './types';

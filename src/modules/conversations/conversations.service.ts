@@ -20,7 +20,7 @@ import { ConversationAssignmentService } from './assignment/conversation-assignm
 import { ConversationAssignmentNotifier } from './assignment/conversation-assignment.notifier';
 import { AssignmentOutcome } from './assignment/assignment.types';
 import { ConversationRepository } from './conversation.repository';
-import { ConversationMessageDto } from './dto/conversation-message.dto';
+import type { SaveMessageJob } from './commands/save-conversation-message.command';
 import { ConversationAssignment } from './entities/conversation-assignment.entity';
 import { Conversation } from './entities/conversation.entity';
 
@@ -39,6 +39,11 @@ export interface SaveConversationMessageContent {
   externalId?: string;
   externalMediaId?: string;
   mimeType?: string;
+  /** Known file facts (outbound uploads): kept on the attachment row. */
+  sizeBytes?: number | null;
+  durationMs?: number | null;
+  width?: number | null;
+  height?: number | null;
   /** Front-generated send id: makes outbound retries idempotent. */
   clientMessageId?: string | null;
 }
@@ -152,6 +157,10 @@ export class ConversationsService {
                 storageUrl: link,
                 externalMediaId: msg.externalMediaId,
                 status: attachmentStatus,
+                sizeBytes: msg.sizeBytes,
+                durationMs: msg.durationMs,
+                width: msg.width,
+                height: msg.height,
               },
             ]
           : undefined,
@@ -319,7 +328,7 @@ export class ConversationsService {
     return this.conversationRepo.findOne({ where: { id } });
   }
 
-  update(_id: string, _dto: ConversationMessageDto): Promise<UpdateResult> {
+  update(_id: string, _dto: SaveMessageJob): Promise<UpdateResult> {
     throw new Error('Not implemented');
   }
 

@@ -10,9 +10,8 @@ import {
   SENTIMENT_TIMEOUT as time,
 } from './sentiment.constants';
 import { SentimentResponse as Response } from './sentiment.interface';
-import { SentimentLabel } from './sentiment.enum';
 import type { ConfigType } from '@nestjs/config';
-import sentimentConfig from '../../../config/sentiment.config';
+import sentimentConfig from '@config/sentiment.config';
 
 @Injectable()
 export class SentimentClient {
@@ -33,20 +32,6 @@ export class SentimentClient {
       map(({ data }) => data),
     );
 
-    return await first(res$).catch((err: unknown) => {
-      this.logger.error({ err }, `Error calling IA Api with text="${text}"`);
-
-      const analysis: Response = {
-        text: '',
-        label: SentimentLabel.NEUTRAL,
-        probabilities: {
-          POS: 0,
-          NEU: 0.1,
-          NEG: 0,
-        },
-      };
-
-      return analysis;
-    });
+    return await first(res$);
   }
 }

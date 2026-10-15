@@ -12,8 +12,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import type { ChannelStatus, ChannelType } from '../../../contracts/index';
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import type { ChannelStatus, ChannelType } from '@contracts';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
 
 /**

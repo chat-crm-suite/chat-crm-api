@@ -5,31 +5,31 @@ import { ForbiddenException } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, DataSourceOptions, EntityTarget, IsNull } from 'typeorm';
 
-import type { MemberRole, MemberStatus } from '../src/contracts/index';
-import { ConversationSocketEvent } from '../src/contracts/index';
-import * as Entities from '../src/entities/index';
-import { Channel } from '../src/modules/channels/entities/channel.entity';
-import { CompanyMember } from '../src/modules/company-members/entities/company-member.entity';
-import { CompanySettings } from '../src/modules/company/entities/company-settings.entity';
-import { Company } from '../src/modules/company/entities/company.entity';
-import { AssignmentOutcome } from '../src/modules/conversations/assignment/assignment.types';
+import type { MemberRole, MemberStatus } from '@contracts';
+import { ConversationSocketEvent } from '@contracts';
+import * as Entities from '@entities';
+import { Channel } from '@modules/channels/entities/channel.entity';
+import { CompanyMember } from '@modules/company-members/entities/company-member.entity';
+import { CompanySettings } from '@modules/company/entities/company-settings.entity';
+import { Company } from '@modules/company/entities/company.entity';
+import { AssignmentOutcome } from '@modules/conversations/assignment/assignment.types';
 import {
   ASSIGNED_NOTIFICATION_TITLE,
   ConversationAssignmentNotifier,
   UNASSIGNED_NOTIFICATION_TITLE,
-} from '../src/modules/conversations/assignment/conversation-assignment.notifier';
-import { ConversationAssignmentService } from '../src/modules/conversations/assignment/conversation-assignment.service';
-import { ConversationRepository } from '../src/modules/conversations/conversation.repository';
-import { ConversationsService } from '../src/modules/conversations/conversations.service';
-import { ConversationAssignment } from '../src/modules/conversations/entities/conversation-assignment.entity';
-import { Conversation } from '../src/modules/conversations/entities/conversation.entity';
-import type { ConversationGateway } from '../src/modules/conversations/gateways/conversation.gateway';
-import { Customer } from '../src/modules/customers/entities/customer.entity';
-import type { MessageService } from '../src/modules/message/message.service';
-import { Message } from '../src/modules/message/entities/message.entity';
-import { Notification } from '../src/modules/notifications/entities/notification.entity';
-import { NotificationsService } from '../src/modules/notifications/notifications.service';
-import { User } from '../src/modules/users/entities/user.entity';
+} from '@modules/conversations/assignment/conversation-assignment.notifier';
+import { ConversationAssignmentService } from '@modules/conversations/assignment/conversation-assignment.service';
+import { ConversationRepository } from '@modules/conversations/conversation.repository';
+import { ConversationsService } from '@modules/conversations/conversations.service';
+import { ConversationAssignment } from '@modules/conversations/entities/conversation-assignment.entity';
+import { Conversation } from '@modules/conversations/entities/conversation.entity';
+import type { ConversationGateway } from '@modules/conversations/gateways/conversation.gateway';
+import { Customer } from '@modules/customers/entities/customer.entity';
+import type { MessageService } from '@modules/message/message.service';
+import { Message } from '@modules/message/entities/message.entity';
+import { Notification } from '@modules/notifications/entities/notification.entity';
+import { NotificationsService } from '@modules/notifications/notifications.service';
+import { User } from '@modules/users/entities/user.entity';
 import { getTestConfig, truncateAllTables } from './helpers/test-database.helper';
 
 const entities = Object.values(Entities) as EntityTarget<unknown>[];
@@ -57,6 +57,7 @@ describe('ConversationAssignmentService (e2e)', () => {
     service = new ConversationAssignmentService(dataSource, logger);
 
     const gateway = {
+      revokeConversationAccess: () => Promise.resolve(),
       server: {
         to: (room: string) => ({
           emit: (event: string, payload: unknown) => {
@@ -204,6 +205,7 @@ describe('ConversationAssignmentService (e2e)', () => {
     direction: 'inbound' | 'outbound',
     at: Date,
     member?: CompanyMember,
+    overrides: Partial<Pick<Message, 'type' | 'body'>> = {},
   ) => {
     const messages = dataSource.getRepository(Message);
     const message = await messages.save(
@@ -218,6 +220,7 @@ describe('ConversationAssignmentService (e2e)', () => {
         body: 'seed',
         status: direction === 'inbound' ? 'delivered' : 'sent',
         type: 'text',
+        ...overrides,
       }),
     );
 
@@ -662,6 +665,45 @@ describe('ConversationAssignmentService (e2e)', () => {
       expect(result.map((row) => row.id)).toEqual([waiting.id, pending.id]);
       expect(result[0].member?.id).toBe(agent.member.id);
       expect(result[1].member).toBeNull();
+    });
+  });
+
+  describe('list previews', () => {
+    // Media without caption is persisted with `body = NULL`: the preview must
+    // carry the message type so the list can still label the attachment.
+    it('exposes the last-message type when the body is empty', async () => {
+      const { company } = await seedCompany();
+      const image = await seedConversation(company);
+      const text = await seedConversation(company);
+
+      await addLastMessage(
+        image,
+        'inbound',
+        new Date('2026-10-01T10:00:00Z'),
+        undefined,
+        { type: 'image', body: null },
+      );
+      await addLastMessage(text, 'inbound', new Date('2026-10-01T11:00:00Z'));
+
+      const queue = await service.listUnassigned(company.id);
+      const waiting = await service.listNeedsResponse(company.id, 15);
+
+      for (const rows of [queue, waiting]) {
+        const byId = new Map(
+          rows.map((row: { id: string; preview: unknown }) => [
+            row.id,
+            row.preview,
+          ]),
+        );
+        expect(byId.get(image.id)).toMatchObject({
+          content: null,
+          type: 'image',
+        });
+        expect(byId.get(text.id)).toMatchObject({
+          content: 'seed',
+          type: 'text',
+        });
+      }
     });
   });
 });

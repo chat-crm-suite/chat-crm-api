@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Command } from '@nestjs/cqrs';
+import type { MessageSenderType } from '@contracts';
+import type { SaveConversationMessageContent } from '../conversations.service';
 
-import { ConversationMessageDto } from '../dto/conversation-message.dto';
-import { SendConversationMessageDto } from '../dto/send-conversation-message.dto';
+/**
+ * The `save-message` queue job (inbound webhook messages): the conversation
+ * (`room`), who wrote it and the parsed content to persist.
+ */
+export interface SaveMessageJob {
+  room: string;
+  companyId?: string;
+  sender: { id: string; type: MessageSenderType };
+  msg: SaveConversationMessageContent;
+}
 
 export class SaveConversationMessageCommand {
-  constructor(
-    public readonly data: SendConversationMessageDto | ConversationMessageDto,
-  ) {}
+  constructor(public readonly data: SaveMessageJob) {}
 }

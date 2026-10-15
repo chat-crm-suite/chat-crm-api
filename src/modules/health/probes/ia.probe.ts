@@ -4,14 +4,16 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 
-import healthConfig from '../../../config/health.config';
+import healthConfig from '@config/health.config';
+import { KillSwitchService } from '../../analysis/ia/kill-switch.service';
 import { HealthCheck, HealthStatus } from '../health.enum';
 import { HealthCheckResult } from '../health.interface';
 import { HealthProbe } from '../health.probe';
 
 /**
  * IA opcional: nunca es crítica. Si no está levantada se reporta
- * 'unreachable' y la readiness sigue 'ready'.
+ * 'unreachable' y la readiness sigue 'ready'. T2: si el kill switch manual
+ * está apagado se reporta 'disabled' sin hacer ningún fetch.
  */
 @Injectable()
 export class IaProbe implements HealthProbe {
@@ -21,9 +23,15 @@ export class IaProbe implements HealthProbe {
   constructor(
     @Inject(healthConfig.KEY)
     private readonly config: ConfigType<typeof healthConfig>,
+    private readonly killSwitch: KillSwitchService,
   ) {}
 
   async check(): Promise<HealthCheckResult> {
+    // T2: manual off means no probe, no network fetch.
+    if (!(await this.killSwitch.isEnabled())) {
+      return { name: this.name, status: HealthStatus.Disabled };
+    }
+
     const { iaUrl, iaTimeoutMs } = this.config;
     if (!iaUrl) {
       return { name: this.name, status: HealthStatus.Skipped };

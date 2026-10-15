@@ -5,8 +5,8 @@ import { ForbiddenException } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, DataSourceOptions, EntityTarget } from 'typeorm';
 
-import type { MemberRole } from '../../../contracts/index';
-import * as Entities from '../../../entities/index';
+import type { MemberRole } from '@contracts';
+import * as Entities from '@entities';
 import { Channel } from '../../channels/entities/channel.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { Company } from '../../company/entities/company.entity';
@@ -18,7 +18,7 @@ import { User } from '../../users/entities/user.entity';
 import {
   getTestConfig,
   truncateAllTables,
-} from '../../../../test/helpers/test-database.helper';
+} from '@helpers/test-database.helper';
 import {
   ConversationAccessService,
   type ConversationSocketIdentity,

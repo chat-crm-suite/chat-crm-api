@@ -10,17 +10,17 @@ import {
 import type {
   AttachmentStatus,
   AttachmentType,
+  ConversationMessage,
   MessageDirection,
   MessageSenderType,
   MessageStatus,
   MessageType,
-} from '../../contracts/index';
+} from '@contracts';
 import type { MessageAttachment } from './entities/message-attachment.entity';
 import type { Message } from './entities/message.entity';
-import { toConversationMessagePayload } from './mappers/conversation-message.mapper';
+import { toConversationMessage } from './mappers/conversation-message.mapper';
 import { MessageRepository } from './message.repository';
-import type { ConversationMessagePayload } from './message.types';
-import { MESSAGE_STRATEGY_REGISTRY } from './strategies/strategy.registry';
+import type { MessageAttachmentContext } from './message.repository';
 
 export interface DeliveryStatusUpdate {
   /** Meta message id: matched against `messages.external_id`. */
@@ -167,7 +167,7 @@ export class MessageService {
    */
   async getConversationMessages(
     conversationId: string,
-  ): Promise<ConversationMessagePayload[]> {
+  ): Promise<ConversationMessage[]> {
     const messages = await this.repo.findConversationMessages(conversationId);
     const attachments = await this.repo.findAttachmentsByMessageIds(
       messages.map((message) => message.id),
@@ -181,14 +181,9 @@ export class MessageService {
       attachmentsByMessage.set(attachment.messageId, list);
     }
 
-    return messages.map((message) => {
-      const rows = attachmentsByMessage.get(message.id) ?? [];
-      const strategy = MESSAGE_STRATEGY_REGISTRY[message.type];
-
-      return strategy
-        ? strategy.toBroadcastFields(message, rows)
-        : toConversationMessagePayload(message, rows);
-    });
+    return messages.map((message) =>
+      toConversationMessage(message, attachmentsByMessage.get(message.id)),
+    );
   }
 
   /**
@@ -198,23 +193,37 @@ export class MessageService {
    */
   async getMessagePayload(
     messageId: string,
-  ): Promise<ConversationMessagePayload | null> {
+  ): Promise<ConversationMessage | null> {
     const message = await this.repo.findById(messageId);
     if (!message) return null;
 
     const attachments = await this.repo.findAttachmentsByMessageIds([
       message.id,
     ]);
-    const strategy = MESSAGE_STRATEGY_REGISTRY[message.type];
+    return toConversationMessage(message, attachments);
+  }
 
-    return strategy
-      ? strategy.toBroadcastFields(message, attachments)
-      : toConversationMessagePayload(message, attachments);
+  /** Attachments of one message, oldest first. */
+  findAttachments(messageId: string): Promise<MessageAttachment[]> {
+    return this.repo.findAttachmentsByMessageIds([messageId]);
+  }
+
+  /** Stores the provider's media id of an outbound file (see the sender). */
+  rememberProviderMedia(
+    attachmentId: string,
+    providerMediaId: string,
+  ): Promise<void> {
+    return this.repo.setAttachmentExternalMediaId(attachmentId, providerMediaId);
   }
 
   /** Replay idempotency: does this wamid already have a persisted row? */
   findByExternalId(externalId: string): Promise<Message | null> {
     return this.repo.findByExternalId(externalId);
+  }
+
+  /** T23: the enrich-media worker rehydrates the saved row by id. */
+  findById(messageId: string): Promise<Message | null> {
+    return this.repo.findById(messageId);
   }
 
   /**
@@ -241,9 +250,29 @@ export class MessageService {
     return this.repo.markSendFailed(messageId, error, at);
   }
 
+  /**
+   * #8: user-initiated retry of a failed outbound row. Compare-and-set on
+   * `failed`: the caller that wins gets the reset row (back to `pending`, with
+   * the provider error cleared) and owns the new Graph call; a loser gets
+   * `null` and must not send.
+   */
+  resetFailedForRetry(
+    messageId: string,
+    at: Date = new Date(),
+  ): Promise<Message | null> {
+    return this.repo.resetFailedForRetry(messageId, at);
+  }
+
   /** T3: attachments of a saved row still waiting for their media file. */
   findPendingMediaAttachments(messageId: string): Promise<MessageAttachment[]> {
     return this.repo.findPendingMediaAttachments(messageId);
+  }
+
+  /** T25: attachment + owning message, for the private attachments endpoint. */
+  findAttachmentContext(
+    attachmentId: string,
+  ): Promise<MessageAttachmentContext | null> {
+    return this.repo.findAttachmentContext(attachmentId);
   }
 
   /** T3: stores the downloaded file data on a pending attachment. */

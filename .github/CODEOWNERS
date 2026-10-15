@@ -1,0 +1,9 @@
+# Contract changes are the single source of truth shared with the app; require
+# review on the schemas and the generated snapshot (see AGENTS.md).
+
+/src/contracts/                            @lisk0vian
+/src/scripts/contract-registry.ts          @lisk0vian
+/src/scripts/contracts-snapshot.ts         @lisk0vian
+/src/scripts/contracts-snapshot.spec.ts    @lisk0vian
+/src/scripts/generate-contracts-snapshot.ts @lisk0vian
+/src/modules/contracts/                    @lisk0vian

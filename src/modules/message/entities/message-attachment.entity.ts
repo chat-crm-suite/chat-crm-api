@@ -12,8 +12,8 @@ import {
 import type {
   AttachmentStatus,
   AttachmentType,
-} from '../../../contracts/index';
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+} from '@contracts';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Message } from './message.entity';
 
 /** Replaces `messages.media_url`; one message can carry several files. */

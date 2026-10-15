@@ -10,7 +10,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-import type { MessageStatus } from '../../../contracts/index';
+import type { MessageStatus } from '@contracts';
 import { Message } from './message.entity';
 
 /**

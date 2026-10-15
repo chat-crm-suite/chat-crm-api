@@ -4,9 +4,9 @@
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, DataSourceOptions, EntityTarget, IsNull } from 'typeorm';
 
-import type { MemberRole } from '../../../contracts/index';
-import { ConversationSocketEvent } from '../../../contracts/index';
-import * as Entities from '../../../entities/index';
+import type { MemberRole } from '@contracts';
+import { ConversationSocketEvent } from '@contracts';
+import * as Entities from '@entities';
 import { Channel } from '../../channels/entities/channel.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { CompanySettings } from '../../company/entities/company-settings.entity';
@@ -19,7 +19,7 @@ import { User } from '../../users/entities/user.entity';
 import {
   getTestConfig,
   truncateAllTables,
-} from '../../../../test/helpers/test-database.helper';
+} from '@helpers/test-database.helper';
 import { ConversationAssignmentNotifier } from '../assignment/conversation-assignment.notifier';
 import { ConversationAssignmentService } from '../assignment/conversation-assignment.service';
 import { AssignmentOutcome } from '../assignment/assignment.types';
@@ -52,7 +52,12 @@ describe('Realtime fanout (T6)', () => {
   let access: ConversationAccessService;
   let fanout: ConversationFanoutService;
   let conversationsService: ConversationsService;
-  let events: Array<{ room: string; event: string; payload: unknown }>;
+  let events: Array<{
+    room: string;
+    except: string | null;
+    event: string;
+    payload: unknown;
+  }>;
   let seq = 0;
 
   beforeAll(async () => {
@@ -63,10 +68,16 @@ describe('Realtime fanout (T6)', () => {
     access = new ConversationAccessService(dataSource, assignment, logger);
 
     const gateway = {
+      revokeConversationAccess: () => Promise.resolve(),
       server: {
         to: (room: string) => ({
+          except: (exceptRoom: string) => ({
+            emit: (event: string, payload: unknown) => {
+              events.push({ room, except: exceptRoom, event, payload });
+            },
+          }),
           emit: (event: string, payload: unknown) => {
-            events.push({ room, event, payload });
+            events.push({ room, except: null, event, payload });
           },
         }),
       },
@@ -208,10 +219,11 @@ describe('Realtime fanout (T6)', () => {
     await fanout.emitMessage(conversation.id, {
       id: 'msg-1',
       conversationId: conversation.id,
+      clientMessageId: null,
       timestamp: new Date(),
       status: 'delivered',
       sender: { id: 'cust-1', type: 'customer' },
-      msg: { type: 'text', content: { body: 'hola' } },
+      msg: { type: 'text', text: 'hola' },
     });
 
     const rooms = events.map((entry) => entry.room);
@@ -220,6 +232,13 @@ describe('Realtime fanout (T6)', () => {
       `user:${agent.user.id}`,
     ]);
     expect(rooms.some((room) => room.startsWith('company:'))).toBe(false);
+
+    // The personal-room preview excludes the thread room: a socket already in
+    // the conversation must not receive the same event twice.
+    const preview = events.find(
+      (entry) => entry.room === `user:${agent.user.id}`,
+    );
+    expect(preview?.except).toBe(`conversation:${conversation.id}`);
   });
 
   it('notifies supervisors live when an inbound message leaves the conversation unassigned', async () => {

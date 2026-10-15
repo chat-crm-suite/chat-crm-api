@@ -5,12 +5,18 @@ import { ClsService } from 'nestjs-cls';
 import { ExecutionContext } from '@nestjs/common';
 import { Socket } from 'socket.io';
 
+import type { JwtPayload } from '@auth/auth.types';
+import { CLS_USER_ID } from '../../cls.keys';
+
+/**
+ * Socket events only expose the user verified in the handshake
+ * (`client.data.user`). A socket spans every company of the user, so there is
+ * no company in the CLS here: handlers resolve it per event against the
+ * token memberships. Handshake headers are never trusted.
+ */
 export function setupWsContext(cls: ClsService, context: ExecutionContext) {
-  const client: Socket = context.switchToWs().getClient<Socket>();
+  const client = context.switchToWs().getClient<Socket>();
+  const user = (client.data as { user?: JwtPayload } | undefined)?.user;
 
-  const companyId = client.handshake.headers['x-company-id'] as string;
-  const userId = client.handshake.headers['x-user-id'] as string;
-
-  cls.set('company.id', companyId);
-  cls.set('user.id', userId);
+  cls.set(CLS_USER_ID, user?.sub);
 }

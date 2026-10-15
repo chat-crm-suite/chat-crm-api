@@ -9,8 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import type { CompanyStatus } from '../../../contracts/index';
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import type { CompanyStatus } from '@contracts';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 
 /**
  * Tenant root. The assignment settings that used to live here moved to

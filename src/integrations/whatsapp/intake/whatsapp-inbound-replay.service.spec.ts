@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { UpdateMessageStatusCommand } from '../../../modules/conversations/commands/update-message-status.command';
+import { UpdateMessageStatusCommand } from '@modules/conversations/commands/update-message-status.command';
 import { ReceiveWhatsAppMessageCommand } from '../commands/receive-whatsapp-message.command';
 import { WhatsAppInboundReplayService } from './whatsapp-inbound-replay.service';
 
@@ -92,6 +92,35 @@ describe('WhatsAppInboundReplayService', () => {
       type: 'text',
       text: { body: 'hola' },
     });
+    expect(intake.markReplayed).toHaveBeenCalledWith('wamid-text-1', 'message');
+  });
+
+  it('rehydrates the stored sender-name snapshot so replay matches the live path', async () => {
+    const { service, intake, commandBus } = build();
+    intake.listPending.mockResolvedValue([textEvent({ senderName: 'Alice' })]);
+
+    await service.replayPending();
+
+    const command = commandBus.execute.mock
+      .calls[0][0] as ReceiveWhatsAppMessageCommand;
+    expect(command).toBeInstanceOf(ReceiveWhatsAppMessageCommand);
+    expect(command.message.context).toMatchObject({
+      messageId: 'wamid-text-1',
+      from: '15551234567',
+      phoneNumberId: 'phone-1',
+      senderName: 'Alice',
+    });
+  });
+
+  it('replays rows stored before the sender snapshot without crashing', async () => {
+    const { service, intake, commandBus } = build();
+    intake.listPending.mockResolvedValue([textEvent()]);
+
+    await expect(service.replayPending()).resolves.toBe(1);
+
+    const command = commandBus.execute.mock
+      .calls[0][0] as ReceiveWhatsAppMessageCommand;
+    expect(command.message.context.senderName).toBeUndefined();
     expect(intake.markReplayed).toHaveBeenCalledWith('wamid-text-1', 'message');
   });
 

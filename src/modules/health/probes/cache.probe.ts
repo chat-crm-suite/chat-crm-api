@@ -5,7 +5,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import type { ConfigType } from '@nestjs/config';
 
-import healthConfig from '../../../config/health.config';
+import healthConfig from '@config/health.config';
 import { HealthCheck, HealthStatus } from '../health.enum';
 import { HealthCheckResult } from '../health.interface';
 import { HealthProbe } from '../health.probe';

@@ -3,43 +3,35 @@
 
 import { ExecutionContext } from '@nestjs/common';
 import { factory } from './current-user.decorator';
-import { AuthUser } from '../auth.types';
+import type { JwtPayload } from '../auth.types';
 
-describe('extractUser', () => {
-  const authUser: Partial<AuthUser> = {
-    id: '123',
-    username: 'jeremi',
-  };
-
-  const mockContext = {
+const contextWith = (user: JwtPayload | undefined) =>
+  ({
     switchToHttp: jest.fn().mockReturnValue({
-      getRequest: jest.fn().mockReturnValue({ user: authUser }),
+      getRequest: jest.fn().mockReturnValue({ user }),
       getResponse: jest.fn(),
       getNext: jest.fn(),
     }),
-  } as unknown as ExecutionContext;
+  }) as unknown as ExecutionContext;
 
-  it('returns full user when no data is provided', () => {
-    expect(factory(undefined, mockContext)).toEqual(authUser);
+describe('CurrentUser factory', () => {
+  const payload: JwtPayload = {
+    sub: 'user-1',
+    memberships: [{ cid: 'company-1', mid: 'member-1', role: 'admin' }],
+    ts: 1,
+  };
+
+  it('returns the verified claims when no data is provided', () => {
+    expect(factory(undefined, contextWith(payload))).toEqual(payload);
   });
 
-  it('returns user id when data is "id"', () => {
-    expect(factory('id', mockContext)).toBe(authUser.id);
+  it('returns one claim when data is given', () => {
+    expect(factory('sub', contextWith(payload))).toBe('user-1');
+    expect(factory('memberships', contextWith(payload))).toEqual(payload.memberships);
   });
 
-  it('returns user username when data is "username"', () => {
-    expect(factory('username', mockContext)).toBe(authUser.username);
-  });
-
-  it('returns undefined if user is missing', () => {
-    const badContext = {
-      switchToHttp: jest.fn().mockReturnValue({
-        getRequest: jest.fn().mockReturnValue({ user: undefined }),
-        getResponse: jest.fn(),
-        getNext: jest.fn(),
-      }),
-    } as unknown as ExecutionContext;
-
-    expect(factory(undefined, badContext)).toBeUndefined();
+  it('returns undefined when the request has no user', () => {
+    expect(factory(undefined, contextWith(undefined))).toBeUndefined();
+    expect(factory('sub', contextWith(undefined))).toBeUndefined();
   });
 });

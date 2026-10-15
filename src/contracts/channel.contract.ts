@@ -3,6 +3,12 @@
 
 import { z } from 'zod';
 
+import {
+  type AttachmentType,
+  CAPTION_MAX_LENGTH,
+  TEXT_MAX_LENGTH,
+} from './message.contract';
+
 /**
  * Channel contracts (v2): a company talks to customers through N channels
  * (WhatsApp is the first provider). Replaces `whatsapp_configs`.
@@ -107,3 +113,110 @@ export type ChannelResponse = z.infer<typeof ChannelResponseSchema>;
 export type WhatsAppConfigResponse = z.infer<
   typeof WhatsAppConfigResponseSchema
 >;
+
+const KB = 1024;
+const MB = 1024 * KB;
+
+/** Accepted media types and size cap for one attachment kind. */
+export interface MediaRule {
+  readonly mimeTypes: readonly string[];
+  readonly maxBytes: number;
+  /**
+   * Only progressive MP4 (one `moov` with the sample tables). Fragmented MP4,
+   * what browsers record, is refused by the provider after sending.
+   */
+  readonly progressiveOnly?: boolean;
+}
+
+/**
+ * What a channel can send, so the API validates uploads and the composer
+ * filters files without asking the server. Adding a channel is one more entry
+ * here plus its adapter; nothing else branches on the provider.
+ */
+export interface ChannelCapabilities {
+  /** Sendable kinds; a missing kind cannot be sent on this channel. */
+  readonly media: Readonly<Partial<Record<AttachmentType, MediaRule>>>;
+  readonly sticker?: {
+    readonly width: number;
+    readonly height: number;
+    readonly maxStaticBytes: number;
+    readonly maxAnimatedBytes: number;
+  };
+  /** Container voice notes must use to render as voice notes. */
+  readonly voiceMimeType: string | null;
+  readonly textMaxLength: number;
+  readonly captionMaxLength: number;
+  /** Free-form replies only within this window after the last inbound. */
+  readonly replyWindowMs: number | null;
+}
+
+/**
+ * WhatsApp Cloud API limits.
+ * @link https://developers.facebook.com/docs/whatsapp/cloud-api/reference/media#supported-media-types
+ */
+const WHATSAPP_CAPABILITIES: ChannelCapabilities = {
+  media: {
+    image: { mimeTypes: ['image/jpeg', 'image/png'], maxBytes: 5 * MB },
+    video: {
+      mimeTypes: ['video/mp4', 'video/3gpp'],
+      maxBytes: 16 * MB,
+      // Graph answers 131053 ("media file scrutiny failed") to fragmented MP4.
+      progressiveOnly: true,
+    },
+    audio: {
+      mimeTypes: [
+        'audio/aac',
+        'audio/amr',
+        'audio/mpeg',
+        'audio/mp4',
+        'audio/ogg',
+      ],
+      maxBytes: 16 * MB,
+    },
+    document: {
+      mimeTypes: [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/plain',
+        'text/csv',
+      ],
+      maxBytes: 100 * MB,
+    },
+    sticker: { mimeTypes: ['image/webp'], maxBytes: 500 * KB },
+  },
+  sticker: {
+    width: 512,
+    height: 512,
+    maxStaticBytes: 100 * KB,
+    maxAnimatedBytes: 500 * KB,
+  },
+  voiceMimeType: 'audio/ogg',
+  textMaxLength: TEXT_MAX_LENGTH,
+  captionMaxLength: CAPTION_MAX_LENGTH,
+  replyWindowMs: 24 * 60 * 60 * 1000,
+};
+
+export const CHANNEL_CAPABILITIES: Readonly<
+  Partial<Record<ChannelType, ChannelCapabilities>>
+> = {
+  whatsapp: WHATSAPP_CAPABILITIES,
+};
+
+/** Capabilities of a channel type, or `null` when it cannot send yet. */
+export function channelCapabilities(
+  type: ChannelType | null | undefined,
+): ChannelCapabilities | null {
+  return (type && CHANNEL_CAPABILITIES[type]) || null;
+}
+
+/** Largest single upload any channel accepts (the upload endpoint cap). */
+export const MAX_UPLOAD_BYTES = Math.max(
+  ...Object.values(CHANNEL_CAPABILITIES).flatMap((capabilities) =>
+    Object.values(capabilities?.media ?? {}).map((rule) => rule.maxBytes),
+  ),
+);

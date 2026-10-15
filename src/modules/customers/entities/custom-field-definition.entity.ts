@@ -10,8 +10,8 @@ import {
   ManyToOne,
 } from 'typeorm';
 
-import type { CustomFieldType } from '../../../contracts/index';
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import type { CustomFieldType } from '@contracts';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
 
 @Entity('custom_field_definitions')

@@ -12,12 +12,14 @@ import {
 
 import { CreateSetupDto } from './dto/create-setup.dto';
 import { SetupService } from './setup.service';
+import { Public } from '@auth';
 
 /**
  * Endpoints públicos de primer arranque. Deliberadamente sin guardas: son la
  * vía de entrada cuando todavía no existe ningún usuario/empresa. `POST` queda
  * bloqueado por el servicio (409) en cuanto la app está inicializada.
  */
+@Public()
 @Controller('setup')
 export class SetupController {
   constructor(private readonly service: SetupService) {}

@@ -3,6 +3,6 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { CreateSetupSchema } from '../../../contracts/index';
+import { CreateSetupSchema } from '@contracts';
 
 export class CreateSetupDto extends createZodDto(CreateSetupSchema) {}

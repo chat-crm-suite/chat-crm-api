@@ -1,21 +1,23 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { EventBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, In } from 'typeorm';
 
+import { AnalyticsSignalEvent } from '../../analytics/events/analytics.events';
 import { CompanySettings } from '../../company/entities/company-settings.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { Conversation } from '../entities/conversation.entity';
-import { ConversationSocketEvent } from '../../../contracts/index';
+import { ConversationSocketEvent, NotificationTypeSchema } from '@contracts';
 import { ConversationGateway } from '../gateways/conversation.gateway';
 
 export const ASSIGNED_NOTIFICATION_TITLE = 'Nuevo chat asignado';
 export const UNASSIGNED_NOTIFICATION_TITLE = 'Chat sin asignar';
-export const ASSIGNED_NOTIFICATION_TYPE = 'conversation_assigned';
-export const UNASSIGNED_NOTIFICATION_TYPE = 'queue_unassigned';
+export const ASSIGNED_NOTIFICATION_TYPE = NotificationTypeSchema.enum.conversation_assigned;
+export const UNASSIGNED_NOTIFICATION_TYPE = NotificationTypeSchema.enum.queue_unassigned;
 
 /**
  * Avisos de asignación.
@@ -33,6 +35,7 @@ export class ConversationAssignmentNotifier {
     private readonly gateway: ConversationGateway,
     private readonly dataSource: DataSource,
     private readonly logger: PinoLogger,
+    @Optional() private readonly eventBus?: EventBus,
   ) {
     this.logger.setContext(ConversationAssignmentNotifier.name);
   }
@@ -52,7 +55,18 @@ export class ConversationAssignmentNotifier {
         });
       if (!member) return;
 
-      let payload: unknown = { conversationId, memberId };
+      // Owner, load and the waiting list of the floor changed.
+      this.eventBus?.publish(new AnalyticsSignalEvent(member.companyId, ['live']));
+
+      // Agents that were reading the queued thread lose it to the new owner.
+      await this.gateway.revokeConversationAccess(
+        conversationId,
+        member.companyId,
+        memberId,
+      );
+
+      // Stays null when the member muted the type: nothing stored, nothing emitted.
+      let payload: ReturnType<typeof this.toRealtimePayload> | null = null;
 
       if (notifyMember) {
         const notification = await this.notifications.create({
@@ -63,7 +77,7 @@ export class ConversationAssignmentNotifier {
           body: 'Tenés un chat nuevo esperando respuesta',
           data: { conversationId },
         });
-        payload = this.toRealtimePayload(notification);
+        if (notification) payload = this.toRealtimePayload(notification);
       }
 
       this.emitToUser(member.userId, ConversationSocketEvent.ConversationAssigned, {
@@ -71,7 +85,7 @@ export class ConversationAssignmentNotifier {
         memberId,
       });
 
-      if (notifyMember) {
+      if (payload) {
         this.emitToUser(member.userId, ConversationSocketEvent.NewNotification, payload);
       }
     } catch (error) {
@@ -87,6 +101,8 @@ export class ConversationAssignmentNotifier {
     try {
       const company = companyId ?? (await this.resolveCompanyId(conversationId));
       if (!company) return;
+
+      this.eventBus?.publish(new AnalyticsSignalEvent(company, ['live']));
 
       const settings = await this.dataSource
         .getRepository(CompanySettings)
@@ -118,6 +134,8 @@ export class ConversationAssignmentNotifier {
           body: 'Hay un chat esperando agente en la cola',
           data: { conversationId },
         });
+        if (!notification) continue;
+
         this.emitToUser(
           supervisor.userId,
           ConversationSocketEvent.NewNotification,

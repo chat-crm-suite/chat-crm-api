@@ -3,6 +3,6 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { WebhookQuerySchema } from '../../../contracts/index';
+import { WebhookQuerySchema } from '@contracts';
 
 export class WebhookQuery extends createZodDto(WebhookQuerySchema) {}

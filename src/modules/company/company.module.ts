@@ -8,16 +8,12 @@ import { CompanyService } from './company.service';
 import { Company } from './entities/company.entity';
 import { CompanySettings } from './entities/company-settings.entity';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
-import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
+import { ServiceSettingsModule } from './service-settings/service-settings.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Company,
-      CompanySettings,
-      CompanyMember,
-      PipelineStage,
-    ]),
+    TypeOrmModule.forFeature([Company, CompanySettings, CompanyMember]),
+    ServiceSettingsModule,
   ],
   controllers: [CompanyController],
   providers: [CompanyService],

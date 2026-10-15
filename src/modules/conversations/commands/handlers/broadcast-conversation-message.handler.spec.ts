@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import type { ConversationMessagePayload } from '../../../message/message.types';
+import type { ConversationMessage } from '@contracts';
 import type { ConversationFanoutService } from '../../realtime/conversation-fanout.service';
 import { BroadcastConversationMessageCommand } from '../broadcast-conversation-message.command';
 import { BroadcastConversationMessageHandler } from './broadcast-conversation-message.handler';
@@ -22,8 +22,8 @@ describe('BroadcastConversationMessageHandler (T6)', () => {
   const payload = {
     id: 'msg-1',
     conversationId: 'conv-1',
-    msg: { type: 'text', content: { body: 'hola' } },
-  } as ConversationMessagePayload;
+    msg: { type: 'text', text: 'hola' },
+  } as ConversationMessage;
 
   beforeEach(() => jest.clearAllMocks());
 

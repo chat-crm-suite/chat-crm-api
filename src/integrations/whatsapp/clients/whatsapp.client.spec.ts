@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { of, throwError } from 'rxjs';
 
-import type { ChannelTransmission } from '../../../modules/channels/channels.service';
+import type { ChannelTransmission } from '@modules/channels/channels.service';
 import type { WhatsAppPayload } from '../interfaces/whatsapp-message.interface';
 import { WhatsAppClient } from './whatsapp.client';
 
@@ -333,5 +339,63 @@ describe('WhatsAppClient.downloadMedia (T3 streaming + limits)', () => {
       fileUrl: '/uploads/co-1/media-1.ogg',
     });
     expect(http.get).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('WhatsAppClient.uploadMedia (Graph media id)', () => {
+  let dir: string;
+  let filePath: string;
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'wa-upload-'));
+    filePath = join(dir, 'photo.png');
+    writeFileSync(filePath, Buffer.from('png-bytes'));
+  });
+
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  const file = () => ({
+    absolutePath: filePath,
+    mimeType: 'image/png',
+    filename: 'photo.png',
+  });
+
+  it('posts the file as multipart to the phone media endpoint and returns its id', async () => {
+    const http = buildHttp();
+    http.post.mockReturnValue(of({ data: { id: 'media-1' } }));
+    const client = new WhatsAppClient(http as never, logger);
+
+    await expect(client.uploadMedia(transmission(), file())).resolves.toBe(
+      'media-1',
+    );
+
+    const [url, body, config] = http.post.mock.calls[0];
+    expect(url).toBe('https://graph.example.com/v21.0/phone-a/media');
+    expect(config.headers.Authorization).toBe('Bearer token-a');
+    const form = body as FormData;
+    expect(form.get('messaging_product')).toBe('whatsapp');
+    expect(form.get('type')).toBe('image/png');
+    const sent = form.get('file') as File;
+    expect(sent.name).toBe('photo.png');
+    expect(Buffer.from(await sent.arrayBuffer()).toString()).toBe('png-bytes');
+  });
+
+  it('retries a transport fault and fails an answer without id', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const http = buildHttp();
+    http.post
+      .mockReturnValueOnce(throwError(() => networkError()))
+      .mockReturnValueOnce(of({ data: {} }));
+    const client = new WhatsAppClient(http as never, logger);
+
+    const upload = client.uploadMedia(transmission(), file());
+    const assertion = expect(upload).rejects.toThrow(
+      'WhatsApp media upload answered without an id',
+    );
+    await jest.runAllTimersAsync();
+    await assertion;
+
+    expect(http.post).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
   });
 });

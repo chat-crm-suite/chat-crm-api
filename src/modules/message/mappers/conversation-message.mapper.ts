@@ -1,66 +1,110 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
+import type {
+  ConversationMessage,
+  MediaRef,
+  MessageView,
+} from '@contracts';
+import { attachmentMediaUrl } from '../attachment-url';
 import type { MessageAttachment } from '../entities/message-attachment.entity';
 import type { Message } from '../entities/message.entity';
-import type { ConversationMessagePayload } from '../message.types';
 
 /** Sender id falls back to `system` when neither FK is present. */
 export function getMessageSender(
   message: Message,
-): ConversationMessagePayload['sender'] {
+): ConversationMessage['sender'] {
   return {
     id: message.senderMemberId ?? message.senderCustomerId ?? 'system',
     type: message.senderType,
   };
 }
 
-/** Fields shared by every `ConversationMessagePayload`, whatever the type. */
-export function getConversationMessageBase(
+/**
+ * A persisted message (plus its attachments) as the REST history and the
+ * socket broadcast expose it. The media URL is always our membership-checked
+ * attachments endpoint, never a provider or storage path.
+ */
+export function toConversationMessage(
   message: Message,
-): Pick<
-  ConversationMessagePayload,
-  'id' | 'conversationId' | 'timestamp' | 'status' | 'sender'
-> {
+  attachments: MessageAttachment[] = [],
+): ConversationMessage {
   return {
     id: message.id,
     conversationId: message.conversationId,
+    clientMessageId: message.clientMessageId ?? null,
     timestamp: message.createdAt,
     status: message.status,
     sender: getMessageSender(message),
+    msg: toMessageView(message, attachments[0]),
+  };
+}
+
+/** Exhaustive over the persisted kinds: a new kind fails to compile here. */
+export function toMessageView(
+  message: Message,
+  attachment?: MessageAttachment,
+): MessageView {
+  const text = message.body ?? null;
+
+  switch (message.type) {
+    case 'text':
+      return { type: 'text', text: text ?? '' };
+    case 'image':
+    case 'video':
+      return { type: message.type, media: toMediaRef(attachment), caption: text };
+    case 'audio':
+      return {
+        type: 'audio',
+        media: toMediaRef(attachment),
+        voice: isVoiceNote(attachment?.mimeType),
+      };
+    case 'document':
+      return {
+        type: 'document',
+        media: toMediaRef(attachment),
+        filename: attachment?.fileName ?? null,
+        caption: text,
+      };
+    case 'sticker':
+      return { type: 'sticker', media: toMediaRef(attachment) };
+    case 'location':
+    case 'contact':
+    case 'template':
+    case 'interactive':
+    case 'reaction':
+      return { type: 'unsupported', originalType: message.type, text };
+    default:
+      return unreachable(message.type);
+  }
+}
+
+/**
+ * The file behind a media message. A row without attachment (legacy data)
+ * reads as `failed`: there is nothing to show, and saying so is honest.
+ */
+export function toMediaRef(attachment?: MessageAttachment | null): MediaRef {
+  return {
+    attachmentId: attachment?.id ?? null,
+    url: attachmentMediaUrl(attachment),
+    status: attachment?.status ?? 'failed',
+    mimeType: attachment?.mimeType ?? null,
+    sizeBytes: attachment?.sizeBytes ?? null,
+    durationMs: attachment?.durationMs ?? null,
+    width: attachment?.width ?? null,
+    height: attachment?.height ?? null,
   };
 }
 
 /**
- * Generic mapping for message types without a dedicated strategy:
- * `body` for text-only messages; otherwise the first attachment provides the
- * media (`link` = storageUrl, `caption` = body, `filename` = fileName).
+ * Voice notes are Opus in an Ogg container: that is what WhatsApp records
+ * and the only audio it renders as a voice note, so the kind is derived from
+ * the file instead of being stored apart.
  */
-export function toConversationMessagePayload(
-  message: Message,
-  attachments: MessageAttachment[] = [],
-): ConversationMessagePayload {
-  const [attachment] = attachments;
-  const content: ConversationMessagePayload['msg']['content'] = {};
+export function isVoiceNote(mimeType?: string | null): boolean {
+  return (mimeType ?? '').toLowerCase().startsWith('audio/ogg');
+}
 
-  if (message.body) {
-    if (attachment) {
-      content.caption = message.body;
-    } else {
-      content.body = message.body;
-    }
-  }
-
-  if (attachment?.storageUrl) content.link = attachment.storageUrl;
-  if (attachment?.fileName) content.filename = attachment.fileName;
-
-  return {
-    ...getConversationMessageBase(message),
-    msg: {
-      type: message.type,
-      mediaUrl: attachment?.storageUrl ?? null,
-      attachmentStatus: attachment?.status ?? null,
-      content,
-    },
-  };
+function unreachable(type: never): never {
+  throw new Error(`Unmapped message type: ${String(type)}`);
 }

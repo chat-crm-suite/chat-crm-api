@@ -3,14 +3,14 @@
 
 import { Command } from '@nestjs/cqrs';
 
-import type { ConversationMessagePayload } from '../../message/message.types';
+import type { ConversationMessage } from '@contracts';
 
 export class BroadcastConversationMessageCommand extends Command<{
   id: string;
 }> {
   constructor(
     public readonly id: string,
-    public readonly payload: ConversationMessagePayload,
+    public readonly payload: ConversationMessage,
     public readonly conversationId?: string,
   ) {
     super();

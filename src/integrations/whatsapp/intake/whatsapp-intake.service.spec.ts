@@ -6,7 +6,7 @@ import { getDataSourceToken, TypeOrmModule } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
 import { DataSource, Repository } from 'typeorm';
 
-import { getTestConfig } from '../../../../test/helpers/test-database.helper';
+import { getTestConfig } from '@helpers/test-database.helper';
 import { WhatsappInboundEvent } from '../entities/whatsapp-inbound-event.entity';
 import { WhatsAppIntakeService } from './whatsapp-intake.service';
 

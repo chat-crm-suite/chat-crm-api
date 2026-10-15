@@ -13,4 +13,5 @@ export enum HealthStatus {
   Fail = 'fail',
   Skipped = 'skipped',
   Unreachable = 'unreachable',
+  Disabled = 'disabled',
 }

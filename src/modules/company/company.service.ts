@@ -2,21 +2,22 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventBus } from '@nestjs/cqrs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 
-import { DEFAULT_PIPELINE_STAGES } from '../customers/pipeline-stages.defaults';
-import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
+import type { UpdateCompanyProfileInput } from '../../contracts/index';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
-import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateAssignmentSettingsDto } from './dto/assignment-settings.dto';
 import { Company } from './entities/company.entity';
 import { CompanySettings } from './entities/company-settings.entity';
+import { CompanyUpdatedEvent } from './events/company-updated.event';
 
 @Injectable()
 export class CompanyService {
@@ -27,16 +28,9 @@ export class CompanyService {
     private readonly settings: Repository<CompanySettings>,
     @InjectRepository(CompanyMember)
     private readonly members: Repository<CompanyMember>,
-    @InjectRepository(PipelineStage)
-    private readonly stages: Repository<PipelineStage>,
     private readonly cls: ClsService,
+    private readonly eventBus: EventBus,
   ) {}
-
-  get info() {
-    const company = this.repo.findOneBy({ id: this.id });
-
-    return company;
-  }
 
   get id() {
     const companyId = this.cls.get('company.id');
@@ -44,46 +38,35 @@ export class CompanyService {
     return companyId;
   }
 
-  async create(dto: CreateCompanyDto) {
-    const { phone, ...rest } = dto;
-    const company = await this.repo.save(
-      this.repo.create({ ...rest, phoneNumber: phone }),
-    );
-
-    // 1:1 settings row with engine defaults.
-    await this.settings.save(
-      this.settings.create({ companyId: company.id }),
-    );
-
-    // Default sales pipeline.
-    await this.stages.save(
-      DEFAULT_PIPELINE_STAGES.map((stage) =>
-        this.stages.create({ ...stage, companyId: company.id }),
-      ),
-    );
-
-    // El creador queda como member admin: evita empresas huérfanas.
-    const userId = this.cls.get<string>('user.id');
-    if (userId) {
-      await this.members.save(
-        this.members.create({
-          userId,
-          companyId: company.id,
-          role: 'admin',
-          status: 'active',
-        }),
-      );
-    }
+  /** The active company (`GET /company/me`). */
+  async profile(): Promise<Company> {
+    const company = await this.repo.findOneBy({ id: this.id });
+    if (!company) throw new NotFoundException('Company not found');
 
     return company;
   }
 
-  findAll() {
-    return `This action returns all companies`;
-  }
+  /** Admin edit of the active company data (`PATCH /company/me`). */
+  async updateProfile(dto: UpdateCompanyProfileInput): Promise<Company> {
+    const company = await this.profile();
 
-  async findOne(id: string) {
-    return await this.repo.findOneBy({ id });
+    if (dto.email && dto.email !== company.email) {
+      const taken = await this.repo.exists({
+        where: { email: dto.email, id: Not(company.id) },
+        withDeleted: true,
+      });
+      if (taken) {
+        throw new ConflictException({
+          code: 'company_email_taken',
+          message: 'That email belongs to another company',
+        });
+      }
+    }
+
+    await this.repo.update(company.id, dto);
+    this.eventBus.publish(new CompanyUpdatedEvent(company.id));
+
+    return this.profile();
   }
 
   /** Config de asignación de la empresa activa. */
@@ -111,6 +94,9 @@ export class CompanyService {
   async updateAssignmentSettings(dto: UpdateAssignmentSettingsDto) {
     await this.assertSupervisor();
 
+    // Creates the settings row of a company that never had one, so the
+    // update below always has a row to change.
+    await this.getAssignmentSettings();
     await this.settings.update({ companyId: this.id }, dto);
     return this.getAssignmentSettings();
   }
@@ -134,9 +120,5 @@ export class CompanyService {
         'Only supervisors can change assignment settings',
       );
     }
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} company`;
   }
 }

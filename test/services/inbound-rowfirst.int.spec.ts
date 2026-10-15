@@ -13,12 +13,12 @@ import {
   CustomerFactory,
   MessageFactory,
 } from '@factories';
-import { MessageContentHandlers } from '@integrations/whatsapp/commands/handlers/message-content.handlers';
+import { InboundMessageRouter } from '@integrations/whatsapp/commands/router/inbound-message.router';
 import { ReceiveWhatsAppMessageCommand } from '@integrations/whatsapp/commands/receive-whatsapp-message.command';
 import { InboundMediaEnrichmentService } from '@integrations/whatsapp/intake/inbound-media-enrichment.service';
 import { WhatsAppInboundReplayService } from '@integrations/whatsapp/intake/whatsapp-inbound-replay.service';
 import { WhatsAppIntakeService } from '@integrations/whatsapp/intake/whatsapp-intake.service';
-import { ConversationSocketEvent } from '../../src/contracts/index';
+import { ConversationSocketEvent } from '@contracts';
 import type { ChannelTransmission } from '@modules/channels/channels.service';
 import { SaveConversationMessageCommand } from '@modules/conversations/commands/save-conversation-message.command';
 import { ConversationRepository } from '@modules/conversations/conversation.repository';
@@ -126,7 +126,7 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
       logger(),
     );
 
-    const handlers = new MessageContentHandlers(
+    const router = new InboundMessageRouter(
       conversationRepository,
       commandBus as never,
       logger(),
@@ -137,8 +137,8 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
       if (command instanceof ReceiveWhatsAppMessageCommand) {
         if (!currentTransmission) throw new Error('No transmission configured');
         const { context, content } = command.message;
-        await handlers
-          .getHandler(content.type)
+        await router
+          .resolve(content.type)
           ?.handle(content, context, currentTransmission);
         return undefined;
       }
@@ -187,6 +187,7 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
       { downloadMedia } as never,
       fanout,
       logger(),
+      { publish: jest.fn() } as never,
     );
   });
 
@@ -289,7 +290,8 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
         conversationId: conversation.id,
         attachmentId: pendingAttachment.id,
         status: 'ready',
-        url: '/uploads/co-test/media-audio-1.ogg',
+        // T25: the patch exposes our own endpoint, never the storage path.
+        url: `/attachments/${pendingAttachment.id}`,
       }),
     );
 
@@ -365,9 +367,9 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
     );
 
     // History stays honest after a reload: the failed state travels in the
-    // same payload the thread already consumes.
+    // same payload the thread already consumes (the `media` ref of PR #25).
     await expect(messageService.getMessagePayload(message.id)).resolves.toMatchObject({
-      msg: { type: 'image', mediaUrl: null, attachmentStatus: 'failed' },
+      msg: { type: 'image', media: { url: null, status: 'failed' } },
     });
   });
 

@@ -3,7 +3,7 @@
 
 import { createZodDto } from 'nestjs-zod';
 
-import { UpdateAssignmentSettingsSchema } from '../../../contracts/index';
+import { UpdateAssignmentSettingsSchema } from '@contracts';
 
 /**
  * Automatic assignment settings per company (Q18).

@@ -9,7 +9,7 @@ import {
   ManyToOne,
 } from 'typeorm';
 
-import { UuidV7Entity } from '../../../lib/entities/uuid-v7.entity';
+import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
 
 /** Configurable sales stages per company (replaces contacts.status). */

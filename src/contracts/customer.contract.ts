@@ -3,6 +3,9 @@
 
 import { z } from 'zod';
 
+import { ConversationStatusSchema } from './conversation.contract';
+import { TableQueryBaseSchema } from './pagination.contract';
+
 /**
  * Customer contracts (v2). `customer_identities` is the resolution canon;
  * `customers.phone_number` is informational and normalized to `+digits`.
@@ -35,7 +38,11 @@ export const CreateCustomerSchema = z.object({
   ownerMemberId: z.uuid().optional(),
 });
 
-export const UpdateCustomerSchema = CreateCustomerSchema.partial();
+/** On update, `null` clears the owner or the stage ("Sin responsable"). */
+export const UpdateCustomerSchema = CreateCustomerSchema.partial().extend({
+  pipelineStageId: z.uuid().nullable().optional(),
+  ownerMemberId: z.uuid().nullable().optional(),
+});
 
 /** Entity shape returned by the customers endpoints. */
 export const CustomerResponseSchema = z.object({
@@ -57,3 +64,124 @@ export const CustomerResponseSchema = z.object({
 export type CreateCustomerInput = z.infer<typeof CreateCustomerSchema>;
 export type UpdateCustomerInput = z.infer<typeof UpdateCustomerSchema>;
 export type CustomerResponse = z.infer<typeof CustomerResponseSchema>;
+
+/** Tag attached to customers (`tags`, unique per company by name). */
+export const TagSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  color: z.string().nullish(),
+});
+export type Tag = z.infer<typeof TagSchema>;
+
+export const CreateTagSchema = z.object({
+  name: z.string().trim().min(1).max(50),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
+});
+export type CreateTagInput = z.infer<typeof CreateTagSchema>;
+
+/** `PUT /customers/:id/tags` replaces the whole set. */
+export const SetCustomerTagsSchema = z.object({
+  tagIds: z.array(z.uuid()).max(50),
+});
+export type SetCustomerTagsInput = z.infer<typeof SetCustomerTagsSchema>;
+
+/** Row of the customers table (owner, stage, tags and conversation summary). */
+export const CustomerRowSchema = CustomerResponseSchema.extend({
+  owner: z
+    .object({
+      memberId: z.string(),
+      name: z.string(),
+      avatarUrl: z.string().nullish(),
+    })
+    .nullable(),
+  stage: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      color: z.string().nullish(),
+    })
+    .nullable(),
+  tags: z.array(TagSchema),
+  conversationsCount: z.number().int().min(0),
+  /** Latest conversation in `open`/`pending`, if any. */
+  openConversation: z
+    .object({
+      id: z.string(),
+      status: ConversationStatusSchema,
+      assignedMemberId: z.string().nullable(),
+    })
+    .nullable(),
+});
+export type CustomerRow = z.infer<typeof CustomerRowSchema>;
+
+/** Filter value of `ownerMemberId[]` meaning "customers without an owner". */
+export const NO_OWNER_FILTER = 'none';
+
+/** `POST /customers/table` body. */
+export const CustomerTableQuerySchema = TableQueryBaseSchema.extend({
+  q: z.string().trim().max(100).optional(),
+  stageId: z.array(z.string()).optional(),
+  ownerMemberId: z.array(z.string()).optional(),
+  tagId: z.array(z.string()).optional(),
+  source: z.array(CustomerSourceSchema).optional(),
+  /** ISO 8601 instants; strings (not Date) so the body documents cleanly. */
+  lastInteractionFrom: z.iso.datetime({ offset: true }).optional(),
+  lastInteractionTo: z.iso.datetime({ offset: true }).optional(),
+});
+export type CustomerTableQuery = z.infer<typeof CustomerTableQuerySchema>;
+
+/**
+ * Create/update result. `restored` is true when the phone belonged to a
+ * soft-deleted customer that was brought back instead of failing.
+ */
+export const CustomerMutationResultSchema = z.object({
+  customer: CustomerRowSchema,
+  restored: z.boolean(),
+});
+export type CustomerMutationResult = z.infer<
+  typeof CustomerMutationResultSchema
+>;
+
+/** 409 body when an active customer already uses the phone. */
+export const CustomerConflictSchema = z.object({
+  code: z.literal('customer_exists'),
+  customerId: z.string(),
+});
+export type CustomerConflict = z.infer<typeof CustomerConflictSchema>;
+
+/** `POST /customers/import` summary. */
+export const CustomerImportResultSchema = z.object({
+  created: z.number().int().min(0),
+  restored: z.number().int().min(0),
+  skipped: z.number().int().min(0),
+});
+export type CustomerImportResult = z.infer<typeof CustomerImportResultSchema>;
+
+/** `POST /customers/bulk-delete` (soft delete). */
+export const BulkDeleteCustomersSchema = z.object({
+  ids: z.array(z.uuid()).min(1).max(100),
+});
+export type BulkDeleteCustomersInput = z.infer<
+  typeof BulkDeleteCustomersSchema
+>;
+
+export const BulkDeleteCustomersResultSchema = z.object({
+  deleted: z.number().int().min(0),
+});
+export type BulkDeleteCustomersResult = z.infer<
+  typeof BulkDeleteCustomersResultSchema
+>;
+
+/** `GET /customers/stages`: the company pipeline, ordered by `position`. */
+export const PipelineStageSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  position: z.number().int(),
+  color: z.string().nullish(),
+  isWon: z.boolean(),
+  isLost: z.boolean(),
+});
+export type PipelineStage = z.infer<typeof PipelineStageSchema>;

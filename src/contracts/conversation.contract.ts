@@ -39,6 +39,8 @@ export const ASSIGNMENT_REASONS = [
   'manual',
   'transfer',
   'escalation',
+  // The assignee left the company (member removed): back to the queue.
+  'release',
 ] as const;
 export const AssignmentReasonSchema = z.enum(ASSIGNMENT_REASONS);
 export type AssignmentReason = z.infer<typeof AssignmentReasonSchema>;

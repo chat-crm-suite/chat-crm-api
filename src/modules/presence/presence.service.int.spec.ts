@@ -105,4 +105,24 @@ describe('PresenceService', () => {
     expect(current.get('a')?.state).toBe('available');
     expect(current.get('b')).toEqual({ state: 'offline', since: null });
   });
+
+  it('reports full presence per member in one batch, scoped to the company', async () => {
+    await service.connected('company', 'a');
+    await service.connected('company', 'b');
+    await service.setState('company', 'b', 'away');
+    await service.connected('other', 'c');
+
+    const find = jest.spyOn(intervals, 'find');
+    const many = await service.currentMany('company', ['a', 'b', 'c', 'd']);
+
+    expect(find).toHaveBeenCalledTimes(1);
+    expect(many.get('a')).toMatchObject({ memberId: 'a', state: 'available' });
+    expect(many.get('b')).toMatchObject({ memberId: 'b', state: 'away' });
+    // `c` is online in another company, `d` never connected.
+    expect(many.get('c')).toMatchObject({ memberId: 'c', state: 'offline' });
+    expect(many.get('d')).toMatchObject({ memberId: 'd', state: 'offline' });
+    expect(many.get('d')?.since).toBeInstanceOf(Date);
+    expect((await service.currentMany('company', [])).size).toBe(0);
+    find.mockRestore();
+  });
 });

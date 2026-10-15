@@ -20,12 +20,14 @@ type MockRepo = {
   findOne: jest.Mock;
   create: jest.Mock;
   save: jest.Mock;
+  update: jest.Mock;
 };
 
 const createMockRepo = (): MockRepo => ({
   count: jest.fn(),
   findOne: jest.fn(),
   create: jest.fn((entity: unknown) => entity),
+  update: jest.fn(),
   save: jest.fn((entity: unknown) =>
     Promise.resolve(
       Array.isArray(entity)
@@ -193,6 +195,15 @@ describe('SetupService', () => {
       });
     });
 
+    it('still counts a soft-deleted company, so the console cannot reopen the setup', async () => {
+      mockStatusCounts(1, 1, 1, 1);
+      const service = await build();
+
+      await service.status();
+
+      expect(companiesRepo.count).toHaveBeenCalledWith({ withDeleted: true });
+    });
+
     it('counts only active whatsapp channels as configured', async () => {
       mockStatusCounts(1, 1, 1, 1);
       const service = await build();
@@ -285,6 +296,9 @@ describe('SetupService', () => {
       expect(transaction).toHaveBeenCalledTimes(1);
       expect(companiesRepo.save).toHaveBeenCalledTimes(1);
       expect(usersRepo.save).toHaveBeenCalledTimes(1);
+      expect(usersRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ username: 'admin', isPlatformAdmin: true }),
+      );
       expect(settingsRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ companyId: 'saved-id' }),
       );
@@ -398,6 +412,8 @@ describe('SetupService', () => {
 
       expect(usersRepo.save).not.toHaveBeenCalled();
       expect(membersRepo.save).toHaveBeenCalledTimes(1);
+      // The reused first admin becomes the platform admin too.
+      expect(usersRepo.update).toHaveBeenCalledWith('u1', { isPlatformAdmin: true });
     });
 
     it('rejects with a conflict when an existing admin password does not match', async () => {

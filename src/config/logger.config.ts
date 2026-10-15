@@ -77,6 +77,11 @@ export function buildLoggerConfig(env: LoggerEnv = process.env): Params {
             },
           }
         : undefined,
+      // Session cookies (access_token, platform_token) must never reach the logs.
+      redact: {
+        paths: ['req.headers.cookie', 'res.headers["set-cookie"]'],
+        censor: '[redacted]',
+      },
       customProps: (req, res) => ({
         http: `[${req.url}, ${req.method}, ${res.statusCode}]`,
       }),

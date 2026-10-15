@@ -26,6 +26,7 @@ import { PipelineStage } from './pipeline-stage.entity';
 @Index(['companyId', 'phoneNumber'], { unique: true })
 @Index(['companyId', 'pipelineStageId'])
 @Index(['companyId', 'lastInteractionAt'])
+@Index(['companyId', 'ownerMemberId'])
 export class Customer extends UuidV7Entity {
   @Column({ name: 'company_id', type: 'varchar', length: 36 })
   companyId: string;

@@ -12,6 +12,7 @@ import { AuthUser } from '@auth';
 import type { JwtPayload } from './auth.types';
 import { IS_PUBLIC_KEY, IS_USER_SCOPED_KEY } from './decorators/access.decorators';
 import { UsersService } from '../modules/users/users.service';
+import { SessionRevocationService } from './session/session-revocation.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -51,6 +52,9 @@ describe('AuthController', () => {
     users: {
       profile: jest.fn(),
     },
+    sessions: {
+      revoke: jest.fn().mockResolvedValue(undefined),
+    },
     cookie: jest.fn().mockReturnThis(),
     clearCookie: jest.fn().mockReturnThis(),
   };
@@ -61,6 +65,7 @@ describe('AuthController', () => {
       providers: [
         { provide: AuthService, useValue: mocks.authService },
         { provide: UsersService, useValue: mocks.users },
+        { provide: SessionRevocationService, useValue: mocks.sessions },
       ],
     }).compile();
 
@@ -91,6 +96,11 @@ describe('AuthController', () => {
       expect(meta('getProfile', IS_PUBLIC_KEY)).toBeUndefined();
       expect(meta('getProfile', IS_USER_SCOPED_KEY)).toBe(true);
     });
+
+    it('needs a session but no company to sign out everywhere', () => {
+      expect(meta('revokeAll', IS_PUBLIC_KEY)).toBeUndefined();
+      expect(meta('revokeAll', IS_USER_SCOPED_KEY)).toBe(true);
+    });
   });
 
   describe('login', () => {
@@ -119,6 +129,16 @@ describe('AuthController', () => {
 
       expect(mocks.clearCookie).toHaveBeenCalledWith('access_token');
       expect(result).toEqual({ message: 'Logout success' });
+    });
+  });
+
+  describe('revokeAll', () => {
+    it('revokes every session of the caller and clears the cookie', async () => {
+      const result = await controller.revokeAll('user-1', res);
+
+      expect(mocks.sessions.revoke).toHaveBeenCalledWith('user-1');
+      expect(mocks.clearCookie).toHaveBeenCalledWith('access_token');
+      expect(result).toEqual({ message: 'All sessions revoked' });
     });
   });
 

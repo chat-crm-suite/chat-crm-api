@@ -22,3 +22,17 @@ export const paginatedSchema = <T extends z.ZodType>(item: T) =>
   });
 
 export type PaginationMeta = z.infer<typeof PaginationMetaSchema>;
+
+/**
+ * Base of every server-side table query (`POST .../table`): 1-based page,
+ * page size and TanStack-style multi-column sort.
+ */
+export const TableQueryBaseSchema = z.object({
+  page: z.number().int().min(1).default(1),
+  perPage: z.number().int().min(1).max(100).default(10),
+  sort: z
+    .array(z.object({ id: z.string(), desc: z.boolean().default(false) }))
+    .default([]),
+});
+
+export type TableQueryBase = z.infer<typeof TableQueryBaseSchema>;

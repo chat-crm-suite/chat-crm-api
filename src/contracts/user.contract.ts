@@ -71,3 +71,24 @@ export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;
 export type UserSearchQueryInput = z.infer<typeof UserSearchQuerySchema>;
 export type UserResponse = z.infer<typeof UserResponseSchema>;
 export type AuthUser = z.infer<typeof AuthUserSchema>;
+
+/** `PATCH /users/me`. Username and platform flag are never editable here. */
+export const UpdateProfileSchema = z.object({
+  firstName: z.string().trim().max(100).optional(),
+  lastName: z.string().trim().max(100).optional(),
+  phoneNumber: z.string().max(20).optional(),
+  email: z.email().max(255).optional(),
+});
+export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
+
+/** `POST /users/me/password`. */
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8).max(128),
+});
+export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
+
+/** `POST /users/me/avatar` (multipart `file`, image, max 2 MB). */
+export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+export const AvatarUploadResultSchema = z.object({ avatarUrl: z.string() });
+export type AvatarUploadResult = z.infer<typeof AvatarUploadResultSchema>;

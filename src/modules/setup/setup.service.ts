@@ -167,8 +167,15 @@ export class SetupService {
             lastName: dto.admin.lastName,
             email: dto.admin.email,
             phoneNumber: dto.admin.phoneNumber,
+            // The person who sets the install up owns it: they can open the
+            // platform console (still gated by PLATFORM_CONSOLE_PASSWORD).
+            isPlatformAdmin: true,
           }),
         );
+      }
+
+      if (!user.isPlatformAdmin) {
+        await users.update(user.id, { isPlatformAdmin: true });
       }
 
       const existingMember = await members.findOne({

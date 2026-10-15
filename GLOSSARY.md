@@ -105,6 +105,6 @@ _Avoid_: duplicate error, recreate
 
 **Platform console**:
 The superadmin area for companies (create, edit, soft delete, restore). It
-needs a platform admin account AND an unlock with `PLATFORM_CONSOLE_PASSWORD`;
+needs a platform admin account (the first admin created by the setup is one) AND an unlock with `PLATFORM_CONSOLE_PASSWORD`;
 without that variable the whole surface answers 404.
 _Avoid_: admin panel, super admin page

@@ -367,9 +367,9 @@ describe('Inbound row-first persist + media enrichment - integration', () => {
     );
 
     // History stays honest after a reload: the failed state travels in the
-    // same payload the thread already consumes.
+    // same payload the thread already consumes (the `media` ref of PR #25).
     await expect(messageService.getMessagePayload(message.id)).resolves.toMatchObject({
-      msg: { type: 'image', mediaUrl: null, attachmentStatus: 'failed' },
+      msg: { type: 'image', media: { url: null, status: 'failed' } },
     });
   });
 

@@ -6,6 +6,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { firstValueFrom as first, map, retry, tap, timeout } from 'rxjs';
 import {
+  SENTIMENT_MAX_TEXT_LENGTH as maxLength,
   SENTIMENT_RETRIES as retries,
   SENTIMENT_TIMEOUT as time,
 } from './sentiment.constants';
@@ -25,7 +26,11 @@ export class SentimentClient {
   }
 
   async analyze(text: string) {
-    const res$ = this.http.post<Response>(this.config.endpoint, { text }).pipe(
+    const { endpoint, apiKey } = this.config;
+    const headers = apiKey ? { 'X-IA-Key': apiKey } : {};
+    const body = { text: text.slice(0, maxLength) };
+
+    const res$ = this.http.post<Response>(endpoint, body, { headers }).pipe(
       retry(retries),
       timeout(time),
       tap(({ data }) => this.logger.debug(data, 'Fetch Completed')),

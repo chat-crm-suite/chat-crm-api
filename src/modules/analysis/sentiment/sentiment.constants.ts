@@ -11,6 +11,8 @@ export const DEFAULT_SENTIMENT_MODEL = 'pysentiment' as const;
 // client
 export const SENTIMENT_TIMEOUT = 3_000 as const;
 export const SENTIMENT_RETRIES = 3 as const;
+/** The IA rejects longer texts (IA_MAX_TEXT_LENGTH); the model only reads the start anyway. */
+export const SENTIMENT_MAX_TEXT_LENGTH = 2_000 as const;
 
 // gateway
 export enum SentimentEvent {

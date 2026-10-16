@@ -4,9 +4,10 @@
 /**
  * Explicit migration runner for production deploys.
  *
- * Usage (inside the production image, before starting the app):
- *   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
- *     --env-file .env.prod run --rm app node dist/scripts/run-migrations.js
+ * Usage (inside the production image, before starting the app; compose file
+ * from the chat-crm-deploy repo):
+ *   docker compose -f deploy/docker-compose.yml run --rm api \
+ *     node dist/scripts/run-migrations.js
  *
  * Prefer this over boot-time `migrationsRun`: a failure here is diagnosable
  * and does not leave the app in a boot loop.

@@ -48,9 +48,12 @@ that were rejected.
 
 ## Environment
 
-Env files (`.env`, `.env.prod`) carry only the 17 API variables in use. Fill the
-secrets with `./deploy/gen-secrets.sh [--env FILE] [--prune] [--show-setup-token]
-[--show-platform-password] [--rotate KEY[,KEY]] [--yes-db]`.
+Env files (`.env` here, `env/api.env.prod` in the private `chat-crm-deploy` repo)
+carry only the 17 API variables in use. Fill the secrets with the deploy repo's
+`gen-secrets.sh [--env FILE] [--public-host HOST] [--prune] [--show-setup-token]
+[--show-platform-password] [--rotate KEY[,KEY]] [--yes-db]` (dev: `bash
+../chat-crm-deploy/gen-secrets.sh --env .env`). Production compose, caddy and
+release scripts live in that repo too, not here.
 
 - `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE` and the `MYSQL_*` mirrors (`MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`)
 - `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`

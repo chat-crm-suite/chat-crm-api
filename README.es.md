@@ -56,7 +56,7 @@ en la carpeta padre que contiene los tres repositorios:
 
 ```bash
 cp chat-crm-api/.env.example chat-crm-api/.env
-(cd chat-crm-api && ./deploy/gen-secrets.sh --env .env)   # rellena los secretos
+bash chat-crm-deploy/gen-secrets.sh --env chat-crm-api/.env   # rellena los secretos (repo privado chat-crm-deploy)
 cp chat-crm-app/.env.example chat-crm-app/.env
 docker compose --profile tools up --build -d
 
@@ -98,7 +98,7 @@ Las migraciones pendientes de la base de datos se aplican solas al arrancar la A
 | `SETUP_TOKEN` | Lo pide la pantalla de configuración inicial en producción |
 | `PLATFORM_CONSOLE_PASSWORD` | Opcional. Habilita la consola de superadmin `/platform` (contraseña de los administradores de plataforma); vacío o `disabled` la mantiene apagada |
 
-`./deploy/gen-secrets.sh` rellena todos los secretos con valores aleatorios seguros. Variables opcionales con
+`chat-crm-deploy/gen-secrets.sh` rellena todos los secretos con valores aleatorios seguros. Variables opcionales con
 valor por defecto: `COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`,
 `HEALTH_IA_TIMEOUT_MS`, `IA_CB_FAILURE_THRESHOLD`, `IA_CB_FAILURE_WINDOW_MS`, `IA_CB_OPEN_DURATION_MS`,
 `IA_CB_REOPEN_DURATION_MS` (ajustes del circuit breaker de la IA, ver la spec para los valores por defecto).
@@ -138,7 +138,7 @@ test/               Tests end-to-end y de integración
 - **Referencia de la API**: Swagger UI en `/docs` (activo fuera de producción, o con `SWAGGER_ENABLED=true`) y
   el [`openapi.json`](openapi.json) versionado.
 - **Base de datos**: [`docs/database`](docs/database) · **Tiempo real**: [`docs/realtime`](docs/realtime).
-- **Despliegue a producción**: [`DEPLOY_PROD.md`](DEPLOY_PROD.md) y [`deploy/`](deploy). Cada despliegue aplica
+- **Despliegue a producción**: vive en el repo privado `chat-crm-suite/chat-crm-deploy` (compose, caddy, scripts de release). Cada despliegue aplica
   las migraciones pendientes: haz antes un respaldo de MySQL.
 
 ## Contribuir

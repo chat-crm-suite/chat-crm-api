@@ -54,6 +54,59 @@ export const SetupResultSchema = z.object({
     .nullable(),
 });
 
+/**
+ * `POST /setup/validate`: checks ONE wizard step server-side before the user
+ * moves on, so a wrong token or bad Meta credentials surface on their own
+ * step instead of at the final `POST /setup`. Steps after `token` also need
+ * the setup token (else 403): the endpoint is public and the WhatsApp step
+ * calls Meta.
+ */
+export const SETUP_STEPS = ['token', 'admin', 'company', 'whatsapp'] as const;
+export const SetupStepSchema = z.enum(SETUP_STEPS);
+
+export const ValidateSetupStepSchema = z.discriminatedUnion('step', [
+  z.object({ step: z.literal('token'), setupToken: z.string().optional() }),
+  z.object({
+    step: z.literal('admin'),
+    setupToken: z.string().optional(),
+    admin: SetupAdminSchema,
+  }),
+  z.object({
+    step: z.literal('company'),
+    setupToken: z.string().optional(),
+    company: SetupCompanySchema,
+  }),
+  z.object({
+    step: z.literal('whatsapp'),
+    setupToken: z.string().optional(),
+    whatsapp: SetupWhatsAppSchema,
+  }),
+]);
+
+/** A problem tied to one field, by its `POST /setup` path (e.g. `whatsapp.accessToken`). */
+export const SetupStepErrorSchema = z.object({
+  path: z.string(),
+  message: z.string(),
+});
+
+export const SetupStepResultSchema = z.object({
+  ok: z.boolean(),
+  errors: z.array(SetupStepErrorSchema),
+  /** Non-blocking notes, e.g. Meta could not be reached to verify. */
+  warnings: z.array(z.string()),
+  /** WhatsApp step only: what Meta reports for the verified number. */
+  whatsapp: z
+    .object({
+      displayPhoneNumber: z.string().nullish(),
+      verifiedName: z.string().nullish(),
+    })
+    .nullish(),
+});
+
 export type CreateSetupInput = z.infer<typeof CreateSetupSchema>;
+export type SetupStep = z.infer<typeof SetupStepSchema>;
+export type ValidateSetupStepInput = z.infer<typeof ValidateSetupStepSchema>;
+export type SetupStepError = z.infer<typeof SetupStepErrorSchema>;
+export type SetupStepResult = z.infer<typeof SetupStepResultSchema>;
 export type SetupStatus = z.infer<typeof SetupStatusSchema>;
 export type SetupResult = z.infer<typeof SetupResultSchema>;

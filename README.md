@@ -56,7 +56,7 @@ folder that holds the three repositories:
 
 ```bash
 cp chat-crm-api/.env.example chat-crm-api/.env
-(cd chat-crm-api && ./deploy/gen-secrets.sh --env .env)   # fills the secrets
+bash chat-crm-deploy/gen-secrets.sh --env chat-crm-api/.env   # fills the secrets (private chat-crm-deploy repo)
 cp chat-crm-app/.env.example chat-crm-app/.env
 docker compose --profile tools up --build -d
 
@@ -98,7 +98,7 @@ Pending database migrations run automatically when the API boots.
 | `SETUP_TOKEN` | Required by the first-run setup screen in production |
 | `PLATFORM_CONSOLE_PASSWORD` | Optional. Enables the `/platform` superadmin console (password for platform admins); empty or `disabled` keeps it off |
 
-`./deploy/gen-secrets.sh` fills every secret with a strong random value. Optional variables with defaults:
+`chat-crm-deploy/gen-secrets.sh` fills every secret with a strong random value. Optional variables with defaults:
 `COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`, `HEALTH_IA_TIMEOUT_MS`,
 `IA_CB_FAILURE_THRESHOLD`, `IA_CB_FAILURE_WINDOW_MS`, `IA_CB_OPEN_DURATION_MS`, `IA_CB_REOPEN_DURATION_MS`
 (IA circuit breaker tunables, see the spec for defaults).
@@ -139,7 +139,7 @@ test/               end-to-end and integration tests
   the committed [`openapi.json`](openapi.json).
 - **Database** — [`docs/database`](docs/database) · **Realtime** — [`docs/realtime`](docs/realtime) ·
   **Logging** — [`docs/logging`](docs/logging).
-- **Production deploy** — [`DEPLOY_PROD.md`](DEPLOY_PROD.md) and [`deploy/`](deploy). Every deploy applies
+- **Production deploy** — lives in the private `chat-crm-suite/chat-crm-deploy` repo (compose, caddy, release scripts). Every deploy applies
   pending migrations: back up MySQL first.
 
 ## Contributing

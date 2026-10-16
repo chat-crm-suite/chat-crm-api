@@ -6792,6 +6792,9 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "externalAccountId": {
               "type": "string"
             },
+            "hasAppSecret": {
+              "type": "boolean"
+            },
             "hasCredentials": {
               "type": "boolean"
             },
@@ -6838,6 +6841,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "required": [
             "createdAt",
             "externalAccountId",
+            "hasAppSecret",
             "hasCredentials",
             "id",
             "name",
@@ -6897,6 +6901,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                 "v22.0",
                 "v23.0"
               ],
+              "type": "string"
+            },
+            "appSecret": {
+              "pattern": "^[a-f0-9]{32}$",
               "type": "string"
             },
             "businessId": {
@@ -6973,6 +6981,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               ],
               "type": "string"
             },
+            "appSecret": {
+              "pattern": "^[a-f0-9]{32}$",
+              "type": "string"
+            },
             "businessId": {
               "type": "string"
             },
@@ -7046,6 +7058,14 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "WhatsAppAppSecretSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "pattern": "^[a-f0-9]{32}$",
+          "type": "string"
+        },
+        "kind": "schema"
+      },
       "WhatsAppChannelSettingsSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -7110,6 +7130,9 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "externalAccountId": {
               "type": "string"
             },
+            "hasAppSecret": {
+              "type": "boolean"
+            },
             "hasCredentials": {
               "type": "boolean"
             },
@@ -7156,6 +7179,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "required": [
             "createdAt",
             "externalAccountId",
+            "hasAppSecret",
             "hasCredentials",
             "id",
             "name",
@@ -7173,6 +7197,9 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "additionalProperties": false,
           "properties": {
             "accessToken": {
+              "type": "string"
+            },
+            "appSecret": {
               "type": "string"
             },
             "businessId": {
@@ -12991,6 +13018,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                   ],
                   "type": "string"
                 },
+                "appSecret": {
+                  "pattern": "^[a-f0-9]{32}$",
+                  "type": "string"
+                },
                 "businessId": {
                   "type": "string"
                 },
@@ -13027,6 +13058,15 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "type": "object"
         },
         "kind": "schema"
+      },
+      "SETUP_STEPS": {
+        "kind": "value",
+        "value": [
+          "token",
+          "admin",
+          "company",
+          "whatsapp"
+        ]
       },
       "SetupAdminSchema": {
         "jsonSchema": {
@@ -13208,6 +13248,107 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "SetupStepErrorSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "message",
+            "path"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SetupStepResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "message": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "message",
+                  "path"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "warnings": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "whatsapp": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "displayPhoneNumber": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "verifiedName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "errors",
+            "ok",
+            "warnings"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SetupStepSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "token",
+            "admin",
+            "company",
+            "whatsapp"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
       "SetupWhatsAppSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -13228,6 +13369,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                 "v22.0",
                 "v23.0"
               ],
+              "type": "string"
+            },
+            "appSecret": {
+              "pattern": "^[a-f0-9]{32}$",
               "type": "string"
             },
             "businessId": {
@@ -13257,6 +13402,196 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "externalAccountId"
           ],
           "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ValidateSetupStepSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "setupToken": {
+                  "type": "string"
+                },
+                "step": {
+                  "const": "token",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "step"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "admin": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "email": {
+                      "format": "email",
+                      "maxLength": 255,
+                      "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                      "type": "string"
+                    },
+                    "firstName": {
+                      "maxLength": 255,
+                      "type": "string"
+                    },
+                    "lastName": {
+                      "maxLength": 255,
+                      "type": "string"
+                    },
+                    "password": {
+                      "minLength": 8,
+                      "type": "string"
+                    },
+                    "phoneNumber": {
+                      "maxLength": 50,
+                      "type": "string"
+                    },
+                    "username": {
+                      "maxLength": 255,
+                      "minLength": 3,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "password",
+                    "username"
+                  ],
+                  "type": "object"
+                },
+                "setupToken": {
+                  "type": "string"
+                },
+                "step": {
+                  "const": "admin",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "admin",
+                "step"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "company": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "format": "email",
+                      "maxLength": 255,
+                      "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                      "type": "string"
+                    },
+                    "name": {
+                      "maxLength": 255,
+                      "type": "string"
+                    },
+                    "phoneNumber": {
+                      "maxLength": 50,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ],
+                  "type": "object"
+                },
+                "setupToken": {
+                  "type": "string"
+                },
+                "step": {
+                  "const": "company",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "company",
+                "step"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "setupToken": {
+                  "type": "string"
+                },
+                "step": {
+                  "const": "whatsapp",
+                  "type": "string"
+                },
+                "whatsapp": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "accessToken": {
+                      "type": "string"
+                    },
+                    "apiBaseUrl": {
+                      "type": "string"
+                    },
+                    "apiVersion": {
+                      "enum": [
+                        "v18.0",
+                        "v19.0",
+                        "v20.0",
+                        "v21.0",
+                        "v22.0",
+                        "v23.0"
+                      ],
+                      "type": "string"
+                    },
+                    "appSecret": {
+                      "pattern": "^[a-f0-9]{32}$",
+                      "type": "string"
+                    },
+                    "businessId": {
+                      "type": "string"
+                    },
+                    "displayAddress": {
+                      "maxLength": 100,
+                      "type": "string"
+                    },
+                    "externalAccountId": {
+                      "maxLength": 100,
+                      "type": "string"
+                    },
+                    "name": {
+                      "maxLength": 100,
+                      "type": "string"
+                    },
+                    "webhookUrl": {
+                      "type": "string"
+                    },
+                    "webhookVerifyToken": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "accessToken",
+                    "externalAccountId"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "step",
+                "whatsapp"
+              ],
+              "type": "object"
+            }
+          ]
         },
         "kind": "schema"
       }
@@ -14325,4 +14660,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "ff582f670019332ade7f44c6132ee49e8a354e68fa61356dec76bfbfb99d9372";
+export const CONTRACTS_SNAPSHOT_HASH = "36688481fdb7f74ff8d71b96cb59681b528b70992e65761654a697fb763526e7";

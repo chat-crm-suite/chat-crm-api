@@ -10,6 +10,12 @@ import {
   Post,
 } from '@nestjs/common';
 
+import { ZodValidationPipe } from 'nestjs-zod';
+
+import {
+  ValidateSetupStepSchema,
+  type ValidateSetupStepInput,
+} from '@contracts';
 import { CreateSetupDto } from './dto/create-setup.dto';
 import { SetupService } from './setup.service';
 import { Public } from '@auth';
@@ -33,5 +39,17 @@ export class SetupController {
   @HttpCode(HttpStatus.CREATED)
   run(@Body() dto: CreateSetupDto) {
     return this.service.run(dto);
+  }
+
+  /** Validates one wizard step (token, admin, company, whatsapp) before moving on. */
+  @Post('validate')
+  @HttpCode(HttpStatus.OK)
+  validate(
+    // A discriminated union cannot back a DTO class: validate with the
+    // contract schema directly (same 400 envelope through the global filter).
+    @Body(new ZodValidationPipe(ValidateSetupStepSchema))
+    dto: ValidateSetupStepInput,
+  ) {
+    return this.service.validateStep(dto);
   }
 }

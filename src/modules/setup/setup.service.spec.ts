@@ -13,6 +13,7 @@ import { CompanyMember } from '../company-members/entities/company-member.entity
 import { CompanySettings } from '../company/entities/company-settings.entity';
 import { PipelineStage } from '../customers/entities/pipeline-stage.entity';
 import { CreateSetupDto } from './dto/create-setup.dto';
+import { MetaCredentialsProbe } from './meta-credentials.probe';
 import { SetupService } from './setup.service';
 
 type MockRepo = {
@@ -45,6 +46,7 @@ describe('SetupService', () => {
   let settingsRepo: MockRepo;
   let stagesRepo: MockRepo;
   let transaction: jest.Mock;
+  let probe: jest.Mock;
 
   const logger = {
     info: jest.fn(),
@@ -124,6 +126,7 @@ describe('SetupService', () => {
         { provide: getRepositoryToken(PipelineStage), useValue: stagesRepo },
         { provide: DataSource, useValue: { transaction } },
         { provide: PinoLogger, useValue: logger },
+        { provide: MetaCredentialsProbe, useValue: { probe } },
       ],
     }).compile();
 
@@ -138,6 +141,11 @@ describe('SetupService', () => {
     channelsRepo = createMockRepo();
     settingsRepo = createMockRepo();
     stagesRepo = createMockRepo();
+    probe = jest.fn().mockResolvedValue({
+      kind: 'ok',
+      displayPhoneNumber: '+51 999 999 999',
+      verifiedName: 'J&P',
+    });
   });
 
   afterAll(() => {
@@ -280,6 +288,141 @@ describe('SetupService', () => {
       await service.run({ ...dto(), setupToken: 'super-secreto' });
 
       expect(transaction).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('validateStep', () => {
+    const META_WA = {
+      accessToken: 'EAAB-token',
+      externalAccountId: '123456789012345',
+    };
+
+    it('reports a wrong token on the token step itself', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build({ SETUP_TOKEN: 'super-secreto' });
+
+      await expect(
+        service.validateStep({ step: 'token', setupToken: 'otro' }),
+      ).resolves.toMatchObject({
+        ok: false,
+        errors: [{ path: 'setupToken' }],
+      });
+    });
+
+    it('accepts the right token', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build({ SETUP_TOKEN: 'super-secreto' });
+
+      await expect(
+        service.validateStep({ step: 'token', setupToken: 'super-secreto' }),
+      ).resolves.toMatchObject({ ok: true, errors: [] });
+    });
+
+    it('requires the token on every later step (403)', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build({ SETUP_TOKEN: 'super-secreto' });
+
+      await expect(
+        service.validateStep({ step: 'whatsapp', whatsapp: META_WA }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(probe).not.toHaveBeenCalled();
+    });
+
+    it('answers 409 once the app is initialized', async () => {
+      mockStatusCounts(1, 1, 0, 1);
+      const service = await build();
+
+      await expect(
+        service.validateStep({ step: 'company', company: { name: 'X' } }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('flags an existing username with another password on the admin step', async () => {
+      mockStatusCounts(0, 0, 0, 1);
+      usersRepo.findOne.mockResolvedValue({
+        passwordHash: await bcrypt.hash('otra-clave-123', 4),
+      });
+      const service = await build();
+
+      await expect(
+        service.validateStep({
+          step: 'admin',
+          admin: { username: 'admin', password: 'secreta-123' },
+        }),
+      ).resolves.toMatchObject({
+        ok: false,
+        errors: [{ path: 'admin.username' }],
+      });
+    });
+
+    it('verifies WhatsApp against Meta and returns the number', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build();
+
+      const result = await service.validateStep({
+        step: 'whatsapp',
+        whatsapp: { ...META_WA, appSecret: 'a'.repeat(32) },
+      });
+
+      expect(probe).toHaveBeenCalledWith({
+        phoneNumberId: META_WA.externalAccountId,
+        accessToken: META_WA.accessToken,
+        appSecret: 'a'.repeat(32),
+        apiVersion: 'v22.0',
+      });
+      expect(result).toMatchObject({
+        ok: true,
+        whatsapp: {
+          displayPhoneNumber: '+51 999 999 999',
+          verifiedName: 'J&P',
+        },
+      });
+    });
+
+    it('puts Meta rejections on the WhatsApp fields', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      probe.mockResolvedValue({
+        kind: 'invalid',
+        errors: [{ path: 'whatsapp.appSecret', message: 'x' }],
+      });
+      const service = await build();
+
+      await expect(
+        service.validateStep({ step: 'whatsapp', whatsapp: META_WA }),
+      ).resolves.toMatchObject({
+        ok: false,
+        errors: [{ path: 'whatsapp.appSecret' }],
+      });
+    });
+
+    it('does not block when Meta is unreachable, only warns', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      probe.mockResolvedValue({ kind: 'unreachable', reason: 'timeout' });
+      const service = await build();
+
+      const result = await service.validateStep({
+        step: 'whatsapp',
+        whatsapp: META_WA,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.warnings).toHaveLength(1);
+    });
+
+    it('rejects a non-numeric phone number id without calling Meta', async () => {
+      mockStatusCounts(0, 0, 0, 0);
+      const service = await build();
+
+      await expect(
+        service.validateStep({
+          step: 'whatsapp',
+          whatsapp: { ...META_WA, externalAccountId: '../me' },
+        }),
+      ).resolves.toMatchObject({
+        ok: false,
+        errors: [{ path: 'whatsapp.externalAccountId' }],
+      });
+      expect(probe).not.toHaveBeenCalled();
     });
   });
 

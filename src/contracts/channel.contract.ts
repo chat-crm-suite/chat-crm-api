@@ -46,6 +46,8 @@ export type ChannelStatus = z.infer<typeof ChannelStatusSchema>;
 export const WhatsAppCredentialsSchema = z.object({
   accessToken: z.string(),
   businessId: z.string().optional(),
+  /** Meta App Secret: signs every webhook post of this channel's Meta app. */
+  appSecret: z.string().optional(),
 });
 export type WhatsAppCredentials = z.infer<typeof WhatsAppCredentialsSchema>;
 
@@ -59,6 +61,12 @@ export type WhatsAppChannelSettings = z.infer<
   typeof WhatsAppChannelSettingsSchema
 >;
 
+/** Meta App Secrets are 32 hex chars (App settings → Basic → App secret). */
+export const WhatsAppAppSecretSchema = z
+  .string()
+  .trim()
+  .regex(/^[a-f0-9]{32}$/i, 'validations.appSecret');
+
 /** Payload accepted by `POST /channels` (WhatsApp is the only provider today). */
 export const CreateChannelSchema = z.object({
   type: ChannelTypeSchema.default('whatsapp'),
@@ -71,6 +79,11 @@ export const CreateChannelSchema = z.object({
   apiVersion: WhatsAppApiVersionSchema.optional(),
   apiBaseUrl: z.string().optional(),
   webhookVerifyToken: z.string().optional(),
+  /**
+   * Write-only: stored encrypted with the credentials and never returned
+   * (responses only carry `hasAppSecret`).
+   */
+  appSecret: WhatsAppAppSecretSchema.optional(),
 });
 
 export const UpdateChannelSchema = CreateChannelSchema.partial().extend({
@@ -79,7 +92,7 @@ export const UpdateChannelSchema = CreateChannelSchema.partial().extend({
 
 /**
  * Sanitized shape returned by the channels endpoints: never includes the
- * access token (only whether credentials are present).
+ * access token or the app secret (only whether they are present).
  */
 export const ChannelResponseSchema = z.object({
   id: z.string(),
@@ -94,6 +107,8 @@ export const ChannelResponseSchema = z.object({
   webhookUrl: z.string().nullish(),
   businessId: z.string().nullish(),
   hasCredentials: z.boolean(),
+  /** The channel signs its webhooks with its own App Secret. */
+  hasAppSecret: z.boolean(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });

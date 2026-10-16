@@ -46,6 +46,11 @@ export class WhatsAppService {
     return this.channels.verifyToken(token);
   }
 
+  /** Webhook signature: per-channel App Secrets for a phone_number_id. */
+  getWebhookAppSecrets(phoneNumberId: string): Promise<string[]> {
+    return this.channels.getWebhookAppSecrets(phoneNumberId);
+  }
+
   /** Webhook routing: active channel by phone_number_id, decrypted. */
   getTransmissionByPhoneNumberId(
     phoneNumberId: string,

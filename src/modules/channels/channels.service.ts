@@ -20,6 +20,14 @@ import {
 } from '../../lib/helpers/credentials.helper';
 import { Channel } from './entities/channel.entity';
 
+/** How long a decrypted webhook App Secret lookup is reused. */
+const APP_SECRET_CACHE_TTL_MS = 60_000;
+/**
+ * A miss is reused only briefly: `/setup` creates channels outside this
+ * service, so it cannot clear the cache.
+ */
+const APP_SECRET_MISS_TTL_MS = 5_000;
+
 export interface ChannelTransmission {
   channel: Channel;
   credentials: WhatsAppCredentials;
@@ -32,6 +40,15 @@ export interface ChannelTransmission {
  */
 @Injectable()
 export class ChannelsService {
+  /**
+   * phone_number_id → decrypted App Secrets, so a webhook burst does not hit
+   * the DB and decrypt on every post. Cleared on any channel write.
+   */
+  private readonly appSecretCache = new Map<
+    string,
+    { secrets: string[]; expiresAt: number }
+  >();
+
   constructor(
     @InjectRepository(Channel)
     private readonly channels: Repository<Channel>,
@@ -76,6 +93,7 @@ export class ChannelsService {
       credentials: encryptCredentials({
         accessToken: dto.accessToken,
         businessId: dto.businessId,
+        appSecret: dto.appSecret,
       }),
       settings: {
         apiVersion: dto.apiVersion ?? 'v22.0',
@@ -87,7 +105,9 @@ export class ChannelsService {
       status: 'active',
     });
 
-    return this.sanitize(await this.channels.save(channel));
+    const saved = await this.channels.save(channel);
+    this.appSecretCache.clear();
+    return this.sanitize(saved);
   }
 
   async updateWhatsAppConfig(
@@ -122,11 +142,16 @@ export class ChannelsService {
       };
     }
 
-    if (dto.accessToken !== undefined || dto.businessId !== undefined) {
+    if (
+      dto.accessToken !== undefined ||
+      dto.businessId !== undefined ||
+      dto.appSecret !== undefined
+    ) {
       const current = this.tryDecrypt(channel.credentials);
       patch.credentials = encryptCredentials({
         accessToken: dto.accessToken ?? current.accessToken,
         businessId: dto.businessId ?? current.businessId,
+        appSecret: dto.appSecret ?? current.appSecret,
       });
     }
 
@@ -139,6 +164,7 @@ export class ChannelsService {
   ): Promise<ChannelResponse> {
     const updated = this.channels.merge(channel, patch);
     await this.channels.save(updated);
+    this.appSecretCache.clear();
     return this.sanitize(updated);
   }
 
@@ -148,6 +174,33 @@ export class ChannelsService {
       where: { webhookVerifyToken: token },
       select: { id: true },
     }));
+  }
+
+  /**
+   * Webhook signature: the App Secrets of every WhatsApp channel registered
+   * under this phone_number_id (any status, so callbacks for a paused channel
+   * still verify). Empty when none has its own secret: the caller then falls
+   * back to the server-wide `WHATSAPP_APP_SECRET`.
+   */
+  async getWebhookAppSecrets(externalAccountId: string): Promise<string[]> {
+    const cached = this.appSecretCache.get(externalAccountId);
+    if (cached && cached.expiresAt > Date.now()) return cached.secrets;
+
+    const rows = await this.channels.find({
+      where: { externalAccountId, type: 'whatsapp' },
+      select: { id: true, credentials: true },
+    });
+    const secrets = rows
+      .map((row) => this.tryDecrypt(row.credentials).appSecret)
+      .filter((secret): secret is string => !!secret);
+
+    this.appSecretCache.set(externalAccountId, {
+      secrets,
+      expiresAt:
+        Date.now() +
+        (secrets.length ? APP_SECRET_CACHE_TTL_MS : APP_SECRET_MISS_TTL_MS),
+    });
+    return secrets;
   }
 
   /** Webhook routing: active WhatsApp channel by phone_number_id. */
@@ -213,11 +266,13 @@ export class ChannelsService {
     const settings = (channel.settings ?? {});
 
     let businessId: string | null = null;
+    let hasAppSecret = false;
     try {
       const credentials = decryptCredentials<WhatsAppCredentials>(
         channel.credentials,
       );
       businessId = credentials.businessId ?? null;
+      hasAppSecret = !!credentials.appSecret;
     } catch {
       businessId = null;
     }
@@ -235,6 +290,7 @@ export class ChannelsService {
       webhookUrl: (settings.webhookUrl as string) ?? null,
       businessId,
       hasCredentials: !!channel.credentials,
+      hasAppSecret,
       createdAt: channel.createdAt,
       updatedAt: channel.updatedAt,
     };

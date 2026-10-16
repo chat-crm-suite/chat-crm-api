@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { INestApplication } from '@nestjs/common';
+import { Global, INestApplication, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -13,17 +13,29 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { join } from 'path';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { EntityTarget } from 'typeorm';
 
 import { AuthModule } from '@auth/auth.module';
+import { APP_REDIS } from '@common/redis/app-redis.module';
+import { MemoryRedis } from './helpers/memory-redis';
 import { testCacheModule } from './helpers/auth';
 import { ZodValidationExceptionFilter } from '@common/filters/zod-validation.filter';
 import { loggerConfig } from '@config/logger.config';
 import { i18nConfig } from '@config/i18n.config';
 import { clsConfig } from '@config/cls.config';
-import * as Entities from '@entities';
+import { MetaCredentialsProbe } from '@modules/setup/meta-credentials.probe';
 import { SetupModule } from '@modules/setup/setup.module';
-import { getTestConfig } from './helpers/test-database.helper';
+import {
+  getSQLiteEntities,
+  getTestSQLiteConfig,
+} from './helpers/test-database.helper';
+
+// Redis stub: presence/session services need APP_REDIS, nothing here reads it.
+@Global()
+@Module({
+  providers: [{ provide: APP_REDIS, useValue: new MemoryRedis() }],
+  exports: [APP_REDIS],
+})
+class TestInfraModule {}
 
 interface SetupStatusBody {
   initialized: boolean;
@@ -40,12 +52,19 @@ interface SetupResultBody {
   channel: { id: string; webhookVerifyToken: string | null } | null;
 }
 
-const entities = Object.values(Entities) as EntityTarget<unknown>[];
-
 jest.setTimeout(180_000);
 
-// Flujo de primer arranque sobre MySQL `_test` (dropSchema + synchronize).
+// Flujo de primer arranque sobre SQLite en memoria (sin MySQL ni Redis).
 // Cubre el contrato de `setup` y que la sesión creada sirve para autenticar.
+// Meta is never called from tests: the probe answers like a valid number.
+const metaProbe = {
+  probe: jest.fn().mockResolvedValue({
+    kind: 'ok',
+    displayPhoneNumber: '+51 999 999 999',
+    verifiedName: 'J&P',
+  }),
+};
+
 const createApp = async (setupToken?: string): Promise<INestApplication> => {
   if (setupToken === undefined) {
     delete process.env.SETUP_TOKEN;
@@ -66,12 +85,16 @@ const createApp = async (setupToken?: string): Promise<INestApplication> => {
           watch: false,
         },
       }),
-      TypeOrmModule.forRoot(getTestConfig(entities)),
+      TypeOrmModule.forRoot(getTestSQLiteConfig(getSQLiteEntities())),
       testCacheModule(),
+      TestInfraModule,
       SetupModule,
       AuthModule,
     ],
-  }).compile();
+  })
+    .overrideProvider(MetaCredentialsProbe)
+    .useValue(metaProbe)
+    .compile();
 
   // El bootstrap por env no debe contaminar una BD "recién instalada".
   process.env.BOOTSTRAP_ADMIN_USERNAME = '';
@@ -153,6 +176,13 @@ describe('Setup first-run flow (e2e)', () => {
 
     it('blocks a second setup with 409', async () => {
       await request(server).post('/setup').send(validSetup).expect(409);
+    });
+
+    it('blocks step validation once initialized (409)', async () => {
+      await request(server)
+        .post('/setup/validate')
+        .send({ step: 'company', company: { name: 'Otra' } })
+        .expect(409);
     });
 
     it('authenticates the created admin and serves its company', async () => {
@@ -250,6 +280,48 @@ describe('Setup first-run flow (e2e)', () => {
     });
   });
 
+  describe('whatsapp with its own Meta App Secret', () => {
+    let app: INestApplication;
+    let server: App;
+
+    beforeAll(async () => {
+      app = await createApp();
+      server = app.getHttpServer() as App;
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('rejects an App Secret that is not 32 hex chars', async () => {
+      await request(server)
+        .post('/setup')
+        .send({
+          ...validSetup,
+          whatsapp: {
+            accessToken: 'token',
+            externalAccountId: 'phone-1',
+            appSecret: 'not-a-secret',
+          },
+        })
+        .expect(400);
+    });
+
+    it('stores the App Secret without ever returning it', async () => {
+      const appSecret = '0123456789abcdef0123456789ABCDEF';
+      const res = await request(server)
+        .post('/setup')
+        .send({
+          ...validSetup,
+          whatsapp: { accessToken: 'token', externalAccountId: 'phone-1', appSecret },
+        })
+        .expect(201);
+
+      expect(JSON.stringify(res.body)).not.toContain(appSecret);
+      expect((res.body as SetupResultBody).channel?.id).toBeDefined();
+    });
+  });
+
   describe('workspace protected by a setup token', () => {
     let app: INestApplication;
     let server: App;
@@ -280,6 +352,43 @@ describe('Setup first-run flow (e2e)', () => {
         .post('/setup')
         .send({ ...validSetup, setupToken: 'incorrecto' })
         .expect(403);
+    });
+
+    it('reports a wrong token on the token step, before any other step', async () => {
+      const res = await request(server)
+        .post('/setup/validate')
+        .send({ step: 'token', setupToken: 'incorrecto' })
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        ok: false,
+        errors: [{ path: 'setupToken' }],
+      });
+    });
+
+    it('validates a later step only with the token (403 without it)', async () => {
+      const whatsapp = { accessToken: 'token', externalAccountId: '123456' };
+      await request(server)
+        .post('/setup/validate')
+        .send({ step: 'whatsapp', whatsapp })
+        .expect(403);
+
+      const res = await request(server)
+        .post('/setup/validate')
+        .send({ step: 'whatsapp', setupToken: 'token-de-prueba', whatsapp })
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        ok: true,
+        whatsapp: { displayPhoneNumber: '+51 999 999 999' },
+      });
+    });
+
+    it('rejects a malformed step payload with 400', async () => {
+      await request(server)
+        .post('/setup/validate')
+        .send({ step: 'nope' })
+        .expect(400);
     });
 
     it('accepts a setup with the right token', async () => {

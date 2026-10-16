@@ -99,7 +99,7 @@ Las migraciones pendientes de la base de datos se aplican solas al arrancar la A
 | `PLATFORM_CONSOLE_PASSWORD` | Opcional. Habilita la consola de superadmin `/platform` (contraseña de los administradores de plataforma); vacío o `disabled` la mantiene apagada |
 
 `chat-crm-deploy/gen-secrets.sh` rellena todos los secretos con valores aleatorios seguros. Variables opcionales con
-valor por defecto: `COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`,
+valor por defecto: `COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `IA_API_KEY`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`,
 `HEALTH_IA_TIMEOUT_MS`, `IA_CB_FAILURE_THRESHOLD`, `IA_CB_FAILURE_WINDOW_MS`, `IA_CB_OPEN_DURATION_MS`,
 `IA_CB_REOPEN_DURATION_MS` (ajustes del circuit breaker de la IA, ver la spec para los valores por defecto).
 

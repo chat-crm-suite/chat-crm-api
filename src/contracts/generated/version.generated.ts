@@ -2,7 +2,7 @@
 export const CONTRACTS_VERSION: unknown = {
   "tag": "v1.0.2",
   "commit": "a68b444c3651e599a92ca56ae2dbbb69f4995019",
-  "hash": "ff582f670019332ade7f44c6132ee49e8a354e68fa61356dec76bfbfb99d9372",
+  "hash": "36688481fdb7f74ff8d71b96cb59681b528b70992e65761654a697fb763526e7",
   "generatedAt": "2026-10-14T18:07:56-05:00",
   "files": {
     "analysis": {
@@ -26,7 +26,7 @@ export const CONTRACTS_VERSION: unknown = {
       "updatedAt": "2026-10-14T12:10:09-05:00"
     },
     "channel": {
-      "hash": "2faf258e928307bb5aa62e54e466cb7f286c15ee945df5850b03b046e3974829",
+      "hash": "4a846a2eeb80a7430b1ec34496702e745a09de1d07aeeb0a49f62af6a2c758f7",
       "version": null,
       "updatedAt": "2026-10-14T00:54:04-05:00"
     },
@@ -81,7 +81,7 @@ export const CONTRACTS_VERSION: unknown = {
       "updatedAt": "2026-10-14T12:54:40-05:00"
     },
     "setup": {
-      "hash": "3d7155a1a4bbe1ba3b23c03611652c6785182050231094debbb5bf41d2ba7edb",
+      "hash": "d12990b1e4bec4923b6b93379f88da9d1a803246bc9be92ea93022dd3f0ad5ed",
       "version": null,
       "updatedAt": "2026-10-05T22:33:40-05:00"
     },

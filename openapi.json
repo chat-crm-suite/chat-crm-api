@@ -1300,6 +1300,20 @@
         ]
       }
     },
+    "/setup/validate": {
+      "post": {
+        "operationId": "SetupController_validate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Setup"
+        ]
+      }
+    },
     "/metrics": {
       "get": {
         "operationId": "SentimentMetricsController_snapshot",
@@ -9491,6 +9505,10 @@
               },
               "webhookVerifyToken": {
                 "type": "string"
+              },
+              "appSecret": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$"
               }
             },
             "required": [
@@ -9689,6 +9707,10 @@
           },
           "webhookVerifyToken": {
             "type": "string"
+          },
+          "appSecret": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
           }
         },
         "required": [
@@ -9749,6 +9771,10 @@
           },
           "webhookVerifyToken": {
             "type": "string"
+          },
+          "appSecret": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
           },
           "status": {
             "type": "string",

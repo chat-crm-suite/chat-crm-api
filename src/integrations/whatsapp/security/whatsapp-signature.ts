@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 
 /**
  * Meta webhook signature (`X-Hub-Signature-256: sha256=<hex>`), computed
- * over the raw request bytes with the single app secret.
+ * over the raw request bytes with one Meta app's secret.
  */
 export function verifyWhatsAppSignature(
   rawBody: Buffer,
@@ -28,4 +28,46 @@ export function verifyWhatsAppSignature(
   if (received.length !== expected.length) return false;
 
   return timingSafeEqual(received, expected);
+}
+
+/**
+ * Distinct `phone_number_id`s a webhook post talks about. The payload is not
+ * trusted yet: these ids only pick which secrets the signature must match.
+ */
+export function webhookPhoneNumberIds(payload: unknown): string[] {
+  const ids = new Set<string>();
+  const entries = (payload as { entry?: unknown })?.entry;
+  if (!Array.isArray(entries)) return [];
+
+  for (const entry of entries) {
+    const changes = (entry as { changes?: unknown })?.changes;
+    if (!Array.isArray(changes)) continue;
+    for (const change of changes) {
+      const id = (change as { value?: { metadata?: { phone_number_id?: unknown } } })
+        ?.value?.metadata?.phone_number_id;
+      if (typeof id === 'string' && id) ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+/**
+ * Multi-tenant check: every channel a post mentions must accept the signature
+ * with one of ITS secrets. "Any channel" would let the owner of one Meta app
+ * sign a post that also injects events into another company's channel.
+ *
+ * @param candidatesPerChannel one list of acceptable secrets per mentioned
+ *   channel (its own App Secret, else the server-wide fallback)
+ */
+export function verifyWhatsAppSignatureForChannels(
+  rawBody: Buffer,
+  signature: string | undefined,
+  candidatesPerChannel: string[][],
+): boolean {
+  if (candidatesPerChannel.length === 0) return false;
+  return candidatesPerChannel.every((candidates) =>
+    candidates.some((secret) =>
+      verifyWhatsAppSignature(rawBody, signature, secret),
+    ),
+  );
 }

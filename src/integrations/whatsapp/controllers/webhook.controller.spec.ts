@@ -36,7 +36,7 @@ describe('WebhookController (T1 durable intake)', () => {
   const FAILED_STATUS_SIGNATURE =
     'sha256=81ab5fb413a8d464c8b79b4e58f369f055d331a81ff0bab1a360f396a8a413ac';
 
-  let service: { verifyToken: jest.Mock };
+  let service: { verifyToken: jest.Mock; getWebhookAppSecrets: jest.Mock };
   let commandExecute: jest.Mock<Promise<unknown>, [unknown]>;
   let configGet: jest.Mock;
   let persistIfNew: jest.Mock;
@@ -76,7 +76,10 @@ describe('WebhookController (T1 durable intake)', () => {
   const response = () => ({ sendStatus: jest.fn() });
 
   beforeEach(() => {
-    service = { verifyToken: jest.fn() };
+    service = {
+      verifyToken: jest.fn(),
+      getWebhookAppSecrets: jest.fn().mockResolvedValue([]),
+    };
     commandExecute = jest
       .fn<Promise<unknown>, [unknown]>()
       .mockResolvedValue(undefined);
@@ -253,6 +256,51 @@ describe('WebhookController (T1 durable intake)', () => {
     expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.FORBIDDEN);
     expect(persistIfNew).not.toHaveBeenCalled();
     expect(commandExecute).not.toHaveBeenCalled();
+  });
+
+  it('verifies with the channel own App Secret, without the env fallback', async () => {
+    configGet.mockReturnValue(undefined);
+    service.getWebhookAppSecrets.mockResolvedValue(['test-app-secret']);
+    const res = response();
+
+    await controller.receiveMessage(
+      textPayload(),
+      request(TEXT_PAYLOAD, TEXT_SIGNATURE) as never,
+      res as never,
+    );
+
+    expect(service.getWebhookAppSecrets).toHaveBeenCalledWith('phone-1');
+    expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
+    expect(persistIfNew).toHaveBeenCalled();
+  });
+
+  it('prefers the channel own secret over the env fallback', async () => {
+    // The env secret would match, but the channel has its own (different) one.
+    service.getWebhookAppSecrets.mockResolvedValue(['f'.repeat(32)]);
+    const res = response();
+
+    await controller.receiveMessage(
+      textPayload(),
+      request(TEXT_PAYLOAD, TEXT_SIGNATURE) as never,
+      res as never,
+    );
+
+    expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.FORBIDDEN);
+    expect(persistIfNew).not.toHaveBeenCalled();
+  });
+
+  it('falls back to WHATSAPP_APP_SECRET for a channel without its own secret', async () => {
+    service.getWebhookAppSecrets.mockResolvedValue([]);
+    const res = response();
+
+    await controller.receiveMessage(
+      textPayload(),
+      request(TEXT_PAYLOAD, TEXT_SIGNATURE) as never,
+      res as never,
+    );
+
+    expect(configGet).toHaveBeenCalledWith('WHATSAPP_APP_SECRET');
+    expect(res.sendStatus).toHaveBeenCalledWith(HttpStatus.OK);
   });
 
   it('still answers 200 when post-persist processing fails', async () => {

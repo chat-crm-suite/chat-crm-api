@@ -39,7 +39,10 @@ describe('Inbound live/replay parity (ticket #22)', () => {
     const liveCommands: unknown[] = [];
     const persisted: Record<string, unknown>[] = [];
     const controller = new WebhookController(
-      { verifyToken: jest.fn() } as never,
+      {
+        verifyToken: jest.fn(),
+        getWebhookAppSecrets: jest.fn().mockResolvedValue([]),
+      } as never,
       {
         execute: jest.fn((command: unknown) => {
           liveCommands.push(command);
@@ -173,7 +176,10 @@ describe('Inbound live/replay parity (ticket #22)', () => {
     // nothing is ever dispatched.
     const liveCommands: unknown[] = [];
     const live = new WebhookController(
-      { verifyToken: jest.fn() } as never,
+      {
+        verifyToken: jest.fn(),
+        getWebhookAppSecrets: jest.fn().mockResolvedValue([]),
+      } as never,
       {
         execute: jest.fn((command: unknown) => {
           liveCommands.push(command);

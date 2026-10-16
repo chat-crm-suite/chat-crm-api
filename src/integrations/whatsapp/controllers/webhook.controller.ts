@@ -35,7 +35,10 @@ import { InboundWebhookParserService } from '../intake/inbound-webhook-parser.se
 import { makeSenderNameLookup } from '../mappers/inbound-message-parsers.registry';
 import type { InboundMessage } from '../types/inbound-message.types';
 import type { WhatsAppWebhookStatus } from '../types/whatsapp-webhook.types';
-import { verifyWhatsAppSignature } from '../security/whatsapp-signature';
+import {
+  verifyWhatsAppSignatureForChannels,
+  webhookPhoneNumberIds,
+} from '../security/whatsapp-signature';
 import {
   isDeliveryStatus,
   statusKind,
@@ -102,7 +105,7 @@ export class WebhookController {
     this.logger.debug(payload, 'Webhook object');
 
     // T1: forged posts are rejected before anything is stored or queued.
-    if (!this.hasValidSignature(req)) {
+    if (!(await this.hasValidSignature(payload, req))) {
       res.sendStatus(HttpStatus.FORBIDDEN);
       return;
     }
@@ -130,19 +133,16 @@ export class WebhookController {
   }
 
   /**
-   * Meta signs the raw bytes (`X-Hub-Signature-256`) with the single app
-   * secret. Fail closed: no secret, no raw body, or a bad signature all
-   * reject the post.
+   * Meta signs the raw bytes (`X-Hub-Signature-256`) with the secret of the
+   * Meta app that owns each channel. Every channel the post mentions must
+   * accept the signature with its own App Secret (set from the app), else
+   * with the server-wide `WHATSAPP_APP_SECRET` fallback. Fail closed: no
+   * secret, no raw body, or a bad signature all reject the post.
    */
-  private hasValidSignature(req: RawBodyRequest<Request>): boolean {
-    const appSecret = this.config.get<string>('WHATSAPP_APP_SECRET') ?? '';
-    if (!appSecret) {
-      this.logger.error(
-        'WHATSAPP_APP_SECRET is not configured; rejecting webhook',
-      );
-      return false;
-    }
-
+  private async hasValidSignature(
+    payload: unknown,
+    req: RawBodyRequest<Request>,
+  ): Promise<boolean> {
     const header = req.headers['x-hub-signature-256'];
     const signature = Array.isArray(header) ? header[0] : header;
     if (!req.rawBody) {
@@ -150,8 +150,35 @@ export class WebhookController {
       return false;
     }
 
-    const valid = verifyWhatsAppSignature(req.rawBody, signature, appSecret);
-    if (!valid) this.logger.warn('Invalid WhatsApp webhook signature');
+    const fallback = this.config.get<string>('WHATSAPP_APP_SECRET') ?? '';
+    const phoneNumberIds = webhookPhoneNumberIds(payload);
+    // No channel in the payload (e.g. a non-message field): only the
+    // server-wide secret can vouch for it.
+    const perChannel: string[][] = phoneNumberIds.length
+      ? await Promise.all(
+          phoneNumberIds.map(async (id) => {
+            const own = await this.service.getWebhookAppSecrets(id);
+            return own.length ? own : fallback ? [fallback] : [];
+          }),
+        )
+      : [fallback ? [fallback] : []];
+
+    if (perChannel.some((candidates) => candidates.length === 0)) {
+      this.logger.error(
+        { phoneNumberIds },
+        'No App Secret for this WhatsApp channel and no WHATSAPP_APP_SECRET fallback; rejecting webhook',
+      );
+      return false;
+    }
+
+    const valid = verifyWhatsAppSignatureForChannels(
+      req.rawBody,
+      signature,
+      perChannel,
+    );
+    if (!valid) {
+      this.logger.warn({ phoneNumberIds }, 'Invalid WhatsApp webhook signature');
+    }
     return valid;
   }
 

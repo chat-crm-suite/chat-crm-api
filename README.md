@@ -99,7 +99,7 @@ Pending database migrations run automatically when the API boots.
 | `PLATFORM_CONSOLE_PASSWORD` | Optional. Enables the `/platform` superadmin console (password for platform admins); empty or `disabled` keeps it off |
 
 `chat-crm-deploy/gen-secrets.sh` fills every secret with a strong random value. Optional variables with defaults:
-`COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`, `HEALTH_IA_TIMEOUT_MS`,
+`COOKIE_SECURE`, `SWAGGER_ENABLED`, `IA_URL`, `IA_API_KEY`, `APP_TZ`, `LOG_PRETTY`, `HEALTH_PROBE_TTL_MS`, `HEALTH_IA_TIMEOUT_MS`,
 `IA_CB_FAILURE_THRESHOLD`, `IA_CB_FAILURE_WINDOW_MS`, `IA_CB_OPEN_DURATION_MS`, `IA_CB_REOPEN_DURATION_MS`
 (IA circuit breaker tunables, see the spec for defaults).
 

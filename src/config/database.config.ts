@@ -5,6 +5,10 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
 import * as entityExports from '../entities/index';
+import { ChannelSubscriber } from '../modules/channels/subscribers/channel.subscriber';
+
+/** TypeORM entity subscribers, shared by every DataSource (app, tests, CLI). */
+export const entitySubscribers = [ChannelSubscriber];
 
 /**
  * sqlite cannot AUTOINCREMENT a bigint PK, so `message_status_events` (the
@@ -29,6 +33,7 @@ export const mysqlDatabaseConfig: TypeOrmModuleOptions = {
     __dirname + '/../integrations/**/*.entity{.ts,.js}'
   ],
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+  subscribers: entitySubscribers,
   // Schema comes from migrations in every environment (dev and prod); the
   // `synchronize` shortcut is deliberately left to test configurations only.
   // Pending migrations are applied on every boot so the database is never empty.
@@ -63,6 +68,7 @@ export const testDatabaseSQLiteConfig: TypeOrmModuleOptions = {
   dropSchema: true,
   entities: sqliteEntities,
   migrations: [__dirname + '/../migrations/*.ts'],
+  subscribers: entitySubscribers,
   namingStrategy: new SnakeNamingStrategy(),
   logger: 'formatted-console'
 }

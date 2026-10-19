@@ -5944,6 +5944,128 @@
         ]
       }
     },
+    "/channels/whatsapp/test": {
+      "post": {
+        "description": "Checks sending (phone number ID + access token against Graph), the stored webhook URL (Meta verification handshake) and the Meta app subscription. Always 200; each check reports ok/failed/skipped.",
+        "operationId": "ChannelsController_test",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "sending": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "failed",
+                            "skipped"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "displayPhoneNumber": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "verifiedName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "webhook": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "failed",
+                            "skipped"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "subscription": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "failed",
+                            "skipped"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "sending",
+                    "webhook",
+                    "subscription"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Test the WhatsApp channel of the active company",
+        "tags": [
+          "Channels"
+        ]
+      }
+    },
     "/notifications": {
       "get": {
         "operationId": "NotificationController_getLatest",
@@ -9779,6 +9901,7 @@
           "status": {
             "type": "string",
             "enum": [
+              "pending",
               "active",
               "inactive",
               "error"

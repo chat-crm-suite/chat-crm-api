@@ -6739,6 +6739,15 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           }
         }
       },
+      "CHANNEL_STATUS": {
+        "kind": "value",
+        "value": {
+          "active": "active",
+          "error": "error",
+          "inactive": "inactive",
+          "pending": "pending"
+        }
+      },
       "CHANNEL_STATUSES": {
         "kind": "value",
         "value": [
@@ -6747,6 +6756,18 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "inactive",
           "error"
         ]
+      },
+      "CHANNEL_TYPE": {
+        "kind": "value",
+        "value": {
+          "email": "email",
+          "instagram": "instagram",
+          "messenger": "messenger",
+          "sms": "sms",
+          "telegram": "telegram",
+          "webchat": "webchat",
+          "whatsapp": "whatsapp"
+        }
       },
       "CHANNEL_TYPES": {
         "kind": "value",
@@ -6759,6 +6780,14 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "sms",
           "webchat"
         ]
+      },
+      "CONNECTION_CHECK": {
+        "kind": "value",
+        "value": {
+          "failed": "failed",
+          "ok": "ok",
+          "skipped": "skipped"
+        }
       },
       "CONNECTION_CHECK_STATUSES": {
         "kind": "value",
@@ -7005,6 +7034,17 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "kind": "value",
         "value": "v22.0"
       },
+      "DEFAULT_WHATSAPP_CHANNEL_NAME": {
+        "kind": "value",
+        "value": "WhatsApp"
+      },
+      "DEFAULT_WHATSAPP_SETTINGS": {
+        "kind": "value",
+        "value": {
+          "apiBaseUrl": "https://graph.facebook.com",
+          "apiVersion": "v22.0"
+        }
+      },
       "MAX_UPLOAD_BYTES": {
         "kind": "value",
         "value": 104857600
@@ -7093,6 +7133,14 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "v22.0",
           "v23.0"
         ]
+      },
+      "WHATSAPP_GRAPH_BASE_URL": {
+        "kind": "value",
+        "value": "https://graph.facebook.com"
+      },
+      "WHATSAPP_WEBHOOK_PATH": {
+        "kind": "value",
+        "value": "integration/webhook/whatsapp"
       },
       "WhatsAppApiVersionSchema": {
         "jsonSchema": {
@@ -14814,4 +14862,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "861f5eeb28a28379087c4b1c668a3e4f71fba89f65488bdaee130acc5ef592b2";
+export const CONTRACTS_SNAPSHOT_HASH = "ac9cf72ea55897a3f9baea37bb83aec6b9186acf49c044b822f90a72ec009004";

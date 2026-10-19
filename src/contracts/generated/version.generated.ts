@@ -26,7 +26,7 @@ export const CONTRACTS_VERSION: unknown = {
       "updatedAt": "2026-10-14T12:10:09-05:00"
     },
     "channel": {
-      "hash": "40af0750eb66130cf5b6e8b0d07a4c098f29c1e627a386101ff09a09464b58f0",
+      "hash": "05f9eeeaafb837602473715c1483176c5616c1edc123892b92049bed932db485",
       "version": null,
       "updatedAt": "2026-10-15T23:06:27-05:00"
     },

@@ -6742,6 +6742,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       "CHANNEL_STATUSES": {
         "kind": "value",
         "value": [
+          "pending",
           "active",
           "inactive",
           "error"
@@ -6757,6 +6758,14 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "email",
           "sms",
           "webchat"
+        ]
+      },
+      "CONNECTION_CHECK_STATUSES": {
+        "kind": "value",
+        "value": [
+          "ok",
+          "failed",
+          "skipped"
         ]
       },
       "ChannelResponseSchema": {
@@ -6790,7 +6799,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               ]
             },
             "externalAccountId": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "hasAppSecret": {
               "type": "boolean"
@@ -6806,6 +6818,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             },
             "status": {
               "enum": [
+                "pending",
                 "active",
                 "inactive",
                 "error"
@@ -6840,7 +6853,6 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           },
           "required": [
             "createdAt",
-            "externalAccountId",
             "hasAppSecret",
             "hasCredentials",
             "id",
@@ -6857,6 +6869,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "enum": [
+            "pending",
             "active",
             "inactive",
             "error"
@@ -6876,6 +6889,43 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "email",
             "sms",
             "webchat"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "ConnectionCheckSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "ok",
+                "failed",
+                "skipped"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "message",
+            "status"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ConnectionCheckStatusSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "ok",
+            "failed",
+            "skipped"
           ],
           "type": "string"
         },
@@ -7002,6 +7052,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             },
             "status": {
               "enum": [
+                "pending",
                 "active",
                 "inactive",
                 "error"
@@ -7128,7 +7179,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               ]
             },
             "externalAccountId": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "hasAppSecret": {
               "type": "boolean"
@@ -7144,6 +7198,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             },
             "status": {
               "enum": [
+                "pending",
                 "active",
                 "inactive",
                 "error"
@@ -7178,7 +7233,6 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           },
           "required": [
             "createdAt",
-            "externalAccountId",
             "hasAppSecret",
             "hasCredentials",
             "id",
@@ -7186,6 +7240,106 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "status",
             "type",
             "updatedAt"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "WhatsAppConnectionTestSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "sending": {
+              "additionalProperties": false,
+              "properties": {
+                "displayPhoneNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "skipped"
+                  ],
+                  "type": "string"
+                },
+                "verifiedName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "message",
+                "status"
+              ],
+              "type": "object"
+            },
+            "subscription": {
+              "additionalProperties": false,
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "skipped"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "message",
+                "status"
+              ],
+              "type": "object"
+            },
+            "webhook": {
+              "additionalProperties": false,
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "skipped"
+                  ],
+                  "type": "string"
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "message",
+                "status"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "ok",
+            "sending",
+            "subscription",
+            "webhook"
           ],
           "type": "object"
         },
@@ -14660,4 +14814,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "36688481fdb7f74ff8d71b96cb59681b528b70992e65761654a697fb763526e7";
+export const CONTRACTS_SNAPSHOT_HASH = "861f5eeb28a28379087c4b1c668a3e4f71fba89f65488bdaee130acc5ef592b2";

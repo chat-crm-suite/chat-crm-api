@@ -25,11 +25,17 @@ import {
   WhatsAppConnectionTestSchema,
   type WhatsAppConnectionTest,
 } from '../../contracts/index';
+import { Roles } from '../../auth/index';
 import { zodResponseSchema } from '../../docs/zod-response';
 import { ChannelsService } from './channels.service';
 import { CreateChannelDto, UpdateChannelDto } from './dto/channel.dto';
 import { WhatsAppConnectionTester } from './whatsapp-connection.tester';
 
+/**
+ * Reading a channel's sanitized shape and re-running its connection test is
+ * open to every member (the inbox needs both); anything that exposes or
+ * changes credentials is admin-only.
+ */
 @ApiTags('Channels')
 @ApiCookieAuth('access_token')
 @Controller('channels')
@@ -46,8 +52,10 @@ export class ChannelsController {
   }
 
   @Get('whatsapp/config')
+  @Roles('admin')
   @ApiOperation({
     summary: 'Get the WhatsApp channel of the active company',
+    description: 'Admin only: includes the stored access token for the settings form.',
   })
   @ZodSerializerDto(WhatsAppConfigResponseSchema.nullable())
   getWhatsAppConfig() {
@@ -97,6 +105,7 @@ export class ChannelsController {
   }
 
   @Post()
+  @Roles('admin')
   @ApiOperation({ summary: 'Create a channel' })
   @ZodSerializerDto(ChannelResponseSchema)
   create(@Body() dto: CreateChannelDto) {
@@ -104,6 +113,7 @@ export class ChannelsController {
   }
 
   @Patch('whatsapp/config')
+  @Roles('admin')
   @ApiOperation({ summary: 'Update the WhatsApp channel' })
   @ZodSerializerDto(ChannelResponseSchema.nullable())
   update(@Body() dto: UpdateChannelDto) {

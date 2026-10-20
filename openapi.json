@@ -7156,6 +7156,7 @@
     },
     "/channels/whatsapp/config": {
       "get": {
+        "description": "Admin only: includes the stored access token for the settings form.",
         "operationId": "ChannelsController_getWhatsAppConfig",
         "parameters": [],
         "responses": {

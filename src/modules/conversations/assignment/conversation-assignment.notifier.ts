@@ -12,7 +12,11 @@ import { CompanyMember } from '../../company-members/entities/company-member.ent
 import { NotificationDispatcher } from '../../notifications/notification.dispatcher';
 import { ConversationAssignment } from '../entities/conversation-assignment.entity';
 import { Conversation } from '../entities/conversation.entity';
-import { ConversationSocketEvent, NotificationTypeSchema } from '@contracts';
+import {
+  conversationGroupKey,
+  ConversationSocketEvent,
+  NotificationTypeSchema,
+} from '@contracts';
 import { ConversationGateway, userRoom } from '../gateways/conversation.gateway';
 import { ConversationFanoutService } from '../realtime/conversation-fanout.service';
 
@@ -103,6 +107,8 @@ export class ConversationAssignmentNotifier {
         // One notice per assignment row: a retry or a second code path
         // announcing the same assignment is absorbed.
         dedupeKey: `assigned:${conversationId}:${assignment?.id ?? memberId}`,
+        // Read together with the chat's message notices when it is opened.
+        groupKey: conversationGroupKey(conversationId),
         excludeMemberIds: options.actorMemberId ? [options.actorMemberId] : [],
       });
     } catch (error) {

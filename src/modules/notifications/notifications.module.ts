@@ -15,6 +15,10 @@ import { NotificationUnreadCounter } from './notification-unread.counter';
 import { NotificationController } from './notifications.controller';
 import { NotificationsProcessor } from './notifications.processor';
 import { NotificationsService } from './notifications.service';
+import {
+  ChannelDownNoticeHandler,
+  IaDownNoticeHandler,
+} from './producers/system-notices.handlers';
 
 @Module({
   imports: [
@@ -39,6 +43,8 @@ import { NotificationsService } from './notifications.service';
     NotificationDeliveryService,
     NotificationUnreadCounter,
     NotificationsProcessor,
+    ChannelDownNoticeHandler,
+    IaDownNoticeHandler,
   ],
   exports: [NotificationsService, NotificationDispatcher],
 })

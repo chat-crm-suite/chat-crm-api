@@ -19,6 +19,7 @@ import { createZodDto, ZodSerializerDto } from 'nestjs-zod';
 import {
   NotificationListQuerySchema,
   NotificationListResponseSchema,
+  NotificationMarkReadSchema,
   NotificationPreferencesSchema,
   NotificationUnreadCountSchema,
 } from '../../contracts/index';
@@ -35,6 +36,7 @@ export class NotificationPreferencesDto extends createZodDto(
 export class NotificationListQueryDto extends createZodDto(NotificationListQuerySchema) {}
 export class NotificationListResponseDto extends createZodDto(NotificationListResponseSchema) {}
 export class NotificationUnreadCountDto extends createZodDto(NotificationUnreadCountSchema) {}
+export class NotificationMarkReadDto extends createZodDto(NotificationMarkReadSchema) {}
 
 @Controller('/notifications')
 export class NotificationController {
@@ -61,11 +63,13 @@ export class NotificationController {
 
   @Post('/read')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Mark all my notifications read (synced to my other tabs)' })
+  @ApiOperation({
+    summary: 'Mark all my notifications read, or those of one conversation (synced to my other tabs)',
+  })
   @ZodSerializerDto(NotificationUnreadCountSchema)
   @ApiOkResponse({ type: NotificationUnreadCountDto })
-  markAllAsRead() {
-    return this.notificationService.markAllRead(this.reader());
+  markAllAsRead(@Body() scope: NotificationMarkReadDto) {
+    return this.notificationService.markAllRead(this.reader(), scope ?? {});
   }
 
   @Post(':id/read')

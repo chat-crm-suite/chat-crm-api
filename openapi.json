@@ -7421,6 +7421,16 @@
       "post": {
         "operationId": "NotificationController_markAllAsRead",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationMarkReadDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -7433,7 +7443,7 @@
             }
           }
         },
-        "summary": "Mark all my notifications read (synced to my other tabs)",
+        "summary": "Mark all my notifications read, or those of one conversation (synced to my other tabs)",
         "tags": [
           "Notification"
         ]
@@ -15187,6 +15197,14 @@
         "required": [
           "unreadCount"
         ]
+      },
+      "NotificationMarkReadDto": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string"
+          }
+        }
       },
       "NotificationPreferencesDto": {
         "type": "object",

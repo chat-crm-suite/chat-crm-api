@@ -53,6 +53,7 @@ import {
   NotificationDeliveredHandler,
   NotificationsReadHandler,
 } from './realtime/notification-realtime.handler';
+import { ConversationMessageNoticeHandler } from './realtime/conversation-message-notice.handler';
 
 const commandHandlers = [
   BroadcastConversationMessageHandler,
@@ -118,6 +119,7 @@ const commandHandlers = [
     WorkspaceChangedHandler,
     NotificationDeliveredHandler,
     NotificationsReadHandler,
+    ConversationMessageNoticeHandler,
     MemberConversationsReleasedHandler,
     ...commandHandlers,
   ],

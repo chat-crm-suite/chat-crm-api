@@ -53,6 +53,13 @@ export const NOTIFICATION_AUDIENCE: Record<
   spend_budget: ['admin'],
 };
 
+/**
+ * Group of everything about one conversation (assigned, new messages): the
+ * bell collapses repeats of one type, and opening the chat reads them all.
+ */
+export const conversationGroupKey = (conversationId: string) =>
+  `conversation:${conversationId}`;
+
 /** Deep-link targets; the front builds the URL from these ids. */
 export const NotificationDataSchema = z.object({
   conversationId: z.string().optional(),
@@ -63,8 +70,8 @@ export type NotificationData = z.infer<typeof NotificationDataSchema>;
 
 /**
  * One bell item. Same shape over REST and socket. Bursts collapse into one
- * unread row per `groupKey` (e.g. `conversation:<id>`): `count` grows and
- * `title`/`body` are refreshed instead of stacking new rows.
+ * unread row per type and `groupKey` (e.g. `conversation:<id>`): `count`
+ * grows and `title`/`body` are refreshed instead of stacking new rows.
  */
 export const NotificationSchema = z.object({
   id: z.string(),
@@ -118,6 +125,15 @@ export const NotificationEventSchema = z.object({
   unreadCount: z.number().int().min(0),
 });
 export type NotificationEvent = z.infer<typeof NotificationEventSchema>;
+
+/**
+ * `POST /notifications/read`: no body (or `{}`) = all; `conversationId` =
+ * only the unread rows about that conversation (the chat was opened).
+ */
+export const NotificationMarkReadSchema = z.object({
+  conversationId: z.string().optional(),
+});
+export type NotificationMarkRead = z.infer<typeof NotificationMarkReadSchema>;
 
 /**
  * Socket `notification:read`: echoed to every tab/device of the reader after

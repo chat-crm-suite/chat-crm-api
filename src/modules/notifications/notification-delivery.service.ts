@@ -133,7 +133,14 @@ export class NotificationDeliveryService {
 
     if (input.groupKey) {
       const open = await this.notificationRepo.findOne({
-        where: { recipientMemberId: memberId, groupKey: input.groupKey, readAt: IsNull() },
+        // Per type: an assignment and the messages of the same chat share
+        // the group (read together) but never merge into one row.
+        where: {
+          recipientMemberId: memberId,
+          type: input.type,
+          groupKey: input.groupKey,
+          readAt: IsNull(),
+        },
         order: { updatedAt: 'DESC' },
       });
 

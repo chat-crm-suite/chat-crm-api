@@ -4,13 +4,15 @@
 import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { EventBus } from '@nestjs/cqrs';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 
 import { NotificationsReadEvent } from '../../common/events/notification-realtime.event';
-import type {
-  NotificationListQuery,
+import {
+  conversationGroupKey,
+  type NotificationListQuery,
   NotificationListResponse,
-  NotificationPreferences,
+  type NotificationMarkRead,
+  type NotificationPreferences,
 } from '../../contracts/index';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
 import { Notification } from './entities/notification.entity';
@@ -104,13 +106,35 @@ export class NotificationsService {
     return this.afterRead(reader, [id]);
   }
 
-  async markAllRead(reader: NotificationReader): Promise<{ unreadCount: number }> {
-    await this.notificationRepo.update(
-      { recipientMemberId: reader.memberId, companyId: reader.companyId, readAt: IsNull() },
-      { readAt: new Date() },
-    );
+  /**
+   * Everything unread, or only what is about one conversation (opening a
+   * chat reads its assignment and message notices).
+   */
+  async markAllRead(
+    reader: NotificationReader,
+    scope: NotificationMarkRead = {},
+  ): Promise<{ unreadCount: number }> {
+    const unread = {
+      recipientMemberId: reader.memberId,
+      companyId: reader.companyId,
+      readAt: IsNull(),
+    };
 
-    return this.afterRead(reader, 'all');
+    if (!scope.conversationId) {
+      await this.notificationRepo.update(unread, { readAt: new Date() });
+      return this.afterRead(reader, 'all');
+    }
+
+    const rows = await this.notificationRepo.find({
+      where: { ...unread, groupKey: conversationGroupKey(scope.conversationId) },
+      select: { id: true },
+    });
+    // Nothing to read: no recount, no echo (opening chats is frequent).
+    if (!rows.length) return { unreadCount: await this.unread.get(reader.memberId) };
+
+    const ids = rows.map((row) => row.id);
+    await this.notificationRepo.update({ id: In(ids) }, { readAt: new Date() });
+    return this.afterRead(reader, ids);
   }
 
   /** Preferences of a member; nothing muted until they choose. */

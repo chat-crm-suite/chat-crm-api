@@ -14073,6 +14073,19 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "NotificationMarkReadSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "conversationId": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "NotificationPreferencesSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -14318,6 +14331,9 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "type": "object"
         },
         "kind": "schema"
+      },
+      "conversationGroupKey": {
+        "kind": "factory"
       }
     },
     "pagination": {
@@ -18229,4 +18245,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "c8dab16229cb2a9d2bb45255fd65cec0e3024e0bdb52e328b2c3a31ee0bafd57";
+export const CONTRACTS_SNAPSHOT_HASH = "c7c34cc1e8c6895fdc59d821030464f6b29d58c24396bf3caa3610ab96591371";

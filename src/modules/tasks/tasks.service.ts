@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
@@ -22,8 +23,13 @@ import {
 import { CompanyMember } from '../company-members/entities/company-member.entity';
 import { memberDisplayName } from '../company-members/member-name';
 import { Conversation } from '../conversations/entities/conversation.entity';
-import { ConversationGateway } from '../conversations/gateways/conversation.gateway';
+import {
+  ConversationGateway,
+  staffRooms,
+  userRoom,
+} from '../conversations/gateways/conversation.gateway';
 import { Customer } from '../customers/entities/customer.entity';
+import { NotificationDispatcher } from '../notifications/notification.dispatcher';
 import { Task } from './entities/task.entity';
 import { WorkQueueCache } from './work-queue.cache';
 
@@ -39,8 +45,9 @@ const isSupervisor = (role: MemberRole) => role === 'admin' || role === 'supervi
 /**
  * Manual tasks. Agents see and edit only their own; admin/supervisor see the
  * whole company and may assign to anyone. Every change emits `task:changed`
- * to the assignee's user room and the company room, and drops the cached
- * work-queue counts.
+ * to the assignee (and previous one) plus admins/supervisors, drops the
+ * cached work-queue counts, and a new assignee gets a `task_assigned` notice
+ * (never for a task they gave themselves).
  */
 @Injectable()
 export class TasksService {
@@ -50,6 +57,7 @@ export class TasksService {
     private readonly gateway: ConversationGateway,
     private readonly cache: WorkQueueCache,
     private readonly logger: PinoLogger,
+    @Optional() private readonly notifications?: NotificationDispatcher,
   ) {
     this.logger.setContext(TasksService.name);
   }
@@ -122,7 +130,7 @@ export class TasksService {
       this.createWithin(manager, actor, input),
     );
     const task = await this.findView(actor.companyId, id);
-    await this.announce(actor.companyId, task, 'created');
+    await this.announce(actor.companyId, task, 'created', undefined, actor.memberId);
     return task;
   }
 
@@ -177,7 +185,7 @@ export class TasksService {
   /** Emits and invalidates for a task created through `createWithin`. */
   async announceCreated(companyId: string, taskId: string): Promise<void> {
     const task = await this.findView(companyId, taskId);
-    await this.announce(companyId, task, 'created');
+    await this.announce(companyId, task, 'created', undefined, task.createdBy?.memberId);
   }
 
   /** `PATCH /tasks/:id`. `null` clears; reassigning follows the create rule. */
@@ -206,6 +214,7 @@ export class TasksService {
       view,
       input.status === 'done' ? 'completed' : 'updated',
       previousAssignee,
+      actor.memberId,
     );
     return view;
   }
@@ -269,16 +278,24 @@ export class TasksService {
   }
 
   /**
-   * `task:changed` to the assignee (and a previous one) plus the company
-   * room, in one emit so a socket in several rooms gets it once.
+   * `task:changed` to the assignee (and a previous one) plus admins and
+   * supervisors, in one emit so a socket in several rooms gets it once.
+   * Agents never hear about other agents' tasks.
    */
   private async announce(
     companyId: string,
     task: TaskView,
     action: TaskChanged['action'],
     previousAssigneeId?: string,
+    actorMemberId?: string,
   ): Promise<void> {
     await this.cache.invalidate(companyId);
+
+    const newAssignee =
+      action === 'created' || (previousAssigneeId && previousAssigneeId !== task.assignee.memberId);
+    if (newAssignee && task.status === 'open') {
+      await this.notifyAssigned(companyId, task, actorMemberId);
+    }
 
     try {
       const memberIds = [...new Set([task.assignee.memberId, previousAssigneeId].filter(Boolean))];
@@ -288,8 +305,10 @@ export class TasksService {
         select: { id: true, userId: true },
       });
 
-      let target = this.gateway.server?.to(`company:${companyId}`);
-      for (const member of members) target = target?.to(`user:${member.userId}`);
+      const target = this.gateway.server?.to([
+        ...staffRooms(companyId),
+        ...members.map((member) => userRoom(member.userId)),
+      ]);
 
       const payload: TaskChanged = {
         taskId: task.id,
@@ -301,6 +320,32 @@ export class TasksService {
     } catch (error) {
       this.logger.warn({ taskId: task.id, error: String(error) }, 'task:changed emit failed');
     }
+  }
+
+  /** The assignee hears about it, unless they assigned it to themselves. */
+  private async notifyAssigned(
+    companyId: string,
+    task: TaskView,
+    actorMemberId?: string,
+  ): Promise<void> {
+    const assignee = task.assignee.memberId;
+    if (!this.notifications || assignee === actorMemberId) return;
+
+    const by = task.createdBy && task.createdBy.memberId === actorMemberId ? task.createdBy.name : null;
+    await this.notifications.notify({
+      companyId,
+      type: 'task_assigned',
+      audience: { memberIds: [assignee] },
+      title: 'Nueva tarea asignada',
+      body: by ? `${task.title} · de ${by}` : task.title,
+      data: {
+        taskId: task.id,
+        ...(task.conversation ? { conversationId: task.conversation.id } : {}),
+      },
+      // Re-assigning back and forth within a minute notifies once.
+      dedupeKey: `task:${task.id}:assigned:${assignee}:${Math.floor(Date.now() / 60_000)}`,
+      excludeMemberIds: actorMemberId ? [actorMemberId] : [],
+    });
   }
 }
 

@@ -38,7 +38,7 @@ export interface NotifyInput {
    */
   dedupeKey: string;
   dedupeTtlMs?: number;
-  /** Unread rows with the same key collapse into one whose `count` grows. */
+  /** Unread rows of the same type and key collapse into one (`count` grows). */
   groupKey?: string;
   /** The member who caused it never hears about their own action. */
   excludeMemberIds?: string[];

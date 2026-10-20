@@ -2,7 +2,7 @@
 export const CONTRACTS_VERSION: unknown = {
   "tag": "v1.0.2",
   "commit": "5d0fcb331905ef59f29af334a10beb49e2037316",
-  "hash": "c8dab16229cb2a9d2bb45255fd65cec0e3024e0bdb52e328b2c3a31ee0bafd57",
+  "hash": "c7c34cc1e8c6895fdc59d821030464f6b29d58c24396bf3caa3610ab96591371",
   "generatedAt": "2026-10-20T13:47:07-05:00",
   "files": {
     "analysis": {
@@ -61,7 +61,7 @@ export const CONTRACTS_VERSION: unknown = {
       "updatedAt": "2026-10-20T12:11:30-05:00"
     },
     "notification": {
-      "hash": "42017fd8a31edfd979b1abfb8fafec29f50c60c7b9b468bfab4510a01de9d8c2",
+      "hash": "25861bc0a460cb29d450d1d76b8c3ebb5ba8fd95fdf94b4c77a4d7c0272044f0",
       "version": null,
       "updatedAt": "2026-10-20T13:47:07-05:00"
     },

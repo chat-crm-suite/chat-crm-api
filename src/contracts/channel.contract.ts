@@ -224,6 +224,11 @@ export interface ChannelCapabilities {
   readonly captionMaxLength: number;
   /** Free-form replies only within this window after the last inbound. */
   readonly replyWindowMs: number | null;
+  /**
+   * Provider-approved templates can be listed and sent (the only way to
+   * write outside the reply window). True requires a `TemplateProvider`.
+   */
+  readonly supportsTemplates: boolean;
 }
 
 /**
@@ -275,6 +280,7 @@ const WHATSAPP_CAPABILITIES: ChannelCapabilities = {
   textMaxLength: TEXT_MAX_LENGTH,
   captionMaxLength: CAPTION_MAX_LENGTH,
   replyWindowMs: 24 * 60 * 60 * 1000,
+  supportsTemplates: true,
 };
 
 export const CHANNEL_CAPABILITIES: Readonly<

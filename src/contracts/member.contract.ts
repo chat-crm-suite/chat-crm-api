@@ -48,11 +48,17 @@ export const CompanyMemberResponseSchema = z.object({
   status: MemberStatusSchema,
   acceptsAutoAssign: z.boolean(),
   maxOpenConversations: z.number().nullish(),
+  /** Active assignments; only filled with `withWorkload=true`. */
+  openConversations: z.number().int().min(0).optional(),
+  /** Live presence; only filled with `withWorkload=true`. */
+  presence: PresenceStateSchema.optional(),
   joinedAt: z.coerce.date(),
 });
 
 export const CompanyMemberListQuerySchema = z.object({
   q: z.string().optional(),
+  /** Adds `openConversations` + `presence` (assign/transfer picker). */
+  withWorkload: z.stringbool().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 

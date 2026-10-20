@@ -28,5 +28,6 @@ export { Notification } from '../modules/notifications/entities/notification.ent
 export { PresenceInterval } from '../modules/presence/entities/presence-interval.entity';
 export { ChannelCharge } from '../modules/spend/entities/channel-charge.entity';
 export { ChannelRate } from '../modules/spend/entities/channel-rate.entity';
+export { Task } from '../modules/tasks/entities/task.entity';
 export { User } from '../modules/users/entities/user.entity';
 export { WhatsappInboundEvent } from '../integrations/whatsapp/entities/whatsapp-inbound-event.entity';

@@ -243,6 +243,8 @@ export const SEND_MESSAGE_ERROR_CODES = [
   'forbidden',
   'not_found',
   'internal',
+  /** The conversation's channel is `pending`/`inactive`/`error`: nothing is queued. */
+  'channel_unavailable',
 ] as const;
 export const SendMessageErrorCodeSchema = z.enum(SEND_MESSAGE_ERROR_CODES);
 export type SendMessageErrorCode = z.infer<typeof SendMessageErrorCodeSchema>;

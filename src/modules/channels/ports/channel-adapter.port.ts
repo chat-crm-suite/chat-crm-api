@@ -32,7 +32,28 @@ export type ResolvedOutgoing =
       filename: string;
       caption?: string;
     }
-  | { type: 'sticker'; media: ProviderMedia };
+  | { type: 'sticker'; media: ProviderMedia }
+  | ({ type: 'template' } & ResolvedTemplate);
+
+/** One filled placeholder of a template (`key` without braces: `1`, `name`). */
+export interface TemplateParameter {
+  key: string;
+  value: string;
+}
+
+/**
+ * A provider template ready to send: its provider name + language and the
+ * values of its placeholders per component, in the provider's order. Built by
+ * the channel's `TemplateProvider`.
+ */
+export interface ResolvedTemplate {
+  name: string;
+  language: string;
+  header: TemplateParameter[];
+  body: TemplateParameter[];
+  /** Dynamic buttons (e.g. a URL suffix), by button position. */
+  buttons: Array<{ index: number; subType: string; parameters: TemplateParameter[] }>;
+}
 
 /** How a provider failure must be handled by the caller. */
 export interface ChannelFailure {
@@ -47,6 +68,11 @@ export interface ChannelFailure {
    * can reach the customer (WhatsApp 24 h rule, Messenger 24 h…).
    */
   replyWindowClosed?: boolean;
+  /**
+   * With `authFault`: why the channel itself is unusable, user-facing
+   * (Spanish). The sender marks the channel `error` with it.
+   */
+  connectionReason?: string;
 }
 
 export type ChannelOutcome<T> =

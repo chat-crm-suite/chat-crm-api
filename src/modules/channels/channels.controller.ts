@@ -74,7 +74,20 @@ export class ChannelsController {
   @ApiOkResponse({ schema: zodResponseSchema(WhatsAppConnectionTestSchema) })
   async test(): Promise<WhatsAppConnectionTest> {
     const target = await this.service.getWhatsAppTestTarget();
-    if (target) return this.tester.test(target.channel, target.credentials);
+    if (target) {
+      const { credentialsRejected, ...result } = await this.tester.test(
+        target.channel,
+        target.credentials,
+      );
+      // The test is the way back up (and an early way down): same status the
+      // inbox reads, pushed live by `channel:status:changed`.
+      if (credentialsRejected) {
+        await this.service.markChannelDown(target.channel.id, result.sending.message);
+      } else if (result.sending.status === CONNECTION_CHECK.ok) {
+        await this.service.markChannelUp(target.channel.id);
+      }
+      return result;
+    }
 
     const missing = {
       status: CONNECTION_CHECK.skipped,

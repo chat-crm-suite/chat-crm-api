@@ -68,4 +68,63 @@ describe('toWhatsAppPayload', () => {
       sticker: { id: 'media-1' },
     });
   });
+
+  it('maps a template: positional values by order, named ones by name, URL buttons by index', () => {
+    expect(
+      toWhatsAppPayload('51999000111', {
+        type: 'template',
+        name: 'order_update',
+        language: 'es',
+        header: [{ key: 'customer', value: 'Ana' }],
+        body: [
+          { key: '1', value: '#123' },
+          { key: '2', value: 'lunes' },
+        ],
+        buttons: [{ index: 0, subType: 'url', parameters: [{ key: '1', value: 'abc' }] }],
+      }),
+    ).toEqual({
+      ...base,
+      type: 'template',
+      template: {
+        name: 'order_update',
+        language: { code: 'es' },
+        components: [
+          {
+            type: 'header',
+            parameters: [{ type: 'text', text: 'Ana', parameter_name: 'customer' }],
+          },
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: '#123' },
+              { type: 'text', text: 'lunes' },
+            ],
+          },
+          {
+            type: 'button',
+            sub_type: 'url',
+            index: '0',
+            parameters: [{ type: 'text', text: 'abc' }],
+          },
+        ],
+      },
+    });
+  });
+
+  it('omits components for a template without placeholders', () => {
+    expect(
+      toWhatsAppPayload('51999000111', {
+        type: 'template',
+        name: 'hello_world',
+        language: 'en_US',
+        header: [],
+        body: [],
+        buttons: [],
+      }),
+    ).toEqual({
+      ...base,
+      type: 'template',
+      template: { name: 'hello_world', language: { code: 'en_US' } },
+    });
+  });
 });

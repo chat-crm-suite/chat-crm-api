@@ -32,6 +32,7 @@ export * from './service-settings.contract';
 export * from './setup.contract';
 export * from './socket.contract';
 export * from './spend.contract';
+export * from './task.contract';
 export * from './template.contract';
 export * from './user.contract';
 export * from './whatsapp-webhook.contract';

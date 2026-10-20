@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import type { ResolvedOutgoing } from '@modules/channels/ports/channel-adapter.port';
+import type {
+  ResolvedOutgoing,
+  ResolvedTemplate,
+  TemplateParameter,
+} from '@modules/channels/ports/channel-adapter.port';
 import type {
   WhatsAppPayload,
   WhatsAppPayloadBase,
+  WhatsAppTemplateComponent,
+  WhatsAppTemplateParameter,
 } from '../interfaces/whatsapp-message.interface';
 
 /**
@@ -59,9 +65,43 @@ export function toWhatsAppPayload(
         type: 'sticker',
         sticker: { id: message.media.providerMediaId },
       };
+    case 'template':
+      return { ...base, type: 'template', template: toTemplate(message) };
     default:
       return unreachable(message);
   }
+}
+
+function toTemplate(template: ResolvedTemplate) {
+  const components: WhatsAppTemplateComponent[] = [];
+  if (template.header.length) {
+    components.push({ type: 'header', parameters: template.header.map(toParameter) });
+  }
+  if (template.body.length) {
+    components.push({ type: 'body', parameters: template.body.map(toParameter) });
+  }
+  for (const button of template.buttons) {
+    if (!button.parameters.length) continue;
+    components.push({
+      type: 'button',
+      sub_type: button.subType,
+      index: String(button.index),
+      parameters: button.parameters.map(toParameter),
+    });
+  }
+
+  return {
+    name: template.name,
+    language: { code: template.language },
+    ...(components.length ? { components } : {}),
+  };
+}
+
+/** Positional placeholders (`{{1}}`) go by order; named ones carry their name. */
+function toParameter({ key, value }: TemplateParameter): WhatsAppTemplateParameter {
+  return /^\d+$/.test(key)
+    ? { type: 'text', text: value }
+    : { type: 'text', text: value, parameter_name: key };
 }
 
 function withCaption(id: string, caption?: string) {

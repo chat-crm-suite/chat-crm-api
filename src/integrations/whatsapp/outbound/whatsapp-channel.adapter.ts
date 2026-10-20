@@ -106,9 +106,33 @@ export class WhatsAppChannelAdapter implements ChannelAdapter, OnModuleInit {
         error: {
           ...info,
           replyWindowClosed: REPLY_WINDOW_CLOSED_CODES.has(info.code ?? ''),
+          ...(info.authFault
+            ? { connectionReason: whatsAppConnectionReason(info.code) }
+            : {}),
         },
       };
     }
+  }
+}
+
+/**
+ * User-facing reason of an authorization fault (Graph error codes).
+ * @link https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes
+ */
+export function whatsAppConnectionReason(code: string | undefined): string {
+  switch (code) {
+    case '190':
+      return 'El token de acceso de WhatsApp venció o fue revocado.';
+    case '10':
+    case '200':
+    case '131005':
+      return 'La app de Meta no tiene permiso para enviar mensajes con este número.';
+    case '131031':
+      return 'La cuenta de WhatsApp Business está bloqueada por Meta.';
+    case '133010':
+      return 'El número no está registrado en WhatsApp Cloud API.';
+    default:
+      return `Meta rechazó las credenciales del canal${code ? ` (código ${code})` : ''}.`;
   }
 }
 

@@ -7,8 +7,10 @@ import type { WhatsappNotificationError } from '@daweto/whatsapp-api-types';
 
 import {
   ConversationSocketEvent,
+  type ConversationListItem,
   type ConversationMessageAttachmentPatch,
   type ConversationMessageStatusPatch,
+  type ConversationStatusChanged,
 } from '@contracts';
 import type { ConversationMessage } from '@contracts';
 import { ConversationGateway } from '../gateways/conversation.gateway';
@@ -80,6 +82,31 @@ export class ConversationFanoutService {
       ConversationSocketEvent.ErrorMessage,
       error,
     );
+  }
+
+  /**
+   * Lifecycle change (resolve, pending, reopen, inbound reopen): the open
+   * thread and the company room, so every inbox list moves the row. The
+   * payload carries ids and states only, never a body.
+   */
+  emitStatusChanged(companyId: string, payload: ConversationStatusChanged): void {
+    const server = this.gateway.server;
+    if (!server) return;
+
+    server
+      .to(`conversation:${payload.conversationId}`)
+      .to(`company:${companyId}`)
+      .emit(ConversationSocketEvent.StatusChanged, payload);
+  }
+
+  /**
+   * A conversation started from the CRM. Emitted right after it is created,
+   * before any message exists, so the list item carries no body yet.
+   */
+  emitCreated(companyId: string, item: ConversationListItem): void {
+    this.gateway.server
+      ?.to(`company:${companyId}`)
+      .emit(ConversationSocketEvent.Created, item);
   }
 
   private async emitToThreadAndAssignee(

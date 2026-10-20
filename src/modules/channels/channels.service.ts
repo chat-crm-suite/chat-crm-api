@@ -1,17 +1,23 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, Optional } from '@nestjs/common';
+import { EventBus } from '@nestjs/cqrs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+
+import { ChannelStatusChangedEvent } from '@common/events/channel-status-changed.event';
 
 import {
   CHANNEL_STATUS,
   CHANNEL_TYPE,
   DEFAULT_WHATSAPP_API_VERSION,
+  ConversationErrorCode,
   DEFAULT_WHATSAPP_CHANNEL_NAME,
   WHATSAPP_GRAPH_BASE_URL,
+  isChannelSendable,
+  type ChannelStatus,
   type ChannelResponse,
   type CreateChannelInput,
   type UpdateChannelInput,
@@ -59,6 +65,7 @@ export class ChannelsService {
     @InjectRepository(Channel)
     private readonly channels: Repository<Channel>,
     private readonly cls: ClsService,
+    @Optional() private readonly eventBus?: EventBus,
   ) {}
 
   private get companyId(): string {
@@ -168,15 +175,131 @@ export class ChannelsService {
       });
     }
 
-    // `pending` → `active` once the channel can send and route.
+    // `pending` → `active` once the channel can send and route; `error` →
+    // `active` when the credentials or the number change (a new token is the
+    // usual fix; a failed send or test marks it down again).
     const status = patch.status ?? channel.status;
     const accountId = patch.externalAccountId ?? channel.externalAccountId;
     const accessToken = dto.accessToken ?? current.accessToken;
-    if (status === CHANNEL_STATUS.pending && accountId && accessToken) {
+    const credentialsChanged =
+      patch.credentials !== undefined || patch.externalAccountId !== undefined;
+    if (
+      accountId &&
+      accessToken &&
+      (status === CHANNEL_STATUS.pending ||
+        (status === CHANNEL_STATUS.error && credentialsChanged))
+    ) {
       patch.status = CHANNEL_STATUS.active;
     }
+    if (patch.status !== undefined && patch.status !== channel.status) {
+      patch.statusReason = null;
+      patch.statusChangedAt = new Date();
+    }
 
-    return this.updateChannel(channel, patch);
+    const previousStatus = channel.status;
+    const response = await this.updateChannel(channel, patch);
+    if (response.status !== previousStatus) {
+      this.publishStatus(channel.companyId, {
+        id: response.id,
+        type: response.type,
+        name: response.name,
+        status: response.status,
+        statusReason: null,
+      });
+    }
+    return response;
+  }
+
+  /**
+   * Refuses a send on a channel that is not `active` (409
+   * `channel_unavailable`), before anything is saved or queued.
+   */
+  async assertSendable(channelId: string): Promise<void> {
+    const channel = await this.channels.findOne({
+      where: { id: channelId },
+      select: { id: true, status: true, statusReason: true },
+    });
+    if (channel && isChannelSendable(channel.status)) return;
+
+    throw new ConflictException({
+      code: ConversationErrorCode.ChannelUnavailable,
+      message:
+        channel?.statusReason ??
+        'El canal no está conectado: revisa su configuración.',
+    });
+  }
+
+  /**
+   * The provider refused the channel's credentials: `active` → `error` with a
+   * user-facing reason. No-op when it is already down (or not active).
+   */
+  markChannelDown(channelId: string, reason: string): Promise<boolean> {
+    return this.transition(
+      channelId,
+      CHANNEL_STATUS.active,
+      CHANNEL_STATUS.error,
+      reason.slice(0, 500),
+    );
+  }
+
+  /** A passing connection test: `error` → `active`. No-op otherwise. */
+  markChannelUp(channelId: string): Promise<boolean> {
+    return this.transition(
+      channelId,
+      CHANNEL_STATUS.error,
+      CHANNEL_STATUS.active,
+      null,
+    );
+  }
+
+  /** Conditional status flip (one UPDATE); publishes only when it changed. */
+  private async transition(
+    channelId: string,
+    from: ChannelStatus,
+    to: ChannelStatus,
+    reason: string | null,
+  ): Promise<boolean> {
+    const result = await this.channels
+      .createQueryBuilder()
+      .update(Channel)
+      .set({ status: to, statusReason: reason, statusChangedAt: new Date() })
+      .where('id = :channelId', { channelId })
+      .andWhere('status = :from', { from })
+      .execute();
+    if (!result.affected) return false;
+
+    const channel = await this.channels.findOne({
+      where: { id: channelId },
+      select: { id: true, companyId: true, type: true, name: true },
+    });
+    if (channel) {
+      this.publishStatus(channel.companyId, {
+        id: channel.id,
+        type: channel.type,
+        name: channel.name,
+        status: to,
+        statusReason: reason,
+      });
+    }
+    return true;
+  }
+
+  private publishStatus(
+    companyId: string,
+    channel: Pick<ChannelResponse, 'id' | 'type' | 'name' | 'status'> & {
+      statusReason: string | null;
+    },
+  ): void {
+    this.eventBus?.publish(
+      new ChannelStatusChangedEvent(companyId, {
+        channelId: channel.id,
+        type: channel.type,
+        name: channel.name,
+        status: channel.status,
+        statusReason: channel.statusReason,
+        at: new Date(),
+      }),
+    );
   }
 
   private async updateChannel(
@@ -224,7 +347,11 @@ export class ChannelsService {
     return secrets;
   }
 
-  /** Webhook routing: active WhatsApp channel by phone_number_id. */
+  /**
+   * Webhook routing: WhatsApp channel by phone_number_id. A channel in
+   * `error` (credentials refused for sending) still receives: customers keep
+   * reaching the inbox while an admin fixes the token.
+   */
   async findActiveByExternalAccountId(
     externalAccountId: string,
   ): Promise<Channel | null> {
@@ -232,7 +359,7 @@ export class ChannelsService {
       where: {
         externalAccountId,
         type: CHANNEL_TYPE.whatsapp,
-        status: CHANNEL_STATUS.active,
+        status: In([CHANNEL_STATUS.active, CHANNEL_STATUS.error]),
       },
     });
   }
@@ -310,6 +437,8 @@ export class ChannelsService {
       businessId: credentials.businessId ?? null,
       hasCredentials: !!credentials.accessToken,
       hasAppSecret: !!credentials.appSecret,
+      statusReason: channel.statusReason ?? null,
+      statusChangedAt: channel.statusChangedAt ?? null,
       createdAt: channel.createdAt,
       updatedAt: channel.updatedAt,
     };

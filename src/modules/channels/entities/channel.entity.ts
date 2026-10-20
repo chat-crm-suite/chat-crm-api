@@ -65,6 +65,13 @@ export class Channel extends UuidV7Entity {
   @Column({ type: 'varchar', length: 50, default: 'active' })
   status: ChannelStatus;
 
+  /** Why the channel is `error` (user-facing, Spanish); null otherwise. */
+  @Column({ name: 'status_reason', type: 'varchar', length: 500, nullable: true })
+  statusReason: string | null;
+
+  @Column({ name: 'status_changed_at', type: 'datetime', nullable: true })
+  statusChangedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

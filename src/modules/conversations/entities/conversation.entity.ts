@@ -53,8 +53,9 @@ export class Conversation extends UuidV7Entity {
   @Column({ type: 'varchar', length: 50, default: 'open' })
   status: ConversationStatus;
 
-  @Column({ type: 'varchar', length: 50, default: 'low' })
-  priority: ConversationPriority;
+  /** NULL = no priority set (cleared from the inbox). */
+  @Column({ type: 'varchar', length: 50, nullable: true, default: 'low' })
+  priority: ConversationPriority | null;
 
   /** Current assignee (denormalized from conversation_assignments). */
   @Column({ name: 'assigned_member_id', type: 'varchar', length: 36, nullable: true })
@@ -83,7 +84,7 @@ export class Conversation extends UuidV7Entity {
   lastOutboundAt?: Date;
 
   @Column({ name: 'closed_at', type: 'datetime', nullable: true })
-  closedAt?: Date;
+  closedAt?: Date | null;
 
   @Column({ name: 'closed_by_member_id', type: 'varchar', length: 36, nullable: true })
   closedByMemberId?: string | null;

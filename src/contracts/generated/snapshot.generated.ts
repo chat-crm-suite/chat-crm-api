@@ -6734,6 +6734,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               "maxStaticBytes": 102400,
               "width": 512
             },
+            "supportsTemplates": true,
             "textMaxLength": 4096,
             "voiceMimeType": "audio/ogg"
           }
@@ -6854,6 +6855,20 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               ],
               "type": "string"
             },
+            "statusChangedAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "statusReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "type": {
               "enum": [
                 "whatsapp",
@@ -6889,6 +6904,64 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "status",
             "type",
             "updatedAt"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ChannelSocketEvent": {
+        "kind": "value",
+        "value": {
+          "StatusChanged": "channel:status:changed"
+        }
+      },
+      "ChannelStatusChangedSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "at": {},
+            "channelId": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "active",
+                "inactive",
+                "error"
+              ],
+              "type": "string"
+            },
+            "statusReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "at",
+            "channelId",
+            "name",
+            "status",
+            "statusReason",
+            "type"
           ],
           "type": "object"
         },
@@ -7253,6 +7326,20 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               ],
               "type": "string"
             },
+            "statusChangedAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "statusReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "type": {
               "enum": [
                 "whatsapp",
@@ -7416,6 +7503,9 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "kind": "schema"
       },
       "channelCapabilities": {
+        "kind": "factory"
+      },
+      "isChannelSendable": {
         "kind": "factory"
       }
     },
@@ -8267,6 +8357,141 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "archived"
         ]
       },
+      "ConversationAssigneeSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "memberId": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "userId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "memberId",
+            "name",
+            "userId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ConversationAssignmentEntrySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assignedAt": {},
+            "assignedByMemberId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "memberId": {
+              "type": "string"
+            },
+            "memberName": {
+              "type": "string"
+            },
+            "note": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "auto",
+                "claim",
+                "manual",
+                "transfer",
+                "escalation",
+                "release"
+              ],
+              "type": "string"
+            },
+            "unassignedAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "assignedAt",
+            "assignedByMemberId",
+            "id",
+            "memberId",
+            "memberName",
+            "note",
+            "reason",
+            "unassignedAt"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ConversationChannelSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "active",
+                "inactive",
+                "error"
+              ],
+              "type": "string"
+            },
+            "statusReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "status",
+            "statusReason",
+            "type"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "ConversationCustomerSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -8295,11 +8520,221 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "ConversationErrorCode": {
+        "kind": "value",
+        "value": {
+          "ChannelUnavailable": "channel_unavailable",
+          "ReplyWindowClosed": "reply_window_closed",
+          "TemplateParamsMissing": "template_params_missing",
+          "TemplateUnavailable": "template_unavailable",
+          "TemplatesUnsupported": "templates_unsupported"
+        }
+      },
+      "ConversationLifecycleResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assignee": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "memberId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "memberId",
+                    "name",
+                    "userId"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "case": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "closedAt": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "closedByMemberId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "conversationId": {
+                      "type": "string"
+                    },
+                    "firstResponderMemberId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "firstResponseAt": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "openedAt": {},
+                    "reopenOfCaseId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "enum": [
+                        "open",
+                        "closed"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "closedAt",
+                    "closedByMemberId",
+                    "conversationId",
+                    "firstResponderMemberId",
+                    "firstResponseAt",
+                    "id",
+                    "openedAt",
+                    "reopenOfCaseId",
+                    "status"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "open",
+                "pending",
+                "closed",
+                "archived"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "assignee",
+            "case",
+            "id",
+            "status"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "ConversationListItemSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
+            "assignee": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "memberId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "memberId",
+                    "name",
+                    "userId"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "channel": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "pending",
+                    "active",
+                    "inactive",
+                    "error"
+                  ],
+                  "type": "string"
+                },
+                "statusReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "type": {
+                  "enum": [
+                    "whatsapp",
+                    "telegram",
+                    "messenger",
+                    "instagram",
+                    "email",
+                    "sms",
+                    "webchat"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "status",
+                "statusReason",
+                "type"
+              ],
+              "type": "object"
+            },
             "channelType": {
               "enum": [
                 "whatsapp",
@@ -8339,6 +8774,14 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             },
             "id": {
               "type": "string"
+            },
+            "lastInboundAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
             },
             "preview": {
               "additionalProperties": false,
@@ -8383,6 +8826,22 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               },
               "type": "object"
             },
+            "priority": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "urgent"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "status": {
               "enum": [
                 "open",
@@ -8391,15 +8850,73 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                 "archived"
               ],
               "type": "string"
+            },
+            "transfer": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "at": {},
+                    "fromMemberId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "fromName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "note": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "at",
+                    "fromMemberId",
+                    "fromName",
+                    "note"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "unread": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "windowExpiresAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "required": [
+            "assignee",
+            "channel",
             "channelType",
             "createdAt",
             "customer",
             "id",
+            "lastInboundAt",
             "preview",
-            "status"
+            "priority",
+            "status",
+            "transfer",
+            "unread",
+            "windowExpiresAt"
           ],
           "type": "object"
         },
@@ -8509,6 +9026,20 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "ConversationNoteSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "note": {
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "ConversationPrioritySchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -8567,6 +9098,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "BroadcastMessage": "conversation:message:broadcast",
           "ConversationAssigned": "conversation:assigned",
           "ConversationUnassigned": "conversation:unassigned",
+          "Created": "conversation:created",
           "ErrorMessage": "conversation:message:error",
           "Join": "conversation:join",
           "Joined": "conversation:joined",
@@ -8575,8 +9107,54 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "NewNotification": "notification:new",
           "ReceivedMessage": "conversation:message:received",
           "SendMessage": "conversation:message:send",
+          "StatusChanged": "conversation:status:changed",
           "UpdateSentimentIndicator": "conversation:sentiment:update"
         }
+      },
+      "ConversationStatusChangedSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "at": {},
+            "byMemberId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "conversationId": {
+              "type": "string"
+            },
+            "previousStatus": {
+              "enum": [
+                "open",
+                "pending",
+                "closed",
+                "archived"
+              ],
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "open",
+                "pending",
+                "closed",
+                "archived"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "at",
+            "byMemberId",
+            "conversationId",
+            "previousStatus",
+            "status"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
       },
       "ConversationStatusSchema": {
         "jsonSchema": {
@@ -8586,6 +9164,99 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "pending",
             "closed",
             "archived"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "ConversationTransferSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "at": {},
+            "fromMemberId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fromName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "note": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "at",
+            "fromMemberId",
+            "fromName",
+            "note"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "LIST_SCOPES": {
+        "kind": "value",
+        "value": [
+          "mine",
+          "all"
+        ]
+      },
+      "ListConversationsQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assigneeId": {
+              "type": "string"
+            },
+            "limit": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "scope": {
+              "default": "mine",
+              "enum": [
+                "mine",
+                "all"
+              ],
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "open",
+                "pending",
+                "closed",
+                "archived"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "limit",
+            "scope"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ListScopeSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "mine",
+            "all"
           ],
           "type": "string"
         },
@@ -8781,6 +9452,419 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "clientMessageId",
             "msg",
             "room"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "StartConversationResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "conversation": {
+              "additionalProperties": false,
+              "properties": {
+                "assignee": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "memberId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "userId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "memberId",
+                        "name",
+                        "userId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "channel": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "pending",
+                        "active",
+                        "inactive",
+                        "error"
+                      ],
+                      "type": "string"
+                    },
+                    "statusReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "type": {
+                      "enum": [
+                        "whatsapp",
+                        "telegram",
+                        "messenger",
+                        "instagram",
+                        "email",
+                        "sms",
+                        "webchat"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "status",
+                    "statusReason",
+                    "type"
+                  ],
+                  "type": "object"
+                },
+                "channelType": {
+                  "enum": [
+                    "whatsapp",
+                    "telegram",
+                    "messenger",
+                    "instagram",
+                    "email",
+                    "sms",
+                    "webchat"
+                  ],
+                  "type": "string"
+                },
+                "createdAt": {},
+                "customer": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "displayName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "phone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "type": "object"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "lastInboundAt": {
+                  "anyOf": [
+                    {},
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "preview": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "content": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "datetime": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "type": {
+                      "anyOf": [
+                        {
+                          "enum": [
+                            "text",
+                            "image",
+                            "audio",
+                            "video",
+                            "document",
+                            "sticker",
+                            "location",
+                            "contact",
+                            "template",
+                            "interactive",
+                            "reaction"
+                          ],
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object"
+                },
+                "priority": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "low",
+                        "medium",
+                        "high",
+                        "urgent"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "status": {
+                  "enum": [
+                    "open",
+                    "pending",
+                    "closed",
+                    "archived"
+                  ],
+                  "type": "string"
+                },
+                "transfer": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "at": {},
+                        "fromMemberId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "fromName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "at",
+                        "fromMemberId",
+                        "fromName",
+                        "note"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "unread": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "windowExpiresAt": {
+                  "anyOf": [
+                    {},
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "assignee",
+                "channel",
+                "channelType",
+                "createdAt",
+                "customer",
+                "id",
+                "lastInboundAt",
+                "preview",
+                "priority",
+                "status",
+                "transfer",
+                "unread",
+                "windowExpiresAt"
+              ],
+              "type": "object"
+            },
+            "created": {
+              "type": "boolean"
+            },
+            "messageId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "taskId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "conversation",
+            "created",
+            "messageId",
+            "taskId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "StartConversationSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assigneeMemberId": {
+              "type": "string"
+            },
+            "channelId": {
+              "type": "string"
+            },
+            "customerId": {
+              "type": "string"
+            },
+            "task": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                "dueAt": {},
+                "title": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "title"
+              ],
+              "type": "object"
+            },
+            "template": {
+              "additionalProperties": false,
+              "properties": {
+                "clientMessageId": {
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "params": {
+                  "additionalProperties": {
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "default": {},
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "templateId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "params",
+                "templateId"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "channelId",
+            "customerId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TransferConversationSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "memberId": {
+              "type": "string"
+            },
+            "note": {
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          "required": [
+            "memberId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "UpdateConversationPrioritySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "priority": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "urgent"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "priority"
           ],
           "type": "object"
         },
@@ -9912,6 +10996,9 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             },
             "q": {
               "type": "string"
+            },
+            "withWorkload": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -9956,6 +11043,19 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                 "number",
                 "null"
               ]
+            },
+            "openConversations": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "presence": {
+              "enum": [
+                "available",
+                "away",
+                "offline"
+              ],
+              "type": "string"
             },
             "role": {
               "enum": [
@@ -12379,7 +13479,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "validation",
           "forbidden",
           "not_found",
-          "internal"
+          "internal",
+          "channel_unavailable"
         ]
       },
       "SendMessageAckSchema": {
@@ -12407,7 +13508,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                     "validation",
                     "forbidden",
                     "not_found",
-                    "internal"
+                    "internal",
+                    "channel_unavailable"
                   ],
                   "type": "string"
                 },
@@ -12437,7 +13539,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "validation",
             "forbidden",
             "not_found",
-            "internal"
+            "internal",
+            "channel_unavailable"
           ],
           "type": "string"
         },
@@ -14459,13 +15562,1142 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         ]
       }
     },
+    "task": {
+      "CreateTaskSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assigneeMemberId": {
+              "type": "string"
+            },
+            "conversationId": {
+              "type": "string"
+            },
+            "customerId": {
+              "type": "string"
+            },
+            "description": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "dueAt": {},
+            "priority": {
+              "default": "medium",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "urgent"
+              ],
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "priority",
+            "title"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ListTasksQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assigneeId": {
+              "type": "string"
+            },
+            "conversationId": {
+              "type": "string"
+            },
+            "limit": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "scope": {
+              "default": "mine",
+              "enum": [
+                "mine",
+                "all"
+              ],
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "open",
+                "done",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "limit",
+            "scope"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TASK_PRIORITIES": {
+        "kind": "value",
+        "value": [
+          "low",
+          "medium",
+          "high",
+          "urgent"
+        ]
+      },
+      "TASK_STATUSES": {
+        "kind": "value",
+        "value": [
+          "open",
+          "done",
+          "cancelled"
+        ]
+      },
+      "TaskChangedSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "enum": [
+                "created",
+                "updated",
+                "completed",
+                "deleted"
+              ],
+              "type": "string"
+            },
+            "assigneeMemberId": {
+              "type": "string"
+            },
+            "conversationId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "taskId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "assigneeMemberId",
+            "conversationId",
+            "taskId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TaskMemberRefSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "memberId": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "memberId",
+            "name"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TaskPrioritySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "urgent"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "TaskSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assignee": {
+              "additionalProperties": false,
+              "properties": {
+                "memberId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "memberId",
+                "name"
+              ],
+              "type": "object"
+            },
+            "completedAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "conversation": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "channelType": {
+                      "enum": [
+                        "whatsapp",
+                        "telegram",
+                        "messenger",
+                        "instagram",
+                        "email",
+                        "sms",
+                        "webchat"
+                      ],
+                      "type": "string"
+                    },
+                    "customerName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "channelType",
+                    "customerName",
+                    "id"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "createdAt": {},
+            "createdBy": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "memberId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "memberId",
+                    "name"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "customer": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "displayName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "displayName",
+                    "id"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "dueAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "overdue": {
+              "type": "boolean"
+            },
+            "priority": {
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "urgent"
+              ],
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "open",
+                "done",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "updatedAt": {}
+          },
+          "required": [
+            "assignee",
+            "completedAt",
+            "conversation",
+            "createdAt",
+            "createdBy",
+            "customer",
+            "description",
+            "dueAt",
+            "id",
+            "overdue",
+            "priority",
+            "status",
+            "title",
+            "updatedAt"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TaskSocketEvent": {
+        "kind": "value",
+        "value": {
+          "Changed": "task:changed"
+        }
+      },
+      "TaskStatusSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "open",
+            "done",
+            "cancelled"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "UpdateTaskSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assigneeMemberId": {
+              "type": "string"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "maxLength": 2000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "dueAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "priority": {
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "urgent"
+              ],
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "open",
+                "done",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 160,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "WINDOW_EXPIRING_MS": {
+        "kind": "value",
+        "value": 7200000
+      },
+      "WORK_SIGNAL_KINDS": {
+        "kind": "value",
+        "value": [
+          "unassigned",
+          "needs_response",
+          "window_expiring"
+        ]
+      },
+      "WorkQueueCountsSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "needsResponse": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "tasksOpen": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "tasksOverdue": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "unassigned": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "windowExpiring": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "needsResponse",
+            "tasksOpen",
+            "tasksOverdue",
+            "unassigned",
+            "windowExpiring"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "WorkQueueQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assigneeId": {
+              "type": "string"
+            },
+            "scope": {
+              "default": "mine",
+              "enum": [
+                "mine",
+                "all"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "scope"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "WorkQueueResponseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "counts": {
+              "additionalProperties": false,
+              "properties": {
+                "needsResponse": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "tasksOpen": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "tasksOverdue": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "unassigned": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "windowExpiring": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "needsResponse",
+                "tasksOpen",
+                "tasksOverdue",
+                "unassigned",
+                "windowExpiring"
+              ],
+              "type": "object"
+            },
+            "generatedAt": {},
+            "signals": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "assignee": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "memberId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "memberId",
+                          "name"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "channelType": {
+                    "enum": [
+                      "whatsapp",
+                      "telegram",
+                      "messenger",
+                      "instagram",
+                      "email",
+                      "sms",
+                      "webchat"
+                    ],
+                    "type": "string"
+                  },
+                  "conversationId": {
+                    "type": "string"
+                  },
+                  "customer": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "displayName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  "kind": {
+                    "enum": [
+                      "unassigned",
+                      "needs_response",
+                      "window_expiring"
+                    ],
+                    "type": "string"
+                  },
+                  "since": {},
+                  "windowExpiresAt": {
+                    "anyOf": [
+                      {},
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "assignee",
+                  "channelType",
+                  "conversationId",
+                  "customer",
+                  "kind",
+                  "since",
+                  "windowExpiresAt"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "tasks": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "assignee": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "memberId": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "memberId",
+                      "name"
+                    ],
+                    "type": "object"
+                  },
+                  "completedAt": {
+                    "anyOf": [
+                      {},
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "conversation": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "channelType": {
+                            "enum": [
+                              "whatsapp",
+                              "telegram",
+                              "messenger",
+                              "instagram",
+                              "email",
+                              "sms",
+                              "webchat"
+                            ],
+                            "type": "string"
+                          },
+                          "customerName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "channelType",
+                          "customerName",
+                          "id"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "createdAt": {},
+                  "createdBy": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "memberId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "memberId",
+                          "name"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "customer": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "displayName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "displayName",
+                          "id"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dueAt": {
+                    "anyOf": [
+                      {},
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "overdue": {
+                    "type": "boolean"
+                  },
+                  "priority": {
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high",
+                      "urgent"
+                    ],
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "open",
+                      "done",
+                      "cancelled"
+                    ],
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "updatedAt": {}
+                },
+                "required": [
+                  "assignee",
+                  "completedAt",
+                  "conversation",
+                  "createdAt",
+                  "createdBy",
+                  "customer",
+                  "description",
+                  "dueAt",
+                  "id",
+                  "overdue",
+                  "priority",
+                  "status",
+                  "title",
+                  "updatedAt"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "counts",
+            "generatedAt",
+            "signals",
+            "tasks"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "WorkSignalKindSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "unassigned",
+            "needs_response",
+            "window_expiring"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "WorkSignalSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "assignee": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "memberId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "memberId",
+                    "name"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "channelType": {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            },
+            "conversationId": {
+              "type": "string"
+            },
+            "customer": {
+              "additionalProperties": false,
+              "properties": {
+                "displayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "phone": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            },
+            "kind": {
+              "enum": [
+                "unassigned",
+                "needs_response",
+                "window_expiring"
+              ],
+              "type": "string"
+            },
+            "since": {},
+            "windowExpiresAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "assignee",
+            "channelType",
+            "conversationId",
+            "customer",
+            "kind",
+            "since",
+            "windowExpiresAt"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      }
+    },
     "template": {
+      "SendTemplateResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "conversationId": {
+              "type": "string"
+            },
+            "messageId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "conversationId",
+            "messageId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SendTemplateSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "clientMessageId": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "params": {
+              "additionalProperties": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "default": {},
+              "propertyNames": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "templateId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "params",
+            "templateId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SyncTemplatesResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "channelId": {
+              "type": "string"
+            },
+            "created": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "disabled": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "statusChanges": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "pending",
+                          "approved",
+                          "rejected",
+                          "paused",
+                          "disabled"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "language": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "templateId": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "enum": [
+                      "pending",
+                      "approved",
+                      "rejected",
+                      "paused",
+                      "disabled"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "from",
+                  "language",
+                  "name",
+                  "templateId",
+                  "to"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "syncedAt": {},
+            "total": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "updated": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "channelId",
+            "created",
+            "disabled",
+            "statusChanges",
+            "syncedAt",
+            "total",
+            "updated"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "SyncTemplatesSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "channelId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channelId"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "TEMPLATE_CATEGORIES": {
         "kind": "value",
         "value": [
           "marketing",
           "utility",
           "authentication"
+        ]
+      },
+      "TEMPLATE_COMPONENT_TYPES": {
+        "kind": "value",
+        "value": [
+          "header",
+          "body",
+          "footer",
+          "buttons"
+        ]
+      },
+      "TEMPLATE_HEADER_FORMATS": {
+        "kind": "value",
+        "value": [
+          "text",
+          "image",
+          "video",
+          "document",
+          "location"
         ]
       },
       "TEMPLATE_STATUSES": {
@@ -14478,6 +16710,45 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "disabled"
         ]
       },
+      "TemplateButtonSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "phoneNumber": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "quick_reply",
+                "url",
+                "phone_number",
+                "copy_code",
+                "other"
+              ],
+              "type": "string"
+            },
+            "url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "text",
+            "type"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "TemplateCategorySchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -14487,6 +16758,468 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "authentication"
           ],
           "type": "string"
+        },
+        "kind": "schema"
+      },
+      "TemplateComponentSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "buttons": {
+              "anyOf": [
+                {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "phoneNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "enum": [
+                          "quick_reply",
+                          "url",
+                          "phone_number",
+                          "copy_code",
+                          "other"
+                        ],
+                        "type": "string"
+                      },
+                      "url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "type"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "format": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "text",
+                    "image",
+                    "video",
+                    "document",
+                    "location"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "text": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "header",
+                "body",
+                "footer",
+                "buttons"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TemplateComponentTypeSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "header",
+            "body",
+            "footer",
+            "buttons"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "TemplateGroupSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "category": {
+              "enum": [
+                "marketing",
+                "utility",
+                "authentication"
+              ],
+              "type": "string"
+            },
+            "multiChannel": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "templates": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "channelId": {
+                    "type": "string"
+                  },
+                  "channelName": {
+                    "type": "string"
+                  },
+                  "channelType": {
+                    "enum": [
+                      "whatsapp",
+                      "telegram",
+                      "messenger",
+                      "instagram",
+                      "email",
+                      "sms",
+                      "webchat"
+                    ],
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "language": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "pending",
+                      "approved",
+                      "rejected",
+                      "paused",
+                      "disabled"
+                    ],
+                    "type": "string"
+                  },
+                  "syncedAt": {
+                    "anyOf": [
+                      {},
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "visibleToAgents": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "channelId",
+                  "channelName",
+                  "channelType",
+                  "id",
+                  "language",
+                  "status",
+                  "syncedAt",
+                  "visibleToAgents"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "category",
+            "multiChannel",
+            "name",
+            "templates"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TemplateHeaderFormatSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "text",
+            "image",
+            "video",
+            "document",
+            "location"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "TemplateListQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "channelId": {
+              "type": "string"
+            },
+            "q": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "approved",
+                "rejected",
+                "paused",
+                "disabled"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TemplateSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "category": {
+              "enum": [
+                "marketing",
+                "utility",
+                "authentication"
+              ],
+              "type": "string"
+            },
+            "channelId": {
+              "type": "string"
+            },
+            "channelName": {
+              "type": "string"
+            },
+            "channelType": {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            },
+            "components": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "buttons": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "phoneNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "text": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "enum": [
+                                "quick_reply",
+                                "url",
+                                "phone_number",
+                                "copy_code",
+                                "other"
+                              ],
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "text",
+                            "type"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "format": {
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "text",
+                          "image",
+                          "video",
+                          "document",
+                          "location"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "text": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "type": {
+                    "enum": [
+                      "header",
+                      "body",
+                      "footer",
+                      "buttons"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "externalId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "approved",
+                "rejected",
+                "paused",
+                "disabled"
+              ],
+              "type": "string"
+            },
+            "statusReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "syncedAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "updatedAt": {},
+            "variables": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "component": {
+                    "enum": [
+                      "header",
+                      "body",
+                      "footer",
+                      "buttons"
+                    ],
+                    "type": "string"
+                  },
+                  "example": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "component",
+                  "example",
+                  "key",
+                  "label"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "visibleToAgents": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "category",
+            "channelId",
+            "channelName",
+            "channelType",
+            "components",
+            "externalId",
+            "id",
+            "language",
+            "name",
+            "status",
+            "statusReason",
+            "syncedAt",
+            "updatedAt",
+            "variables",
+            "visibleToAgents"
+          ],
+          "type": "object"
         },
         "kind": "schema"
       },
@@ -14503,6 +17236,75 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "type": "string"
         },
         "kind": "schema"
+      },
+      "TemplateVariableSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "component": {
+              "enum": [
+                "header",
+                "body",
+                "footer",
+                "buttons"
+              ],
+              "type": "string"
+            },
+            "example": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "key": {
+              "type": "string"
+            },
+            "label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "component",
+            "example",
+            "key",
+            "label"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "UpdateTemplateSettingsSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "variableLabels": {
+              "additionalProperties": {
+                "maxLength": 60,
+                "type": "string"
+              },
+              "propertyNames": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "visibleToAgents": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "renderTemplateText": {
+        "kind": "factory"
+      },
+      "templateParamKey": {
+        "kind": "factory"
       }
     },
     "user": {
@@ -14862,4 +17664,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "ac9cf72ea55897a3f9baea37bb83aec6b9186acf49c044b822f90a72ec009004";
+export const CONTRACTS_SNAPSHOT_HASH = "f67c67fb0f15bddb7191b710a8af600aaf5532e6a88093e06f8d22dea9be8cc7";

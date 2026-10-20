@@ -56,6 +56,23 @@ export type ChannelStatus = z.infer<typeof ChannelStatusSchema>;
 /** Named channel statuses (`CHANNEL_STATUS.pending`): never spell the string. */
 export const CHANNEL_STATUS = ChannelStatusSchema.enum;
 
+/**
+ * Only an `active` channel sends. `error` = the provider refused the
+ * credentials (failed send with an authorization fault, or a failed
+ * connection test); it keeps receiving and goes back to `active` after a
+ * passing connection test or a credentials update. Every send path refuses a
+ * non-sendable channel with `channel_unavailable` before saving anything.
+ */
+export function isChannelSendable(status: ChannelStatus | null | undefined) {
+  return status === CHANNEL_STATUS.active;
+}
+
+/** Socket events of the channels (company room of the `conversation` namespace). */
+export const ChannelSocketEvent = {
+  /** `ChannelStatusChangedSchema`: a channel went down or came back. */
+  StatusChanged: 'channel:status:changed',
+} as const;
+
 /** Meta's Graph API host (the only one the API ever calls for WhatsApp). */
 export const WHATSAPP_GRAPH_BASE_URL = 'https://graph.facebook.com';
 /** Route of the WhatsApp webhook controller, relative to the API base URL. */
@@ -137,9 +154,23 @@ export const ChannelResponseSchema = z.object({
   hasCredentials: z.boolean(),
   /** The channel signs its webhooks with its own App Secret. */
   hasAppSecret: z.boolean(),
+  /** Why the channel is `error` (user-facing, Spanish); null otherwise. */
+  statusReason: z.string().nullish(),
+  statusChangedAt: z.coerce.date().nullish(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
+
+/** `channel:status:changed` payload. */
+export const ChannelStatusChangedSchema = z.object({
+  channelId: z.string(),
+  type: ChannelTypeSchema,
+  name: z.string(),
+  status: ChannelStatusSchema,
+  statusReason: z.string().nullable(),
+  at: z.coerce.date(),
+});
+export type ChannelStatusChanged = z.infer<typeof ChannelStatusChangedSchema>;
 
 /**
  * `GET /channels/whatsapp/config` only: the settings form needs the stored
@@ -224,6 +255,11 @@ export interface ChannelCapabilities {
   readonly captionMaxLength: number;
   /** Free-form replies only within this window after the last inbound. */
   readonly replyWindowMs: number | null;
+  /**
+   * Provider-approved templates can be listed and sent (the only way to
+   * write outside the reply window). True requires a `TemplateProvider`.
+   */
+  readonly supportsTemplates: boolean;
 }
 
 /**
@@ -275,6 +311,7 @@ const WHATSAPP_CAPABILITIES: ChannelCapabilities = {
   textMaxLength: TEXT_MAX_LENGTH,
   captionMaxLength: CAPTION_MAX_LENGTH,
   replyWindowMs: 24 * 60 * 60 * 1000,
+  supportsTemplates: true,
 };
 
 export const CHANNEL_CAPABILITIES: Readonly<

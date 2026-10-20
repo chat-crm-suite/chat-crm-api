@@ -42,6 +42,7 @@ export interface SaveMessageData {
   body?: string | null;
   externalId?: string | null;
   clientMessageId?: string | null;
+  templateId?: string | null;
   status: MessageStatus;
   attachments?: SaveMessageAttachment[];
 }
@@ -78,6 +79,7 @@ export class MessageRepository {
         body: data.body ?? null,
         externalId: data.externalId ?? null,
         clientMessageId: data.clientMessageId ?? null,
+        templateId: data.templateId ?? null,
         type: data.type,
         status: data.status,
       });

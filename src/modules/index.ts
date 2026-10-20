@@ -12,6 +12,7 @@ import { CompanyRealtimeModule } from './company/realtime/company-realtime.modul
 import { CompanyMembersModule } from './company-members/company-members.module';
 import { ContractsModule } from './contracts/contracts.module';
 import { ConversationsModule } from './conversations/conversations.module';
+import { ConversationStartModule } from './conversations/lifecycle/conversation-start.module';
 import { CustomersModule } from './customers/customers.module';
 import { MessageModule } from './message/message.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -19,6 +20,8 @@ import { PlatformModule } from './platform/platform.module';
 import { PresenceModule } from './presence/presence.module';
 import { SetupModule } from './setup/setup.module';
 import { SpendModule } from './spend/spend.module';
+import { TasksModule } from './tasks/tasks.module';
+import { TemplatesModule } from './templates/templates.module';
 import { UsersModule } from './users/users.module';
 
 export {
@@ -32,6 +35,7 @@ export {
   CompanyMembersModule,
   ContractsModule,
   ConversationsModule,
+  ConversationStartModule,
   CustomersModule,
   MessageModule,
   NotificationsModule,
@@ -39,6 +43,8 @@ export {
   PresenceModule,
   SetupModule,
   SpendModule,
+  TasksModule,
+  TemplatesModule,
   UsersModule,
 };
 
@@ -53,6 +59,7 @@ export const modules = [
   CompanyMembersModule,
   ContractsModule,
   ConversationsModule,
+  ConversationStartModule,
   CustomersModule,
   MessageModule,
   NotificationsModule,
@@ -60,6 +67,8 @@ export const modules = [
   PresenceModule,
   SetupModule,
   SpendModule,
+  TasksModule,
+  TemplatesModule,
   UsersModule,
 ];
 

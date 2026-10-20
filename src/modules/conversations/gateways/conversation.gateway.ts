@@ -30,6 +30,7 @@ import { SendConversationMessageDto } from '../dto/send-conversation-message.dto
 import { SendConversationMessageCommand } from '../commands/send-conversation-message.command';
 import { PresenceService } from '../../presence/presence.service';
 import { ConversationAccessService } from '../realtime/conversation-access.service';
+import { ConversationSendGuard } from '../outbound/conversation-send-guard.service';
 
 /** Socket data set once at connect time from the verified cookie. */
 export interface ConversationSocketData {
@@ -79,6 +80,7 @@ export class ConversationGateway
     private readonly jwt: JwtService,
     private readonly sessions: SessionRevocationService,
     @Optional() private readonly presence?: PresenceService,
+    @Optional() private readonly sendGuard?: ConversationSendGuard,
   ) {
     this.logger.setContext(ConversationGateway.name);
   }
@@ -140,6 +142,7 @@ export class ConversationGateway
     const receivedAt = Date.now();
     const user = this.requireUser(client);
     const membership = this.requireJoinedMembership(client, user, data);
+    await this.sendGuard?.assertCanSend(data.room);
 
     await this.commandBus.execute(
       new SendConversationMessageCommand({

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 import {
+  ConflictException,
   ForbiddenException,
   Logger,
   NotFoundException,
@@ -28,6 +29,21 @@ describe('WsAckExceptionFilter', () => {
     });
     expect(toAck(new NotFoundException('Gone'))).toMatchObject({
       code: 'not_found',
+    });
+  });
+
+  it('answers channel_unavailable with the channel reason', () => {
+    expect(
+      toAck(
+        new ConflictException({
+          code: 'channel_unavailable',
+          message: 'El token de acceso de WhatsApp venció o fue revocado.',
+        }),
+      ),
+    ).toEqual({
+      ok: false,
+      code: 'channel_unavailable',
+      message: 'El token de acceso de WhatsApp venció o fue revocado.',
     });
   });
 

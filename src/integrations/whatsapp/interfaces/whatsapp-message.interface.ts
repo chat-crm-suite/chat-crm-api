@@ -59,12 +59,39 @@ export interface WhatsAppStickerMessage extends WhatsAppPayloadBase {
   sticker: Pick<WhatsAppMediaContent, 'id' | 'link'>;
 }
 
+/** One template parameter; named templates also carry `parameter_name`. */
+export interface WhatsAppTemplateParameter {
+  type: 'text';
+  text: string;
+  parameter_name?: string;
+}
+
+export type WhatsAppTemplateComponent =
+  | { type: 'header' | 'body'; parameters: WhatsAppTemplateParameter[] }
+  | {
+      type: 'button';
+      sub_type: string;
+      index: string;
+      parameters: WhatsAppTemplateParameter[];
+    };
+
+/** An approved template; only components with placeholders are sent. */
+export interface WhatsAppTemplateMessage extends WhatsAppPayloadBase {
+  type: 'template';
+  template: {
+    name: string;
+    language: { code: string };
+    components?: WhatsAppTemplateComponent[];
+  };
+}
+
 export type WhatsAppPayload =
   | WhatsAppTextMessage
   | WhatsAppImageMessage
   | WhatsAppVideoMessage
   | WhatsAppAudioMessage
   | WhatsAppDocumentMessage
-  | WhatsAppStickerMessage;
+  | WhatsAppStickerMessage
+  | WhatsAppTemplateMessage;
 
 export type WhatsAppMessageType = WhatsAppPayload['type'];

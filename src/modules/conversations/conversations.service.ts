@@ -4,10 +4,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
-import { Repository, UpdateResult } from 'typeorm';
+import { In, Repository, UpdateResult } from 'typeorm';
 
 import type {
   AttachmentType,
+  ChannelType,
+  MessageDirection,
   MessageSenderType,
   MessageType,
 } from '../../contracts/index';
@@ -23,6 +25,7 @@ import { ConversationRepository } from './conversation.repository';
 import type { SaveMessageJob } from './commands/save-conversation-message.command';
 import { ConversationAssignment } from './entities/conversation-assignment.entity';
 import { Conversation } from './entities/conversation.entity';
+import { isReplyWindowClosed } from './listing/conversation-list.service';
 
 interface MessageContentLike {
   body?: string;
@@ -46,6 +49,8 @@ export interface SaveConversationMessageContent {
   height?: number | null;
   /** Front-generated send id: makes outbound retries idempotent. */
   clientMessageId?: string | null;
+  /** Provider template the message was sent from (`type: 'template'`). */
+  templateId?: string | null;
 }
 
 const ATTACHMENT_TYPE_BY_MESSAGE_TYPE: Partial<
@@ -144,6 +149,7 @@ export class ConversationsService {
       body: msg.content?.body ?? msg.content?.caption ?? null,
       externalId: msg.externalId ?? null,
       clientMessageId: msg.clientMessageId ?? null,
+      templateId: msg.templateId ?? null,
       // T5: an outbound row is born pending; Graph's wamid (or the failure)
       // moves it. Inbound rows are already delivered when persisted.
       status: inbound ? 'delivered' : 'pending',
@@ -186,15 +192,6 @@ export class ConversationsService {
       select: { id: true },
     });
     return byUser?.id ?? null;
-  }
-
-  /** Member ids that have ever been assigned to the conversation. */
-  async getAssigments(conversationId: string) {
-    const rows = await this.assignmentRepo.find({
-      where: { conversationId },
-      select: { memberId: true },
-    });
-    return [...new Set(rows.map((row) => row.memberId))];
   }
 
   /** Asignación manual/reasignación (admin/supervisor si ya tiene dueño). */
@@ -313,15 +310,76 @@ export class ConversationsService {
     return this.repository.listForMember(member.id);
   }
 
-  updateLastMessage(conversationId: string, messageId: string) {
-    return this.conversationRepo.update(
+  /** Ids of a user's open conversations in the company, newest activity first. */
+  async listIdsForUser(userId?: string, companyId?: string): Promise<string[]> {
+    const rows = await this.list(userId, companyId);
+    return rows.map((row) => row.id);
+  }
+
+  /**
+   * Refreshes the preview. Only an inbound message changes the lifecycle: it
+   * turns `pending`/`closed` back into `open`. An outbound message never
+   * touches the status (replying keeps a conversation on hold or resolved).
+   */
+  async updateLastMessage(
+    conversationId: string,
+    messageId: string,
+    direction: MessageDirection = 'outbound',
+  ): Promise<UpdateResult> {
+    const at = new Date();
+    const result = await this.conversationRepo.update(
       { id: conversationId },
       {
-        status: 'open',
         lastMessageId: messageId,
-        lastMessageAt: new Date(),
+        lastMessageAt: at,
+        ...(direction === 'inbound' ? { lastInboundAt: at } : { lastOutboundAt: at }),
       },
     );
+    if (direction === 'inbound') {
+      await this.conversationRepo.update(
+        { id: conversationId, status: In(['pending', 'closed']) },
+        { status: 'open' },
+      );
+    }
+
+    return result;
+  }
+
+  /** Channel + last inbound of a conversation: what the reply window needs. */
+  async findReplyWindow(conversationId: string): Promise<{
+    companyId: string;
+    channelId: string;
+    channelType: ChannelType;
+    lastInboundAt: Date | null;
+  } | null> {
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+      relations: { channel: true },
+      withDeleted: true,
+      select: {
+        id: true,
+        companyId: true,
+        channelId: true,
+        lastInboundAt: true,
+        channel: { id: true, type: true },
+      },
+    });
+    if (!conversation?.channel) return null;
+
+    return {
+      companyId: conversation.companyId,
+      channelId: conversation.channelId,
+      channelType: conversation.channel.type,
+      lastInboundAt: conversation.lastInboundAt ?? null,
+    };
+  }
+
+  /** Free-form replies are allowed (no reply window, or still inside it). */
+  async isReplyWindowOpen(conversationId: string): Promise<boolean> {
+    const window = await this.findReplyWindow(conversationId);
+    if (!window) return true;
+
+    return !isReplyWindowClosed(window.channelType, window.lastInboundAt);
   }
 
   findOne(id: string): Promise<Conversation | null> {

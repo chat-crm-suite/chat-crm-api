@@ -38,6 +38,48 @@ export interface WhatsAppSendResponse {
   messages?: Array<{ id: string }>;
 }
 
+/** One `GET /{waba-id}/message_templates` item (fields we request). */
+export interface WhatsAppGraphTemplate {
+  id?: string;
+  name: string;
+  language: string;
+  status?: string;
+  category?: string;
+  rejected_reason?: string;
+  parameter_format?: string;
+  components?: WhatsAppGraphTemplateComponent[];
+}
+
+export interface WhatsAppGraphTemplateComponent {
+  type: string;
+  format?: string;
+  text?: string;
+  example?: {
+    header_text?: string[];
+    header_text_named_params?: Array<{ param_name: string; example: string }>;
+    body_text?: string[][];
+    body_text_named_params?: Array<{ param_name: string; example: string }>;
+  };
+  buttons?: Array<{
+    type: string;
+    text?: string;
+    url?: string;
+    phone_number?: string;
+    example?: string[];
+  }>;
+}
+
+interface WhatsAppTemplatePage {
+  data?: WhatsAppGraphTemplate[];
+  paging?: { next?: string; cursors?: { after?: string } };
+}
+
+const TEMPLATE_FIELDS =
+  'id,name,language,status,category,rejected_reason,parameter_format,components';
+const TEMPLATE_PAGE_SIZE = 100;
+/** Hard stop for a runaway cursor: 50 pages = 5000 templates. */
+const TEMPLATE_MAX_PAGES = 50;
+
 interface WhatsAppMediaMetadata {
   id: string;
   url: string;
@@ -123,6 +165,51 @@ export class WhatsAppClient {
           .pipe(map((res) => res.data)),
       ),
     );
+  }
+
+  /**
+   * Every message template of the channel's WhatsApp Business Account
+   * (`GET /{waba-id}/message_templates`), following the `paging.next`
+   * cursor. Transport faults retry with backoff per page.
+   */
+  async listTemplates(
+    transmission: ChannelTransmission,
+  ): Promise<WhatsAppGraphTemplate[]> {
+    const { channel, credentials } = transmission;
+    const wabaId = credentials.businessId;
+    if (!wabaId) {
+      throw new Error('The WhatsApp channel has no Business Account ID');
+    }
+
+    const templates: WhatsAppGraphTemplate[] = [];
+    let url: string | undefined = `${graphBaseUrl(channel)}/${wabaId}/message_templates`;
+    let params: Record<string, string | number> | undefined = {
+      fields: TEMPLATE_FIELDS,
+      limit: TEMPLATE_PAGE_SIZE,
+    };
+
+    for (let page = 0; url && page < TEMPLATE_MAX_PAGES; page++) {
+      const current: string = url;
+      const query = params;
+      const body = await this.withRetry(() =>
+        firstValueFrom(
+          this.http
+            .get<WhatsAppTemplatePage>(current, {
+              headers: authHeaders(credentials),
+              timeout: REQUEST_TIMEOUT_MS,
+              ...(query ? { params: query } : {}),
+            })
+            .pipe(map((res) => res.data)),
+        ),
+      );
+
+      templates.push(...(body?.data ?? []));
+      // `next` is a full URL that already carries the query and the cursor.
+      url = body?.paging?.next;
+      params = undefined;
+    }
+
+    return templates;
   }
 
   /**

@@ -35,6 +35,7 @@ import { ConversationsService } from './conversations.service';
 import { ConversationAssignment } from './entities/conversation-assignment.entity';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationGateway } from './gateways/conversation.gateway';
+import { ConversationListService } from './listing/conversation-list.service';
 import { ConversationAccessService } from './realtime/conversation-access.service';
 import { ConversationFanoutService } from './realtime/conversation-fanout.service';
 import { ConversationSendContextService } from './send-context/conversation-send-context.service';
@@ -97,6 +98,7 @@ const commandHandlers = [
     ConversationAccessService,
     ConversationFanoutService,
     ConversationSendContextService,
+    ConversationListService,
     AgentMessageSender,
     OutgoingMediaService,
     ConversationUploadsService,
@@ -117,6 +119,9 @@ const commandHandlers = [
     ConversationFanoutService,
     ConversationAccessService,
     ConversationSendContextService,
+    ConversationListService,
+    ConversationAssignmentNotifier,
+    AgentMessageSender,
   ],
 })
 export class ConversationsModule {}

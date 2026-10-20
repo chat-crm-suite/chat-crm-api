@@ -49,6 +49,7 @@ export interface SaveMessageParams {
   body?: string | null;
   externalId?: string | null;
   clientMessageId?: string | null;
+  templateId?: string | null;
   status?: MessageStatus;
   attachments?: Array<{
     type: AttachmentType;

@@ -208,6 +208,8 @@ describe('Outbound idempotent agent send - integration', () => {
     }).create({
       companyId: company.id,
       customerId: customer.id,
+      // The customer wrote recently: the WhatsApp reply window is open.
+      lastInboundAt: new Date(),
     });
 
     return { company, customer, member, conversation };

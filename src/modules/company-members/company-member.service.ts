@@ -41,6 +41,7 @@ import {
 import { generateInitialPassword } from '../../lib/helpers/generate-password.helper';
 import { CompanySettings } from '../company/entities/company-settings.entity';
 import { ConversationAssignmentService } from '../conversations/assignment/conversation-assignment.service';
+import { ConversationAssignment } from '../conversations/entities/conversation-assignment.entity';
 import { Conversation } from '../conversations/entities/conversation.entity';
 import { MemberConversationsReleasedEvent } from '../conversations/events/member-conversations-released.event';
 import { PresenceService } from '../presence/presence.service';
@@ -161,6 +162,14 @@ export class CompanyMemberService {
     }
 
     const members = await qb.getMany();
+    const ids = members.map((member) => member.id);
+    // Assign/transfer picker: load and live presence, batched for the page.
+    const [load, presence] = query.withWorkload
+      ? await Promise.all([
+          this.openConversationCounts(ids),
+          this.presence.currentMany(this.companyId, ids),
+        ])
+      : [null, null];
 
     return members.map((member) => ({
       id: member.id,
@@ -173,8 +182,29 @@ export class CompanyMemberService {
       status: member.status,
       acceptsAutoAssign: member.acceptsAutoAssign,
       maxOpenConversations: member.maxOpenConversations ?? null,
+      ...(load ? { openConversations: load.get(member.id) ?? 0 } : {}),
+      ...(presence ? { presence: presence.get(member.id)?.state ?? 'offline' } : {}),
       joinedAt: member.joinedAt,
     }));
+  }
+
+  /** Active assignments on open/pending conversations, per member (one query). */
+  private async openConversationCounts(memberIds: string[]): Promise<Map<string, number>> {
+    if (!memberIds.length) return new Map();
+
+    const rows = await this.dataSource
+      .getRepository(ConversationAssignment)
+      .createQueryBuilder('ca')
+      .innerJoin('ca.conversation', 'conversation')
+      .select('ca.member_id', 'memberId')
+      .addSelect('COUNT(ca.id)', 'open')
+      .where('ca.member_id IN (:...memberIds)', { memberIds })
+      .andWhere('ca.unassigned_at IS NULL')
+      .andWhere('conversation.status NOT IN (:...inactive)', { inactive: ['closed', 'archived'] })
+      .groupBy('ca.member_id')
+      .getRawMany<{ memberId: string; open: string | number }>();
+
+    return new Map(rows.map((row) => [row.memberId, Number(row.open) || 0]));
   }
 
   /** Company ids the current user belongs to (the front picks the active one). */

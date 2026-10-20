@@ -30,7 +30,10 @@ const message = (overrides: Partial<Message> = {}): Message =>
   }) as Message;
 
 function build() {
-  const conversations = { saveOutbound: jest.fn() };
+  const conversations = {
+    saveOutbound: jest.fn(),
+    isReplyWindowOpen: jest.fn().mockResolvedValue(true),
+  };
   const messages = {
     markSent: jest.fn(),
     markSendFailed: jest.fn(),
@@ -579,5 +582,61 @@ describe('AgentMessageSender media', () => {
       await sender.send({ ...data, msg });
       expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', expected);
     }
+  });
+});
+
+describe('AgentMessageSender reply window (inbox v2)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('fails free-form content outside the window without calling the provider', async () => {
+    const { sender, conversations, messages, adapter, fanout } = build();
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    conversations.isReplyWindowOpen.mockResolvedValue(false);
+    messages.markSendFailed.mockResolvedValue(
+      message({ status: 'failed', errorCode: 'reply_window_closed' }),
+    );
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    expect(adapter.send).not.toHaveBeenCalled();
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: 'reply_window_closed',
+      message: expect.stringContaining('reply window is closed') as unknown,
+    });
+    // The legacy toast offers the template action with the recipient.
+    expect(fanout.emitError).toHaveBeenCalledWith(
+      'conv-1',
+      expect.objectContaining({ hasAction: true, to: '51999000111' }),
+    );
+  });
+
+  it('sends a template whatever the window, stored with its template id', async () => {
+    const { sender, conversations, messages, adapter } = build();
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    conversations.isReplyWindowOpen.mockResolvedValue(false);
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-9' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+    const template = { name: 'welcome', language: 'es', header: [], body: [], buttons: [] };
+
+    await sender.sendTemplate({
+      conversationId: 'conv-1',
+      companyId: 'co-1',
+      senderMemberId: 'member-1',
+      templateId: 'tpl-1',
+      body: 'Hola',
+      template,
+    });
+
+    expect(conversations.saveOutbound).toHaveBeenCalledWith(
+      'conv-1',
+      expect.objectContaining({ type: 'template', templateId: 'tpl-1', content: { body: 'Hola' } }),
+      { id: 'member-1', type: 'member' },
+      'co-1',
+    );
+    expect(conversations.isReplyWindowOpen).not.toHaveBeenCalled();
+    expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', {
+      type: 'template',
+      ...template,
+    });
   });
 });

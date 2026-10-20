@@ -60,7 +60,11 @@ import { Company } from '@modules/company/entities/company.entity';
 import { CompanyMember } from '@modules/company-members/entities/company-member.entity';
 import { ConversationAssignmentService } from '@modules/conversations/assignment/conversation-assignment.service';
 import { Conversation } from '@modules/conversations/entities/conversation.entity';
+import { ConversationAssignmentNotifier } from '@modules/conversations/assignment/conversation-assignment.notifier';
 import { ConversationGateway } from '@modules/conversations/gateways/conversation.gateway';
+import { ConversationLifecycleService } from '@modules/conversations/lifecycle/conversation-lifecycle.service';
+import { ConversationListService } from '@modules/conversations/listing/conversation-list.service';
+import { ConversationFanoutService } from '@modules/conversations/realtime/conversation-fanout.service';
 import { ConversationAccessService } from '@modules/conversations/realtime/conversation-access.service';
 import { Customer } from '@modules/customers/entities/customer.entity';
 import { Message } from '@modules/message/entities/message.entity';
@@ -157,6 +161,14 @@ describe('Analytics v2 (e2e, sqlite)', () => {
         ...analyticsEventHandlers,
         { provide: ConversationGateway, useValue: fakeGateway },
         { provide: IaStatusService, useValue: iaStatus },
+        // `POST /close` is an alias of resolve: the lifecycle with its seams stubbed.
+        ConversationLifecycleService,
+        ConversationListService,
+        { provide: ConversationFanoutService, useValue: { emitStatusChanged: () => undefined } },
+        {
+          provide: ConversationAssignmentNotifier,
+          useValue: { notifyAssigned: () => Promise.resolve(), notifyUnassigned: () => Promise.resolve() },
+        },
       ],
     }).compile();
 
@@ -413,7 +425,12 @@ describe('Analytics v2 (e2e, sqlite)', () => {
       await send(agent, 'post', `/conversations/${conversation.id}/close`, {}).expect(409);
 
       // The customer writes again within 72 h: a reopen of the same case.
+      // Closing resolved the conversation and released its owner; sticky
+      // auto-assign hands it back to the same agent on that inbound message.
       await cases.recordInbound(await message(conversation, 'inbound', Date.now() - MINUTE));
+      await dataSource
+        .getRepository(Conversation)
+        .update({ id: conversation.id }, { assignedMemberId: agent.member.id });
       const reopened = body<CurrentCase>(await get(agent, `/conversations/${conversation.id}/case`).expect(200));
       expect(reopened.case?.reopenOfCaseId).toBe(closed.id);
 

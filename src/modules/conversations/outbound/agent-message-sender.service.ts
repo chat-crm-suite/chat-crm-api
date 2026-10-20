@@ -5,13 +5,19 @@ import { Injectable, Optional } from '@nestjs/common';
 import { EventBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
 
-import { BILLABLE_SENDS_PAUSED_ERROR, type OutgoingMessage } from '@contracts';
+import {
+  BILLABLE_SENDS_PAUSED_ERROR,
+  ConversationErrorCode,
+  type OutgoingMessage,
+} from '@contracts';
 import type {
+  ChannelAdapter,
   ChannelFailure,
   ProviderMedia,
   ResolvedOutgoing,
-} from '@modules/channels/ports/channel-adapter.port';
-import { ChannelAdapterRegistry } from '@modules/channels/ports/channel-adapter.registry';
+  ResolvedTemplate,
+} from '../../channels/ports/channel-adapter.port';
+import { ChannelAdapterRegistry } from '../../channels/ports/channel-adapter.registry';
 import type { Message } from '@modules/message/entities/message.entity';
 import { toMessageStatusPatch } from '@modules/message/mappers/message-status-patch.mapper';
 import { MessageService } from '@modules/message/message.service';
@@ -23,7 +29,10 @@ import {
 } from '../conversations.service';
 import { MessageSavedEvent } from '../events/message-saved.event';
 import { ConversationFanoutService } from '../realtime/conversation-fanout.service';
-import { ConversationSendContextService } from '../send-context/conversation-send-context.service';
+import {
+  ConversationSendContextService,
+  type ConversationSendContext,
+} from '../send-context/conversation-send-context.service';
 import { toLegacySendError } from './legacy-send-error';
 import { OutgoingMediaService, type OutgoingFile } from './outgoing-media.service';
 import { SendTimer } from './send-timer';
@@ -102,13 +111,106 @@ export class AgentMessageSender {
     });
     if (!message) return saved;
 
+    return this.dispatch(message, job.msg.type, async ({ adapter, context }) => {
+      // WhatsApp-style reply window: outside it only a template reaches the
+      // customer, so the provider is never called for free-form content.
+      if (!(await this.conversations.isReplyWindowOpen(job.room))) {
+        return {
+          ...failure('The reply window is closed: send an approved template instead'),
+          code: ConversationErrorCode.ReplyWindowClosed,
+          replyWindowClosed: true,
+        };
+      }
+
+      let media: ProviderMedia | null = null;
+      if (job.msg.type !== 'text') {
+        // A retried row already holds its file, even once the upload expired.
+        const attachment = await this.media.attachmentOf(message.id);
+        if (!attachment) {
+          return failure(prepared.error ?? 'The file of this message is missing');
+        }
+        const uploaded = await this.media.toProvider(
+          adapter,
+          { channelId: context.channelId, companyId: context.companyId },
+          attachment,
+        );
+        timer.mark('uploaded');
+        if (!uploaded.ok) return uploaded.error;
+
+        media = {
+          providerMediaId: uploaded.providerMediaId,
+          mimeType: attachment.mimeType,
+        };
+      }
+
+      return (
+        resolveOutgoing(job.msg, media) ??
+        failure('The file of this message is missing')
+      );
+    }, timer);
+  }
+
+  /**
+   * Provider template send (`POST /conversations/:id/template`, start
+   * conversation): same row-first pipeline as free-form messages (saved
+   * `pending`, broadcast, then sent once), never subject to the reply window.
+   * The row keeps `templateId` and the rendered text as its body.
+   */
+  async sendTemplate(job: TemplateSendJob): Promise<Message> {
+    const timer = new SendTimer(Date.now());
+    const { message: saved, created } = await this.conversations.saveOutbound(
+      job.conversationId,
+      {
+        type: 'template',
+        content: { body: job.body },
+        clientMessageId: job.clientMessageId ?? null,
+        templateId: job.templateId,
+      },
+      { id: job.senderMemberId, type: 'member' },
+      job.companyId,
+    );
+
+    const message = await this.claimSend(saved, {
+      created,
+      companyId: job.companyId,
+      attemptsMade: 0,
+    });
+    if (!message) return saved;
+
+    const result = await this.dispatch(
+      message,
+      'template',
+      () => Promise.resolve({ type: 'template' as const, ...job.template }),
+      timer,
+    );
+    this.logger.info(
+      { messageId: result.id, templateId: job.templateId, status: result.status, ...timer.summary() },
+      'send.template',
+    );
+    return result;
+  }
+
+  /**
+   * Shared tail of every send: destination, adapter, billable pause, then
+   * the provider call. `resolve` builds the provider-ready message, or
+   * answers a failure that keeps the row `failed`.
+   */
+  private async dispatch(
+    message: Message,
+    messageType: string,
+    resolve: (target: {
+      adapter: ChannelAdapter;
+      context: ConversationSendContext;
+    }) => Promise<ResolvedOutgoing | ChannelFailure>,
+    timer: SendTimer,
+  ): Promise<Message> {
     // The destination comes from the conversation, never from the client.
-    const context = await this.sendContext.get(job.room);
+    const context = await this.sendContext.get(message.conversationId);
     if (!context?.recipient) {
       return this.failSend(
         message,
         failure('Customer has no address on the conversation channel'),
-        job.msg.type,
+        messageType,
       );
     }
 
@@ -117,7 +219,7 @@ export class AgentMessageSender {
       return this.failSend(
         message,
         failure(`No ${context.channelType} adapter is installed`),
-        job.msg.type,
+        messageType,
       );
     }
 
@@ -126,7 +228,7 @@ export class AgentMessageSender {
       await this.spend?.isBillableSendBlocked(
         context.companyId,
         context.channelType,
-        job.msg.type,
+        messageType,
       )
     ) {
       return this.failSend(
@@ -135,44 +237,13 @@ export class AgentMessageSender {
           ...failure('Billable sends are paused for this company'),
           code: BILLABLE_SENDS_PAUSED_ERROR,
         },
-        job.msg.type,
+        messageType,
       );
     }
 
-    let media: ProviderMedia | null = null;
-    if (job.msg.type !== 'text') {
-      // A retried row already holds its file, even once the upload expired.
-      const attachment = await this.media.attachmentOf(message.id);
-      if (!attachment) {
-        return this.failSend(
-          message,
-          failure(prepared.error ?? 'The file of this message is missing'),
-          job.msg.type,
-        );
-      }
-
-      const uploaded = await this.media.toProvider(
-        adapter,
-        { channelId: context.channelId, companyId: context.companyId },
-        attachment,
-      );
-      timer.mark('uploaded');
-      if (!uploaded.ok) {
-        return this.failSend(message, uploaded.error, job.msg.type);
-      }
-      media = {
-        providerMediaId: uploaded.providerMediaId,
-        mimeType: attachment.mimeType,
-      };
-    }
-
-    const resolved = resolveOutgoing(job.msg, media);
-    if (!resolved) {
-      return this.failSend(
-        message,
-        failure('The file of this message is missing'),
-        job.msg.type,
-      );
+    const resolved = await resolve({ adapter, context });
+    if (!isResolved(resolved)) {
+      return this.failSend(message, resolved, messageType, context.recipient);
     }
 
     const outcome = await adapter.send(
@@ -181,18 +252,18 @@ export class AgentMessageSender {
       resolved,
     );
     timer.mark('delivered');
+
     if (!outcome.ok) {
       return this.failSend(
         message,
         outcome.error,
-        job.msg.type,
+        messageType,
         context.recipient,
       );
     }
 
     const sent = await this.messages.markSent(message.id, outcome.externalId);
     if (sent) await this.fanout.emitStatusPatch(toMessageStatusPatch(sent));
-
     return sent ?? message;
   }
 
@@ -276,6 +347,22 @@ export class AgentMessageSender {
 
     return failed ?? message;
   }
+}
+
+/** A provider template to send in a conversation, already validated. */
+export interface TemplateSendJob {
+  conversationId: string;
+  companyId: string;
+  senderMemberId: string;
+  templateId: string;
+  /** Rendered text stored as the message body (what the thread shows). */
+  body: string;
+  template: ResolvedTemplate;
+  clientMessageId?: string | null;
+}
+
+function isResolved(value: ResolvedOutgoing | ChannelFailure): value is ResolvedOutgoing {
+  return 'type' in value;
 }
 
 /** What gets persisted for the outgoing message: kind, text and file. */

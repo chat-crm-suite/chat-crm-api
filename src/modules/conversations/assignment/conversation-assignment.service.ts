@@ -22,6 +22,16 @@ import {
   AssignmentSettings,
 } from './assignment.types';
 
+export interface AssignToAgentOptions {
+  companyId?: string;
+  /** User asking for it: reassigning an owned conversation needs admin/supervisor. */
+  requesterId?: string;
+  /** Recorded as `assigned_by_member_id` when no requester check applies. */
+  assignedByMemberId?: string | null;
+  /** Internal note kept on the new assignment row (transfers). */
+  note?: string | null;
+}
+
 /**
  * Motor de asignación de conversaciones (v2).
  *
@@ -149,9 +159,9 @@ export class ConversationAssignmentService {
   async assignToAgent(
     conversationId: string,
     memberId: string,
-    options?: { companyId?: string; requesterId?: string },
+    options?: AssignToAgentOptions,
   ): Promise<AssignmentOutcome> {
-    const { companyId, requesterId } = options ?? {};
+    const { companyId, requesterId, note } = options ?? {};
 
     return this.dataSource.transaction(async (manager) => {
       const conversation = await this.lockConversation(manager, conversationId);
@@ -172,7 +182,7 @@ export class ConversationAssignmentService {
       }
 
       const active = await this.findActiveAssignment(manager, conversationId);
-      let assignedByMemberId: string | null = null;
+      let assignedByMemberId: string | null = options?.assignedByMemberId ?? null;
       // Moving an owned conversation to someone else is a transfer: analytics
       // reads "from" as the previous assignment row.
       const isTransfer = !!active && active.memberId !== memberId;
@@ -203,9 +213,89 @@ export class ConversationAssignmentService {
         memberId,
         isTransfer ? 'transfer' : 'manual',
         assignedByMemberId,
+        note,
       );
       return AssignmentOutcome.ASSIGNED;
     });
+  }
+
+  /**
+   * One conversation back to the queue (explicit release or resolve): closes
+   * the active assignment, clears the denormalized owner and leaves a
+   * zero-length `release` row carrying the note, like `releaseAllForMember`.
+   * Returns the released member id, or null when nobody owned it.
+   */
+  async releaseConversation(
+    manager: EntityManager,
+    conversationId: string,
+    options: { byMemberId?: string | null; note?: string | null } = {},
+  ): Promise<string | null> {
+    const active = await this.findActiveAssignment(manager, conversationId);
+    if (!active) {
+      await manager
+        .getRepository(Conversation)
+        .update({ id: conversationId }, { assignedMemberId: null });
+      return null;
+    }
+
+    const now = new Date();
+    const history = manager.getRepository(ConversationAssignment);
+    await history.update({ id: active.id }, { unassignedAt: now });
+    await manager
+      .getRepository(Conversation)
+      .update({ id: conversationId }, { assignedMemberId: null });
+    await history.save(
+      history.create({
+        conversationId,
+        memberId: active.memberId,
+        reason: 'release',
+        assignedAt: now,
+        unassignedAt: now,
+        assignedByMemberId: options.byMemberId ?? null,
+        note: options.note ?? null,
+      }),
+    );
+
+    return active.memberId;
+  }
+
+  /**
+   * Inside a caller's transaction: makes `memberId` the owner unless it
+   * already is (reason `manual`, or `transfer` when someone else owned it).
+   * Returns false when nothing changed.
+   */
+  async assignWithin(
+    manager: EntityManager,
+    conversationId: string,
+    memberId: string,
+    assignedByMemberId: string | null,
+  ): Promise<boolean> {
+    const active = await this.findActiveAssignment(manager, conversationId);
+    if (active?.memberId === memberId) return false;
+
+    await this.assign(
+      manager,
+      conversationId,
+      memberId,
+      active ? 'transfer' : 'manual',
+      assignedByMemberId,
+    );
+    return true;
+  }
+
+  /** Full assignment history of a conversation, newest first, with member names. */
+  history(conversationId: string) {
+    return this.dataSource
+      .getRepository(ConversationAssignment)
+      .createQueryBuilder('ca')
+      // Members who left the company keep their name in the history.
+      .withDeleted()
+      .leftJoinAndSelect('ca.member', 'member')
+      .leftJoinAndSelect('member.user', 'user')
+      .where('ca.conversation_id = :conversationId', { conversationId })
+      .orderBy('ca.assigned_at', 'DESC')
+      .addOrderBy('ca.id', 'DESC')
+      .getMany();
   }
 
   /**
@@ -618,6 +708,7 @@ export class ConversationAssignmentService {
     memberId: string,
     reason: AssignmentReason,
     assignedByMemberId?: string | null,
+    note?: string | null,
   ): Promise<void> {
     await this.closeActiveAssignment(manager, conversationId);
 
@@ -628,6 +719,7 @@ export class ConversationAssignmentService {
         reason,
         assignedAt: new Date(),
         assignedByMemberId: assignedByMemberId ?? null,
+        note: note ?? null,
       }),
     );
 

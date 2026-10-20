@@ -18,6 +18,7 @@ import type {
   ResolvedTemplate,
 } from '../../channels/ports/channel-adapter.port';
 import { ChannelAdapterRegistry } from '../../channels/ports/channel-adapter.registry';
+import { ChannelsService } from '../../channels/channels.service';
 import type { Message } from '@modules/message/entities/message.entity';
 import { toMessageStatusPatch } from '@modules/message/mappers/message-status-patch.mapper';
 import { MessageService } from '@modules/message/message.service';
@@ -56,6 +57,7 @@ export class AgentMessageSender {
     private readonly fanout: ConversationFanoutService,
     private readonly sendContext: ConversationSendContextService,
     private readonly adapters: ChannelAdapterRegistry,
+    private readonly channels: ChannelsService,
     private readonly media: OutgoingMediaService,
     private readonly eventBus: EventBus,
     private readonly logger: PinoLogger,
@@ -254,6 +256,15 @@ export class AgentMessageSender {
     timer.mark('delivered');
 
     if (!outcome.ok) {
+      // The provider refused the channel itself: mark it down so every inbox
+      // shows it and stops sending until an admin fixes the connection.
+      if (outcome.error.authFault) {
+        await this.channels.markChannelDown(
+          context.channelId,
+          outcome.error.connectionReason ??
+            'El proveedor rechazó las credenciales del canal.',
+        );
+      }
       return this.failSend(
         message,
         outcome.error,

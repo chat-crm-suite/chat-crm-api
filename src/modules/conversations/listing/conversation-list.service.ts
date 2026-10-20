@@ -170,6 +170,8 @@ export class ConversationListService {
           id: conversation.channel.id,
           type: conversation.channel.type,
           name: conversation.channel.name,
+          status: conversation.channel.status,
+          statusReason: conversation.channel.statusReason ?? null,
         },
         status: conversation.status,
         priority: conversation.priority ?? null,

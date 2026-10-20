@@ -175,6 +175,7 @@ describe('Outbound idempotent agent send - integration', () => {
       fanout,
       sendContext,
       { for: () => adapter } as unknown as ChannelAdapterRegistry,
+      { markChannelDown: jest.fn() } as never,
       new OutgoingMediaService(staged, storage, messageService),
       eventBus as never,
       logger(),

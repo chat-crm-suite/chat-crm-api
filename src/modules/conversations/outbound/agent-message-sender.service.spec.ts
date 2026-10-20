@@ -57,6 +57,7 @@ function build() {
     }),
   };
   const eventBus = { publish: jest.fn() };
+  const channels = { markChannelDown: jest.fn().mockResolvedValue(true) };
   const logger = {
     debug: jest.fn(),
     info: jest.fn(),
@@ -71,6 +72,7 @@ function build() {
     fanout as never,
     sendContext as never,
     adapters as never,
+    channels as never,
     media as never,
     eventBus as never,
     logger as never,
@@ -86,6 +88,7 @@ function build() {
     fanout,
     sendContext,
     eventBus,
+    channels,
     logger,
   };
 }
@@ -365,6 +368,43 @@ describe('AgentMessageSender channel routing', () => {
       type: 'text',
       text: 'hola',
     });  });
+
+  it('marks the channel down when the provider refuses its credentials', async () => {
+    const { sender, conversations, adapter, messages, channels } = build();
+    created(conversations);
+    adapter.send.mockResolvedValue({
+      ok: false,
+      error: {
+        authFault: true,
+        retryable: false,
+        code: '190',
+        message: 'Error validating access token',
+        connectionReason: 'El token de acceso de WhatsApp venció o fue revocado.',
+      },
+    });
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    expect(channels.markChannelDown).toHaveBeenCalledWith(
+      'channel-1',
+      'El token de acceso de WhatsApp venció o fue revocado.',
+    );
+  });
+
+  it('keeps the channel up on a failure that is not an authorization fault', async () => {
+    const { sender, conversations, adapter, messages, channels } = build();
+    created(conversations);
+    adapter.send.mockResolvedValue({
+      ok: false,
+      error: { authFault: false, retryable: false, code: '131026', message: 'Undeliverable' },
+    });
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    expect(channels.markChannelDown).not.toHaveBeenCalled();
+  });
 
   it('logs one send.timing line correlated by clientMessageId', async () => {
     const { sender, conversations, adapter, messages, logger } = build();

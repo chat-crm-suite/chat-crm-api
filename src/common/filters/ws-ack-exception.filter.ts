@@ -5,6 +5,7 @@ import {
   ArgumentsHost,
   BadRequestException,
   Catch,
+  ConflictException,
   ExceptionFilter,
   ForbiddenException,
   Logger,
@@ -46,7 +47,7 @@ export function toAck(exception: unknown): SendMessageAck {
   const message =
     code === 'internal' || !(exception instanceof Error)
       ? 'Unexpected error'
-      : exception.message;
+      : responseMessage(exception) ?? exception.message;
 
   return { ok: false, code, message };
 }
@@ -56,5 +57,23 @@ function errorCode(exception: unknown): SendMessageErrorCode {
   if (exception instanceof BadRequestException) return 'validation';
   if (exception instanceof ForbiddenException) return 'forbidden';
   if (exception instanceof NotFoundException) return 'not_found';
+  if (
+    exception instanceof ConflictException &&
+    (exception.getResponse() as { code?: unknown })?.code ===
+      'channel_unavailable'
+  ) {
+    return 'channel_unavailable';
+  }
   return 'internal';
+}
+
+/** The `message` of an HttpException body (`{ code, message }`), if any. */
+function responseMessage(exception: Error): string | null {
+  const response =
+    'getResponse' in exception &&
+    typeof (exception as { getResponse: unknown }).getResponse === 'function'
+      ? (exception as { getResponse: () => unknown }).getResponse()
+      : null;
+  const message = (response as { message?: unknown } | null)?.message;
+  return typeof message === 'string' ? message : null;
 }

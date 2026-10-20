@@ -4,7 +4,7 @@
 import { z } from 'zod';
 
 import { CaseSchema } from './case.contract';
-import { ChannelTypeSchema } from './channel.contract';
+import { ChannelStatusSchema, ChannelTypeSchema } from './channel.contract';
 import {
   AttachmentStatusSchema,
   MessageStatusSchema,
@@ -81,6 +81,9 @@ export const ConversationChannelSchema = z.object({
   id: z.string(),
   type: ChannelTypeSchema,
   name: z.string(),
+  /** Not `active` = nothing can be sent (see `isChannelSendable`). */
+  status: ChannelStatusSchema,
+  statusReason: z.string().nullable(),
 });
 
 /** Active owner of a conversation (`company_members.id` + display name). */
@@ -285,6 +288,8 @@ export const ConversationErrorCode = {
   TemplateUnavailable: 'template_unavailable',
   /** Missing value for a template variable. */
   TemplateParamsMissing: 'template_params_missing',
+  /** The channel is not connected (`pending`/`inactive`/`error`): 409. */
+  ChannelUnavailable: 'channel_unavailable',
 } as const;
 export type ConversationErrorCode =
   (typeof ConversationErrorCode)[keyof typeof ConversationErrorCode];

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
+import { ChannelsService } from '@modules/channels/channels.service';
 import { Global, INestApplication, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
@@ -235,6 +236,7 @@ describe('Inbox v2 (e2e, sqlite)', () => {
         WorkQueueInvalidationHandler,
         TemplatesService,
         ChannelAdapterRegistry,
+        ChannelsService,
         ChannelTemplateRegistry,
         { provide: ConversationGateway, useValue: fakeGateway },
         { provide: ConversationAssignmentNotifier, useValue: notifier },
@@ -834,6 +836,45 @@ describe('Inbox v2 (e2e, sqlite)', () => {
   // ---------------------------------------------------------------------------
   // Templates and "Nuevo chat"
   // ---------------------------------------------------------------------------
+
+  describe('channel health', () => {
+    it('marks a channel down, shows it in the list, refuses sends and comes back up', async () => {
+      const company = await createCompany();
+      const agent = await createSession(company, 'agent');
+      const { conversation, channel } = await createConversation(company, {
+        owner: agent.member,
+        lastInboundAt: new Date(Date.now() - 30 * HOUR),
+      });
+      const channels = app.get(ChannelsService);
+      const reason = 'El token de acceso de WhatsApp venció o fue revocado.';
+
+      expect(await channels.markChannelDown(channel.id, reason)).toBe(true);
+      // Already down: no second transition (and no second socket event).
+      expect(await channels.markChannelDown(channel.id, reason)).toBe(false);
+
+      const [item] = ConversationListItemSchema.array().parse(
+        (await call(agent, 'get', '/conversations').expect(200)).body,
+      );
+      expect(item.channel).toMatchObject({ id: channel.id, status: 'error', statusReason: reason });
+
+      const refused = await call(agent, 'post', `/conversations/${conversation.id}/template`, {
+        templateId: 'any',
+        params: {},
+      }).expect(409);
+      expect(refused.body).toMatchObject({ code: 'channel_unavailable', message: reason });
+      await expect(channels.assertSendable(channel.id)).rejects.toMatchObject({
+        response: { code: 'channel_unavailable' },
+      });
+      expect(sends).toHaveLength(0);
+
+      expect(await channels.markChannelUp(channel.id)).toBe(true);
+      await expect(channels.assertSendable(channel.id)).resolves.toBeUndefined();
+      const [back] = ConversationListItemSchema.array().parse(
+        (await call(agent, 'get', '/conversations').expect(200)).body,
+      );
+      expect(back.channel).toMatchObject({ status: 'active', statusReason: null });
+    });
+  });
 
   describe('templates', () => {
     it('syncs (upsert + disable), hides drafts from agents and limits settings to admins', async () => {

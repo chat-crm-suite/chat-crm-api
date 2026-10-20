@@ -5915,12 +5915,29 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "active",
+                              "inactive",
+                              "error"
+                            ]
+                          },
+                          "statusReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "id",
                           "type",
-                          "name"
+                          "name",
+                          "status",
+                          "statusReason"
                         ],
                         "additionalProperties": false
                       },
@@ -6230,12 +6247,29 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "active",
+                              "inactive",
+                              "error"
+                            ]
+                          },
+                          "statusReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "id",
                           "type",
-                          "name"
+                          "name",
+                          "status",
+                          "statusReason"
                         ],
                         "additionalProperties": false
                       },
@@ -6511,12 +6545,29 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "active",
+                              "inactive",
+                              "error"
+                            ]
+                          },
+                          "statusReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "id",
                           "type",
-                          "name"
+                          "name",
+                          "status",
+                          "statusReason"
                         ],
                         "additionalProperties": false
                       },
@@ -6801,12 +6852,29 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "active",
+                              "inactive",
+                              "error"
+                            ]
+                          },
+                          "statusReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
                           "id",
                           "type",
-                          "name"
+                          "name",
+                          "status",
+                          "statusReason"
                         ],
                         "additionalProperties": false
                       },
@@ -10836,12 +10904,29 @@
                         },
                         "name": {
                           "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "active",
+                            "inactive",
+                            "error"
+                          ]
+                        },
+                        "statusReason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
                         "id",
                         "type",
-                        "name"
+                        "name",
+                        "status",
+                        "statusReason"
                       ],
                       "additionalProperties": false
                     },
@@ -11346,12 +11431,29 @@
                             },
                             "name": {
                               "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "pending",
+                                "active",
+                                "inactive",
+                                "error"
+                              ]
+                            },
+                            "statusReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
                             "id",
                             "type",
-                            "name"
+                            "name",
+                            "status",
+                            "statusReason"
                           ],
                           "additionalProperties": false
                         },

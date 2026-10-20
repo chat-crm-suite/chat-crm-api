@@ -53,14 +53,14 @@ export class WhatsAppConnectionTester {
   async test(
     channel: Channel,
     credentials: WhatsAppCredentials,
-  ): Promise<WhatsAppConnectionTest> {
+  ): Promise<WhatsAppConnectionTest & { credentialsRejected: boolean }> {
     const settings = (channel.settings ?? {}) as {
       apiVersion?: string;
       webhookUrl?: string;
     };
     const apiVersion = settings.apiVersion ?? DEFAULT_WHATSAPP_API_VERSION;
 
-    const [sending, webhook, subscription] = await Promise.all([
+    const [{ check: sending, rejected }, webhook, subscription] = await Promise.all([
       this.checkSending(channel, credentials, apiVersion),
       this.checkWebhook(settings.webhookUrl, channel.webhookVerifyToken),
       this.checkSubscription(credentials, apiVersion),
@@ -74,6 +74,9 @@ export class WhatsAppConnectionTester {
       sending,
       webhook,
       subscription,
+      // Meta answered and refused the token/number (not a network blip):
+      // the channel is down until fixed.
+      credentialsRejected: rejected,
     };
   }
 
@@ -81,11 +84,14 @@ export class WhatsAppConnectionTester {
     channel: Channel,
     credentials: WhatsAppCredentials,
     apiVersion: string,
-  ): Promise<WhatsAppConnectionTest['sending']> {
+  ): Promise<{ check: WhatsAppConnectionTest['sending']; rejected: boolean }> {
     if (!channel.externalAccountId || !credentials.accessToken) {
-      return skipped(
-        'Falta el Phone Number ID o el access token: guárdalos para poder enviar mensajes.',
-      );
+      return {
+        check: skipped(
+          'Falta el Phone Number ID o el access token: guárdalos para poder enviar mensajes.',
+        ),
+        rejected: false,
+      };
     }
 
     const result = await this.probe.probe({
@@ -96,17 +102,26 @@ export class WhatsAppConnectionTester {
     });
     if (result.kind === 'ok') {
       return {
-        ...ok(
-          `Envío listo: Meta acepta el token${result.displayPhoneNumber ? ` para ${result.displayPhoneNumber}` : ''}.`,
-        ),
-        displayPhoneNumber: result.displayPhoneNumber,
-        verifiedName: result.verifiedName,
+        check: {
+          ...ok(
+            `Envío listo: Meta acepta el token${result.displayPhoneNumber ? ` para ${result.displayPhoneNumber}` : ''}.`,
+          ),
+          displayPhoneNumber: result.displayPhoneNumber,
+          verifiedName: result.verifiedName,
+        },
+        rejected: false,
       };
     }
     if (result.kind === 'unreachable') {
-      return failed(`Meta no responde (${result.reason}). Inténtalo de nuevo.`);
+      return {
+        check: failed(`Meta no responde (${result.reason}). Inténtalo de nuevo.`),
+        rejected: false,
+      };
     }
-    return failed(result.errors.map((error) => error.message).join(' '));
+    return {
+      check: failed(result.errors.map((error) => error.message).join(' ')),
+      rejected: true,
+    };
   }
 
   private async checkWebhook(

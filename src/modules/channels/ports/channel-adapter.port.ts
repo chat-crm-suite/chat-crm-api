@@ -68,6 +68,11 @@ export interface ChannelFailure {
    * can reach the customer (WhatsApp 24 h rule, Messenger 24 h…).
    */
   replyWindowClosed?: boolean;
+  /**
+   * With `authFault`: why the channel itself is unusable, user-facing
+   * (Spanish). The sender marks the channel `error` with it.
+   */
+  connectionReason?: string;
 }
 
 export type ChannelOutcome<T> =

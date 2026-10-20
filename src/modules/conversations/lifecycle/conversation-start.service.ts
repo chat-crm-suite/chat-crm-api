@@ -15,6 +15,7 @@ import { DataSource, IsNull } from 'typeorm';
 import {
   channelCapabilities,
   ConversationErrorCode,
+  isChannelSendable,
   type ConversationStatus,
   type StartConversationInput,
   type StartConversationResult,
@@ -75,6 +76,15 @@ export class ConversationStartService {
         .findOne({ where: { id: input.customerId, companyId }, select: { id: true } }),
     ]);
     if (!channel) throw new NotFoundException('Channel not found');
+    // Opening the chat sends nothing; sending its template needs a live channel.
+    if (input.template && !isChannelSendable(channel.status)) {
+      throw new ConflictException({
+        code: ConversationErrorCode.ChannelUnavailable,
+        message:
+          channel.statusReason ??
+          'El canal no está conectado: revisa su configuración.',
+      });
+    }
     if (!customer) throw new NotFoundException('Customer not found');
 
     const assigneeMemberId = input.assigneeMemberId ?? actor.memberId;

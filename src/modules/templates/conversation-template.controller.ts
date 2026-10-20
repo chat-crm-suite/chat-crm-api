@@ -11,6 +11,7 @@ import type { TenantContext } from '../../auth/auth.types';
 import { CLS_USER_ID } from '../../config/cls.keys';
 import { SendTemplateResultSchema } from '../../contracts/index';
 import { zodResponseSchema } from '../../docs/zod-response';
+import { ChannelsService } from '../channels/channels.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { AgentMessageSender } from '../conversations/outbound/agent-message-sender.service';
 import { ConversationAccessService } from '../conversations/realtime/conversation-access.service';
@@ -32,6 +33,7 @@ export class ConversationTemplateController {
     private readonly access: ConversationAccessService,
     private readonly sender: AgentMessageSender,
     private readonly cls: ClsService,
+    private readonly channels: ChannelsService,
   ) {}
 
   @Post(':id/template')
@@ -51,6 +53,7 @@ export class ConversationTemplateController {
 
     const conversation = await this.conversations.findReplyWindow(id);
     if (!conversation) throw new NotFoundException('Conversation not found');
+    await this.channels.assertSendable(conversation.channelId);
 
     const prepared = await this.templates.prepareSend(tenant, conversation, body);
     const message = await this.sender.sendTemplate({

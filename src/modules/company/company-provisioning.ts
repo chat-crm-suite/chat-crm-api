@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import type { EntityManager } from 'typeorm';
+import type { EntityManager, Repository } from 'typeorm';
 
 import {
   CHANNEL_STATUS,
@@ -24,6 +24,26 @@ export type NewCompanyData = {
   timezone?: string;
   status?: CompanyStatus;
 };
+
+/**
+ * The `pending` WhatsApp channel every company owns from birth: no account,
+ * no credentials; the verify token comes from `ChannelSubscriber` on insert.
+ * Shared by `createCompanyWithDefaults` and the backfill migration.
+ */
+export function pendingWhatsAppChannel(
+  channels: Repository<Channel>,
+  companyId: string,
+): Channel {
+  return channels.create({
+    companyId,
+    type: CHANNEL_TYPE.whatsapp,
+    name: DEFAULT_WHATSAPP_CHANNEL_NAME,
+    externalAccountId: null,
+    credentials: null,
+    settings: { ...DEFAULT_WHATSAPP_SETTINGS },
+    status: CHANNEL_STATUS.pending,
+  });
+}
 
 /**
  * The one way a company is born, shared by the first-run setup and the
@@ -58,17 +78,7 @@ export async function createCompanyWithDefaults(
       stages.create({ ...stage, companyId: company.id }),
     ),
   );
-  await channels.save(
-    channels.create({
-      companyId: company.id,
-      type: CHANNEL_TYPE.whatsapp,
-      name: DEFAULT_WHATSAPP_CHANNEL_NAME,
-      externalAccountId: null,
-      credentials: null,
-      settings: { ...DEFAULT_WHATSAPP_SETTINGS },
-      status: CHANNEL_STATUS.pending,
-    }),
-  );
+  await channels.save(pendingWhatsAppChannel(channels, company.id));
 
   return company;
 }

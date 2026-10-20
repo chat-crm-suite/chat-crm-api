@@ -6855,6 +6855,20 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               ],
               "type": "string"
             },
+            "statusChangedAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "statusReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "type": {
               "enum": [
                 "whatsapp",
@@ -6890,6 +6904,64 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "status",
             "type",
             "updatedAt"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ChannelSocketEvent": {
+        "kind": "value",
+        "value": {
+          "StatusChanged": "channel:status:changed"
+        }
+      },
+      "ChannelStatusChangedSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "at": {},
+            "channelId": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "active",
+                "inactive",
+                "error"
+              ],
+              "type": "string"
+            },
+            "statusReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "enum": [
+                "whatsapp",
+                "telegram",
+                "messenger",
+                "instagram",
+                "email",
+                "sms",
+                "webchat"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "at",
+            "channelId",
+            "name",
+            "status",
+            "statusReason",
+            "type"
           ],
           "type": "object"
         },
@@ -7254,6 +7326,20 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               ],
               "type": "string"
             },
+            "statusChangedAt": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "statusReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "type": {
               "enum": [
                 "whatsapp",
@@ -7417,6 +7503,9 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "kind": "schema"
       },
       "channelCapabilities": {
+        "kind": "factory"
+      },
+      "isChannelSendable": {
         "kind": "factory"
       }
     },
@@ -8364,6 +8453,21 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "name": {
               "type": "string"
             },
+            "status": {
+              "enum": [
+                "pending",
+                "active",
+                "inactive",
+                "error"
+              ],
+              "type": "string"
+            },
+            "statusReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "type": {
               "enum": [
                 "whatsapp",
@@ -8380,6 +8484,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "required": [
             "id",
             "name",
+            "status",
+            "statusReason",
             "type"
           ],
           "type": "object"
@@ -8417,6 +8523,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       "ConversationErrorCode": {
         "kind": "value",
         "value": {
+          "ChannelUnavailable": "channel_unavailable",
           "ReplyWindowClosed": "reply_window_closed",
           "TemplateParamsMissing": "template_params_missing",
           "TemplateUnavailable": "template_unavailable",
@@ -8591,6 +8698,21 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                 "name": {
                   "type": "string"
                 },
+                "status": {
+                  "enum": [
+                    "pending",
+                    "active",
+                    "inactive",
+                    "error"
+                  ],
+                  "type": "string"
+                },
+                "statusReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "type": {
                   "enum": [
                     "whatsapp",
@@ -8607,6 +8729,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               "required": [
                 "id",
                 "name",
+                "status",
+                "statusReason",
                 "type"
               ],
               "type": "object"
@@ -9377,6 +9501,21 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                     "name": {
                       "type": "string"
                     },
+                    "status": {
+                      "enum": [
+                        "pending",
+                        "active",
+                        "inactive",
+                        "error"
+                      ],
+                      "type": "string"
+                    },
+                    "statusReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "type": {
                       "enum": [
                         "whatsapp",
@@ -9393,6 +9532,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                   "required": [
                     "id",
                     "name",
+                    "status",
+                    "statusReason",
                     "type"
                   ],
                   "type": "object"
@@ -13338,7 +13479,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "validation",
           "forbidden",
           "not_found",
-          "internal"
+          "internal",
+          "channel_unavailable"
         ]
       },
       "SendMessageAckSchema": {
@@ -13366,7 +13508,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                     "validation",
                     "forbidden",
                     "not_found",
-                    "internal"
+                    "internal",
+                    "channel_unavailable"
                   ],
                   "type": "string"
                 },
@@ -13396,7 +13539,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "validation",
             "forbidden",
             "not_found",
-            "internal"
+            "internal",
+            "channel_unavailable"
           ],
           "type": "string"
         },
@@ -17520,4 +17664,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "85e50d9dd14e0ff18a8cf96880185e04f6eda53a82295f2862ad45925f9d8670";
+export const CONTRACTS_SNAPSHOT_HASH = "f67c67fb0f15bddb7191b710a8af600aaf5532e6a88093e06f8d22dea9be8cc7";

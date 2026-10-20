@@ -4,35 +4,49 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { EventBus } from '@nestjs/cqrs';
 import { PinoLogger } from 'nestjs-pino';
-import { DataSource, In } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
 
 import { AnalyticsSignalEvent } from '../../analytics/events/analytics.events';
 import { CompanySettings } from '../../company/entities/company-settings.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
-import { NotificationsService } from '../../notifications/notifications.service';
+import { NotificationDispatcher } from '../../notifications/notification.dispatcher';
+import { ConversationAssignment } from '../entities/conversation-assignment.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { ConversationSocketEvent, NotificationTypeSchema } from '@contracts';
-import { ConversationGateway } from '../gateways/conversation.gateway';
+import { ConversationGateway, userRoom } from '../gateways/conversation.gateway';
+import { ConversationFanoutService } from '../realtime/conversation-fanout.service';
 
 export const ASSIGNED_NOTIFICATION_TITLE = 'Nuevo chat asignado';
 export const UNASSIGNED_NOTIFICATION_TITLE = 'Chat sin asignar';
 export const ASSIGNED_NOTIFICATION_TYPE = NotificationTypeSchema.enum.conversation_assigned;
 export const UNASSIGNED_NOTIFICATION_TYPE = NotificationTypeSchema.enum.queue_unassigned;
+/** Every queued conversation grows one unread "chats sin asignar" row. */
+export const QUEUE_GROUP_KEY = 'queue';
+/** Repeated releases of one conversation within this window notify once. */
+const UNASSIGNED_DEDUPE_BUCKET_MS = 60_000;
+
+export interface AssignmentNoticeOptions {
+  /** `false` = self-claim: data events only, no notification. */
+  notify?: boolean;
+  /** Who caused it; never notified about their own action. */
+  actorMemberId?: string | null;
+}
 
 /**
- * Avisos de asignación.
+ * Assignment notices.
  *
- * - Persiste una notificación por member (campanita) y emite
- *   `notification:new` por socket al room personal `user:{userId}`.
- * - Los avisos de cola a supervisores se deduplican por notificación no leída
- *   del mismo tipo: un aviso vigente por supervisor, no uno por conversación.
- * - Nunca lanza: un fallo de aviso no puede romper el flujo de mensajes.
+ * - Data events (`conversation:assigned`, `conversation:unassigned`) keep the
+ *   inbox lists fresh and never toast on their own.
+ * - The user-facing notice goes through `NotificationDispatcher` (queued,
+ *   deduped, muted per member, grouped), so one assignment = one toast.
+ * - Never throws: a failed notice must not break the message flow.
  */
 @Injectable()
 export class ConversationAssignmentNotifier {
   constructor(
-    private readonly notifications: NotificationsService,
+    private readonly dispatcher: NotificationDispatcher,
     private readonly gateway: ConversationGateway,
+    private readonly fanout: ConversationFanoutService,
     private readonly dataSource: DataSource,
     private readonly logger: PinoLogger,
     @Optional() private readonly eventBus?: EventBus,
@@ -40,11 +54,11 @@ export class ConversationAssignmentNotifier {
     this.logger.setContext(ConversationAssignmentNotifier.name);
   }
 
-  /** El member recibió una conversación: notificación persistente + eventos. */
+  /** The member got the conversation: data event + one notification. */
   async notifyAssigned(
     conversationId: string,
     memberId: string,
-    notifyMember = true,
+    options: AssignmentNoticeOptions = {},
   ) {
     try {
       const member = await this.dataSource
@@ -65,29 +79,32 @@ export class ConversationAssignmentNotifier {
         memberId,
       );
 
-      // Stays null when the member muted the type: nothing stored, nothing emitted.
-      let payload: ReturnType<typeof this.toRealtimePayload> | null = null;
+      this.gateway.server
+        ?.to(userRoom(member.userId))
+        .emit(ConversationSocketEvent.ConversationAssigned, { conversationId, memberId });
 
-      if (notifyMember) {
-        const notification = await this.notifications.create({
-          companyId: member.companyId,
-          recipientMemberId: memberId,
-          type: ASSIGNED_NOTIFICATION_TYPE,
-          title: ASSIGNED_NOTIFICATION_TITLE,
-          body: 'Tenés un chat nuevo esperando respuesta',
-          data: { conversationId },
-        });
-        if (notification) payload = this.toRealtimePayload(notification);
-      }
+      if (options.notify === false || options.actorMemberId === memberId) return;
 
-      this.emitToUser(member.userId, ConversationSocketEvent.ConversationAssigned, {
-        conversationId,
-        memberId,
+      const assignment = await this.dataSource.getRepository(ConversationAssignment).findOne({
+        where: { conversationId, memberId, unassignedAt: IsNull() },
+        select: { id: true },
       });
+      const customer = await this.customerName(conversationId);
 
-      if (payload) {
-        this.emitToUser(member.userId, ConversationSocketEvent.NewNotification, payload);
-      }
+      await this.dispatcher.notify({
+        companyId: member.companyId,
+        type: ASSIGNED_NOTIFICATION_TYPE,
+        audience: { memberIds: [memberId] },
+        title: ASSIGNED_NOTIFICATION_TITLE,
+        body: customer
+          ? `${customer} espera tu respuesta`
+          : 'Tienes un chat nuevo esperando respuesta',
+        data: { conversationId },
+        // One notice per assignment row: a retry or a second code path
+        // announcing the same assignment is absorbed.
+        dedupeKey: `assigned:${conversationId}:${assignment?.id ?? memberId}`,
+        excludeMemberIds: options.actorMemberId ? [options.actorMemberId] : [],
+      });
     } catch (error) {
       this.logger.warn(
         { conversationId, memberId, error: String(error) },
@@ -96,56 +113,43 @@ export class ConversationAssignmentNotifier {
     }
   }
 
-  /** Una conversación quedó sin asignar: aviso a admin/supervisor. */
-  async notifyUnassigned(conversationId: string, companyId?: string) {
+  /**
+   * The conversation sits in the queue: list refresh for staff and agents,
+   * plus a grouped notice for admin/supervisor when the company wants it.
+   */
+  async notifyUnassigned(
+    conversationId: string,
+    companyId?: string,
+    options: Pick<AssignmentNoticeOptions, 'actorMemberId'> = {},
+  ) {
     try {
       const company = companyId ?? (await this.resolveCompanyId(conversationId));
       if (!company) return;
 
       this.eventBus?.publish(new AnalyticsSignalEvent(company, ['live']));
+      this.fanout.emitUnassigned(company, conversationId);
 
       const settings = await this.dataSource
         .getRepository(CompanySettings)
         .findOne({ where: { companyId: company } });
       if (!settings?.autoAssignNotifySupervisors) return;
 
-      const supervisors = await this.dataSource
-        .getRepository(CompanyMember)
-        .find({
-          where: {
-            companyId: company,
-            status: 'active',
-            role: In(['admin', 'supervisor']),
-          },
-        });
+      const customer = await this.customerName(conversationId);
+      const bucket = Math.floor(Date.now() / UNASSIGNED_DEDUPE_BUCKET_MS);
 
-      for (const supervisor of supervisors) {
-        const alreadyNotified = await this.notifications.hasUnread(
-          supervisor.id,
-          UNASSIGNED_NOTIFICATION_TYPE,
-        );
-        if (alreadyNotified) continue;
-
-        const notification = await this.notifications.create({
-          companyId: company,
-          recipientMemberId: supervisor.id,
-          type: UNASSIGNED_NOTIFICATION_TYPE,
-          title: UNASSIGNED_NOTIFICATION_TITLE,
-          body: 'Hay un chat esperando agente en la cola',
-          data: { conversationId },
-        });
-        if (!notification) continue;
-
-        this.emitToUser(
-          supervisor.userId,
-          ConversationSocketEvent.NewNotification,
-          this.toRealtimePayload(notification),
-        );
-      }
-
-      this.gateway.server
-        ?.to(`company:${company}`)
-        .emit(ConversationSocketEvent.ConversationUnassigned, { conversationId });
+      await this.dispatcher.notify({
+        companyId: company,
+        type: UNASSIGNED_NOTIFICATION_TYPE,
+        audience: { roles: ['admin', 'supervisor'] },
+        title: UNASSIGNED_NOTIFICATION_TITLE,
+        body: customer
+          ? `${customer} espera un agente en la cola`
+          : 'Hay un chat esperando agente en la cola',
+        data: { conversationId },
+        dedupeKey: `unassigned:${conversationId}:${bucket}`,
+        groupKey: QUEUE_GROUP_KEY,
+        excludeMemberIds: options.actorMemberId ? [options.actorMemberId] : [],
+      });
     } catch (error) {
       this.logger.warn(
         { conversationId, companyId, error: String(error) },
@@ -164,25 +168,15 @@ export class ConversationAssignmentNotifier {
     return conversation?.companyId ?? null;
   }
 
-  private toRealtimePayload(notification: {
-    id: string;
-    title: string;
-    body?: string | null;
-    data?: Record<string, unknown> | null;
-    readAt?: Date | null;
-    createdAt: Date;
-  }) {
-    return {
-      id: notification.id,
-      title: notification.title,
-      body: notification.body ?? null,
-      data: notification.data ?? null,
-      readAt: notification.readAt ?? null,
-      time: notification.createdAt,
-    };
-  }
+  /** Display name, else phone; null when unknown (generic copy then). */
+  private async customerName(conversationId: string): Promise<string | null> {
+    const conversation = await this.dataSource.getRepository(Conversation).findOne({
+      where: { id: conversationId },
+      relations: { customer: true },
+      select: { id: true, customer: { id: true, displayName: true, phoneNumber: true } },
+    });
+    const customer = conversation?.customer;
 
-  private emitToUser(userId: string, event: string, payload: unknown) {
-    this.gateway.server?.to(`user:${userId}`).emit(event, payload);
+    return customer?.displayName?.trim() || customer?.phoneNumber || null;
   }
 }

@@ -159,12 +159,16 @@ export class ConversationStartService {
     });
     const { conversationId, assigned, taskId } = outcome;
 
-    if (assigned) await this.notifier.notifyAssigned(conversationId, assigneeMemberId);
+    if (assigned) {
+      await this.notifier.notifyAssigned(conversationId, assigneeMemberId, {
+        actorMemberId: actor.memberId,
+      });
+    }
     if (!existing) {
       const item = await this.listing.hydrateOne(conversationId);
       if (item) this.fanout.emitCreated(companyId, item);
     } else if (previousStatus && previousStatus !== 'open') {
-      this.fanout.emitStatusChanged(companyId, {
+      await this.fanout.emitStatusChanged(companyId, {
         conversationId,
         status: 'open',
         previousStatus,

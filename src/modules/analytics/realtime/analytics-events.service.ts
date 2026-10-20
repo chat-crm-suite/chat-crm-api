@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, Optional } from '@nestjs/common';
+import { DataSource, IsNull } from 'typeorm';
 
 import {
   AnalyticsSocketEvent,
-  ConversationSocketEvent,
   type AnalyticsScope,
   type IaStatus,
   type Presence,
 } from '@contracts';
+import { Company } from '../../company/entities/company.entity';
 import {
   companyRoom,
   ConversationGateway,
-  userRoom,
 } from '../../conversations/gateways/conversation.gateway';
 import { AnalyticsCacheService } from '../cache/analytics-cache.service';
 
@@ -33,6 +33,7 @@ export class AnalyticsEventsService implements OnModuleDestroy {
   constructor(
     private readonly gateway: ConversationGateway,
     private readonly cache: AnalyticsCacheService,
+    @Optional() private readonly dataSource?: DataSource,
   ) {}
 
   async signal(companyId: string, scopes: readonly AnalyticsScope[]): Promise<void> {
@@ -71,15 +72,24 @@ export class AnalyticsEventsService implements OnModuleDestroy {
       .emit(AnalyticsSocketEvent.PresenceChanged, presence);
   }
 
-  /** The IA switch is global: every connected client hears it. */
-  emitIaStatus(status: IaStatus): void {
-    this.gateway.server?.emit(AnalyticsSocketEvent.IaStatusChanged, status);
-  }
+  /**
+   * The IA switch is global, but sockets only ever hear through their
+   * company rooms: one emit over every live company (a socket in several
+   * gets it once), never a namespace-wide broadcast.
+   */
+  async emitIaStatus(status: IaStatus): Promise<void> {
+    const server = this.gateway.server;
+    if (!server || !this.dataSource) return;
 
-  emitNotification(userId: string, payload: Record<string, unknown>): void {
-    this.gateway.server
-      ?.to(userRoom(userId))
-      .emit(ConversationSocketEvent.NewNotification, payload);
+    const companies = await this.dataSource.getRepository(Company).find({
+      where: { deletedAt: IsNull() },
+      select: { id: true },
+    });
+    if (!companies.length) return;
+
+    server
+      .to(companies.map((company) => companyRoom(company.id)))
+      .emit(AnalyticsSocketEvent.IaStatusChanged, status);
   }
 
   onModuleDestroy(): void {

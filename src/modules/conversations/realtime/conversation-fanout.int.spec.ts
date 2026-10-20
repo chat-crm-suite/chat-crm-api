@@ -5,7 +5,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { DataSource, DataSourceOptions, EntityTarget, IsNull } from 'typeorm';
 
 import type { MemberRole } from '@contracts';
-import { ConversationSocketEvent } from '@contracts';
+import { ConversationSocketEvent, type NotificationEvent } from '@contracts';
 import * as Entities from '@entities';
 import { Channel } from '../../channels/entities/channel.entity';
 import { CompanyMember } from '../../company-members/entities/company-member.entity';
@@ -13,9 +13,8 @@ import { CompanySettings } from '../../company/entities/company-settings.entity'
 import { Company } from '../../company/entities/company.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import type { MessageService } from '../../message/message.service';
-import { Notification } from '../../notifications/entities/notification.entity';
-import { NotificationsService } from '../../notifications/notifications.service';
 import { User } from '../../users/entities/user.entity';
+import { inlineNotifications } from '@helpers/inline-notifications';
 import {
   getTestConfig,
   truncateAllTables,
@@ -70,7 +69,10 @@ describe('Realtime fanout (T6)', () => {
     const gateway = {
       revokeConversationAccess: () => Promise.resolve(),
       server: {
-        to: (room: string) => ({
+        // Several rooms in one emit are recorded as one comma-joined entry.
+        to: (target: string | string[]) => {
+          const room = [target].flat().join(',');
+          return {
           except: (exceptRoom: string) => ({
             emit: (event: string, payload: unknown) => {
               events.push({ room, except: exceptRoom, event, payload });
@@ -79,19 +81,18 @@ describe('Realtime fanout (T6)', () => {
           emit: (event: string, payload: unknown) => {
             events.push({ room, except: null, event, payload });
           },
-        }),
+          };
+        },
       },
     } as unknown as ConversationGateway;
 
     fanout = new ConversationFanoutService(gateway, access, logger);
 
-    const notifications = new NotificationsService(
-      dataSource.getRepository(Notification),
-      dataSource.getRepository(CompanyMember),
-    );
+    const { dispatcher } = inlineNotifications(dataSource, gateway, logger);
     const notifier = new ConversationAssignmentNotifier(
-      notifications,
+      dispatcher,
       gateway,
+      fanout,
       dataSource,
       logger,
     );
@@ -266,13 +267,13 @@ describe('Realtime fanout (T6)', () => {
           entry.event === ConversationSocketEvent.NewNotification,
       ),
     ).toBe(true);
-    expect(
-      events.some(
-        (entry) =>
-          entry.room === `company:${company.id}` &&
-          entry.event === ConversationSocketEvent.ConversationUnassigned,
-      ),
-    ).toBe(true);
+    // Queue refresh: admin/supervisor/agent role rooms, never the bare company room.
+    const queue = events.find(
+      (entry) => entry.event === ConversationSocketEvent.ConversationUnassigned,
+    );
+    expect(queue?.room).toBe(
+      ['admin', 'supervisor', 'agent'].map((role) => `company:${company.id}:role:${role}`).join(','),
+    );
   });
 
   it('keeps message content out of the supervisor notice', async () => {
@@ -287,12 +288,13 @@ describe('Realtime fanout (T6)', () => {
         entry.room === `user:${supervisor.user.id}` &&
         entry.event === ConversationSocketEvent.NewNotification,
     );
-    expect(notice?.payload).toEqual(
-      expect.objectContaining({
-        body: 'Hay un chat esperando agente en la cola',
-        data: { conversationId: conversation.id },
-      }),
-    );
+    const { notification, unreadCount } = notice?.payload as NotificationEvent;
+    expect(unreadCount).toBe(1);
+    expect(notification).toMatchObject({
+      type: 'queue_unassigned',
+      data: { conversationId: conversation.id },
+    });
+    expect(notification.body).toMatch(/^Customer \d+ espera un agente en la cola$/);
 
     const queue = events.find(
       (entry) => entry.event === ConversationSocketEvent.ConversationUnassigned,

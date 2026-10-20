@@ -9105,6 +9105,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "MessageAttachment": "conversation:message:attachment",
           "MessageStatus": "conversation:message:status",
           "NewNotification": "notification:new",
+          "NotificationRead": "notification:read",
+          "NotificationUpdated": "notification:updated",
           "ReceivedMessage": "conversation:message:received",
           "SendMessage": "conversation:message:send",
           "StatusChanged": "conversation:status:changed",
@@ -13709,25 +13711,405 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       }
     },
     "notification": {
+      "NOTIFICATION_AUDIENCE": {
+        "kind": "value",
+        "value": {
+          "channel_down": [
+            "admin"
+          ],
+          "conversation_assigned": [
+            "admin",
+            "supervisor",
+            "agent"
+          ],
+          "conversation_message": [
+            "admin",
+            "supervisor",
+            "agent"
+          ],
+          "ia_down": [
+            "admin"
+          ],
+          "queue_unassigned": [
+            "admin",
+            "supervisor"
+          ],
+          "spend_budget": [
+            "admin"
+          ],
+          "task_assigned": [
+            "admin",
+            "supervisor",
+            "agent"
+          ],
+          "task_due": [
+            "admin",
+            "supervisor",
+            "agent"
+          ]
+        }
+      },
+      "NOTIFICATION_SEVERITIES": {
+        "kind": "value",
+        "value": [
+          "info",
+          "success",
+          "warning",
+          "critical"
+        ]
+      },
       "NOTIFICATION_TYPES": {
         "kind": "value",
         "value": [
           "conversation_assigned",
+          "conversation_message",
           "queue_unassigned",
+          "task_assigned",
+          "task_due",
+          "channel_down",
+          "ia_down",
           "spend_budget"
         ]
+      },
+      "NotificationDataSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "channelId": {
+              "type": "string"
+            },
+            "conversationId": {
+              "type": "string"
+            },
+            "taskId": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "NotificationEventSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "notification": {
+              "additionalProperties": false,
+              "properties": {
+                "body": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "companyId": {
+                  "type": "string"
+                },
+                "count": {
+                  "maximum": 9007199254740991,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "createdAt": {
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                  "type": "string"
+                },
+                "data": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "channelId": {
+                      "type": "string"
+                    },
+                    "conversationId": {
+                      "type": "string"
+                    },
+                    "taskId": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "groupKey": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "readAt": {
+                  "anyOf": [
+                    {
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "severity": {
+                  "enum": [
+                    "info",
+                    "success",
+                    "warning",
+                    "critical"
+                  ],
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "conversation_assigned",
+                    "conversation_message",
+                    "queue_unassigned",
+                    "task_assigned",
+                    "task_due",
+                    "channel_down",
+                    "ia_down",
+                    "spend_budget"
+                  ],
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "body",
+                "companyId",
+                "count",
+                "createdAt",
+                "data",
+                "groupKey",
+                "id",
+                "readAt",
+                "severity",
+                "title",
+                "type",
+                "updatedAt"
+              ],
+              "type": "object"
+            },
+            "unreadCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "notification",
+            "unreadCount"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "NotificationListQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "after": {
+              "type": "string"
+            },
+            "before": {
+              "type": "string"
+            },
+            "limit": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "limit"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "NotificationListResponseSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "items": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "companyId": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "maximum": 9007199254740991,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "createdAt": {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                    "type": "string"
+                  },
+                  "data": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "channelId": {
+                        "type": "string"
+                      },
+                      "conversationId": {
+                        "type": "string"
+                      },
+                      "taskId": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "groupKey": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "readAt": {
+                    "anyOf": [
+                      {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "severity": {
+                    "enum": [
+                      "info",
+                      "success",
+                      "warning",
+                      "critical"
+                    ],
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "enum": [
+                      "conversation_assigned",
+                      "conversation_message",
+                      "queue_unassigned",
+                      "task_assigned",
+                      "task_due",
+                      "channel_down",
+                      "ia_down",
+                      "spend_budget"
+                    ],
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "body",
+                  "companyId",
+                  "count",
+                  "createdAt",
+                  "data",
+                  "groupKey",
+                  "id",
+                  "readAt",
+                  "severity",
+                  "title",
+                  "type",
+                  "updatedAt"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "nextCursor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "unreadCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "items",
+            "nextCursor",
+            "unreadCount"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
       },
       "NotificationPreferencesSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
+            "desktop": {
+              "default": [
+                "conversation_assigned",
+                "conversation_message",
+                "task_assigned"
+              ],
+              "items": {
+                "enum": [
+                  "conversation_assigned",
+                  "conversation_message",
+                  "queue_unassigned",
+                  "task_assigned",
+                  "task_due",
+                  "channel_down",
+                  "ia_down",
+                  "spend_budget"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
             "muted": {
               "default": [],
               "items": {
                 "enum": [
                   "conversation_assigned",
+                  "conversation_message",
                   "queue_unassigned",
+                  "task_assigned",
+                  "task_due",
+                  "channel_down",
+                  "ia_down",
                   "spend_budget"
                 ],
                 "type": "string"
@@ -13736,9 +14118,169 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             }
           },
           "required": [
+            "desktop",
             "muted"
           ],
           "type": "object"
+        },
+        "kind": "schema"
+      },
+      "NotificationReadEventSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "companyId": {
+              "type": "string"
+            },
+            "ids": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "const": "all",
+                  "type": "string"
+                }
+              ]
+            },
+            "unreadCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "companyId",
+            "ids",
+            "unreadCount"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "NotificationSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "companyId": {
+              "type": "string"
+            },
+            "count": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "createdAt": {
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+              "type": "string"
+            },
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "channelId": {
+                  "type": "string"
+                },
+                "conversationId": {
+                  "type": "string"
+                },
+                "taskId": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "groupKey": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "readAt": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "severity": {
+              "enum": [
+                "info",
+                "success",
+                "warning",
+                "critical"
+              ],
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "conversation_assigned",
+                "conversation_message",
+                "queue_unassigned",
+                "task_assigned",
+                "task_due",
+                "channel_down",
+                "ia_down",
+                "spend_budget"
+              ],
+              "type": "string"
+            },
+            "updatedAt": {
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "body",
+            "companyId",
+            "count",
+            "createdAt",
+            "data",
+            "groupKey",
+            "id",
+            "readAt",
+            "severity",
+            "title",
+            "type",
+            "updatedAt"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "NotificationSeveritySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "info",
+            "success",
+            "warning",
+            "critical"
+          ],
+          "type": "string"
         },
         "kind": "schema"
       },
@@ -13747,10 +14289,33 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "enum": [
             "conversation_assigned",
+            "conversation_message",
             "queue_unassigned",
+            "task_assigned",
+            "task_due",
+            "channel_down",
+            "ia_down",
             "spend_budget"
           ],
           "type": "string"
+        },
+        "kind": "schema"
+      },
+      "NotificationUnreadCountSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "unreadCount": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "unreadCount"
+          ],
+          "type": "object"
         },
         "kind": "schema"
       }
@@ -17664,4 +18229,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "f67c67fb0f15bddb7191b710a8af600aaf5532e6a88093e06f8d22dea9be8cc7";
+export const CONTRACTS_SNAPSHOT_HASH = "c8dab16229cb2a9d2bb45255fd65cec0e3024e0bdb52e328b2c3a31ee0bafd57";

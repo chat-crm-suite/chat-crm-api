@@ -8,6 +8,7 @@ import { Logger, LoggerErrorInterceptor, PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { ZodValidationExceptionFilter } from './common/filters/zod-validation.filter';
 import { loggerConfig } from './config/logger.config';
+import { RedisIoAdapter } from './config/setups/socket/redis-io.adapter';
 import { setupSwagger } from './docs/openapi';
 import { createNestApp } from './nest-app.factory';
 
@@ -32,6 +33,13 @@ async function bootstrap() {
 
   // Logger nest-pino
   app.useLogger(app.get(Logger));
+
+  // Socket.io rooms shared through Redis (multi-instance safe).
+  const socketLogger = new PinoLogger(loggerConfig);
+  socketLogger.setContext(RedisIoAdapter.name);
+  const ioAdapter = new RedisIoAdapter(app, socketLogger);
+  await ioAdapter.connectToRedis();
+  app.useWebSocketAdapter(ioAdapter);
 
   // Validation errors (Zod DTOs) keep the legacy 400 envelope with the
   // `validations.*` i18n keys.

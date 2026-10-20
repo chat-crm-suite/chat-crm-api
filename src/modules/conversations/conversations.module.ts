@@ -49,6 +49,10 @@ import { ConversationUploadsService } from './uploads/conversation-uploads.servi
 import { UserSessionsRevokedHandler } from './realtime/user-sessions-revoked.handler';
 import { MemberConversationsReleasedHandler } from './realtime/member-conversations-released.handler';
 import { WorkspaceChangedHandler } from './realtime/workspace-changed.handler';
+import {
+  NotificationDeliveredHandler,
+  NotificationsReadHandler,
+} from './realtime/notification-realtime.handler';
 
 const commandHandlers = [
   BroadcastConversationMessageHandler,
@@ -112,6 +116,8 @@ const commandHandlers = [
     ConversationSaga,
     UserSessionsRevokedHandler,
     WorkspaceChangedHandler,
+    NotificationDeliveredHandler,
+    NotificationsReadHandler,
     MemberConversationsReleasedHandler,
     ...commandHandlers,
   ],

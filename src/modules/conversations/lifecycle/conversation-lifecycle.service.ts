@@ -155,7 +155,11 @@ export class ConversationLifecycleService {
         note: note ?? null,
       }),
     );
-    if (released) await this.notifier.notifyUnassigned(conversationId, actor.companyId);
+    if (released) {
+      await this.notifier.notifyUnassigned(conversationId, actor.companyId, {
+        actorMemberId: actor.memberId,
+      });
+    }
 
     return this.result(conversationId, conversation.status);
   }
@@ -181,7 +185,9 @@ export class ConversationLifecycleService {
       note: input.note ?? null,
     });
     if (outcome === AssignmentOutcome.ASSIGNED) {
-      await this.notifier.notifyAssigned(conversationId, input.memberId);
+      await this.notifier.notifyAssigned(conversationId, input.memberId, {
+        actorMemberId: actor.memberId,
+      });
     }
 
     return this.result(conversationId, conversation.status);
@@ -280,17 +286,14 @@ export class ConversationLifecycleService {
     byMemberId: string | null,
     scopes: ('live' | 'cases')[] = ['live'],
   ): void {
-    try {
-      this.fanout.emitStatusChanged(companyId, {
-        conversationId,
-        status,
-        previousStatus,
-        byMemberId,
-        at: new Date(),
-      });
-    } catch (error) {
-      this.logger.warn({ conversationId, error: String(error) }, 'Status change emit failed');
-    }
+    // Never throws: a failed emit is logged by the fanout.
+    void this.fanout.emitStatusChanged(companyId, {
+      conversationId,
+      status,
+      previousStatus,
+      byMemberId,
+      at: new Date(),
+    });
     this.eventBus?.publish(new AnalyticsSignalEvent(companyId, scopes));
   }
 }

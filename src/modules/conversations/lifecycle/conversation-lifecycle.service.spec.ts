@@ -167,7 +167,9 @@ describe('ConversationLifecycleService', () => {
       .getRepository(ConversationAssignment)
       .findOneByOrFail({ conversationId: conversation.id, unassignedAt: IsNull() });
     expect(active).toMatchObject({ reason: 'transfer', note: 'VIP', assignedByMemberId: owner.id });
-    expect(notifier.notifyAssigned).toHaveBeenCalledWith(conversation.id, peer.id);
+    expect(notifier.notifyAssigned).toHaveBeenCalledWith(conversation.id, peer.id, {
+      actorMemberId: owner.id,
+    });
 
     const released = await lifecycle.release(conversation.id, actor(supervisor), 'end of shift');
     expect(released).toMatchObject({ status: 'open', assignee: null });
@@ -175,7 +177,9 @@ describe('ConversationLifecycleService', () => {
       .getRepository(ConversationAssignment)
       .findOneByOrFail({ conversationId: conversation.id, reason: 'release' });
     expect(release).toMatchObject({ memberId: peer.id, note: 'end of shift' });
-    expect(notifier.notifyUnassigned).toHaveBeenCalledWith(conversation.id, company.id);
+    expect(notifier.notifyUnassigned).toHaveBeenCalledWith(conversation.id, company.id, {
+      actorMemberId: supervisor.id,
+    });
   });
 
   it('refuses a conversation of another company, even to its admin', async () => {

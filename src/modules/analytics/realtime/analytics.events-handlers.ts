@@ -10,7 +10,6 @@ import {
   AnalyticsSignalEvent,
   IaStatusChangedEvent,
   PresenceChangedEvent,
-  RealtimeNotificationEvent,
 } from '../events/analytics.events';
 import { AnalyticsEventsService } from './analytics-events.service';
 
@@ -37,17 +36,8 @@ export class PresenceChangedHandler implements IEventHandler<PresenceChangedEven
 export class IaStatusChangedHandler implements IEventHandler<IaStatusChangedEvent> {
   constructor(private readonly events: AnalyticsEventsService) {}
 
-  handle({ status }: IaStatusChangedEvent): void {
-    this.events.emitIaStatus(status);
-  }
-}
-
-@EventsHandler(RealtimeNotificationEvent)
-export class RealtimeNotificationHandler implements IEventHandler<RealtimeNotificationEvent> {
-  constructor(private readonly events: AnalyticsEventsService) {}
-
-  handle({ userId, payload }: RealtimeNotificationEvent): void {
-    this.events.emitNotification(userId, payload);
+  handle({ status }: IaStatusChangedEvent): Promise<void> {
+    return this.events.emitIaStatus(status);
   }
 }
 
@@ -73,6 +63,5 @@ export const analyticsEventHandlers = [
   AnalyticsSignalHandler,
   PresenceChangedHandler,
   IaStatusChangedHandler,
-  RealtimeNotificationHandler,
   MessageAnalyzedAnalyticsHandler,
 ];

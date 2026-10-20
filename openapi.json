@@ -108,6 +108,14 @@
             }
           },
           {
+            "name": "withWorkload",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "limit",
             "required": false,
             "in": "query",
@@ -210,6 +218,37 @@
                             "null"
                           ]
                         },
+                        "openConversations": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "presence": {
+                          "type": "object",
+                          "properties": {
+                            "memberId": {
+                              "type": "string"
+                            },
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "available",
+                                "away",
+                                "offline"
+                              ]
+                            },
+                            "since": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "memberId",
+                            "state",
+                            "since"
+                          ],
+                          "additionalProperties": false
+                        },
                         "joinedAt": {
                           "type": "string",
                           "format": "date-time"
@@ -237,11 +276,6 @@
                             }
                           ]
                         },
-                        "openConversations": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
                         "capacity": {
                           "anyOf": [
                             {
@@ -253,32 +287,6 @@
                               "type": "null"
                             }
                           ]
-                        },
-                        "presence": {
-                          "type": "object",
-                          "properties": {
-                            "memberId": {
-                              "type": "string"
-                            },
-                            "state": {
-                              "type": "string",
-                              "enum": [
-                                "available",
-                                "away",
-                                "offline"
-                              ]
-                            },
-                            "since": {
-                              "type": "string",
-                              "format": "date-time"
-                            }
-                          },
-                          "required": [
-                            "memberId",
-                            "state",
-                            "since"
-                          ],
-                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -288,10 +296,10 @@
                         "role",
                         "status",
                         "acceptsAutoAssign",
-                        "joinedAt",
                         "openConversations",
-                        "capacity",
-                        "presence"
+                        "presence",
+                        "joinedAt",
+                        "capacity"
                       ],
                       "additionalProperties": false
                     },
@@ -446,6 +454,37 @@
                               "null"
                             ]
                           },
+                          "openConversations": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "presence": {
+                            "type": "object",
+                            "properties": {
+                              "memberId": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "available",
+                                  "away",
+                                  "offline"
+                                ]
+                              },
+                              "since": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "memberId",
+                              "state",
+                              "since"
+                            ],
+                            "additionalProperties": false
+                          },
                           "joinedAt": {
                             "type": "string",
                             "format": "date-time"
@@ -473,11 +512,6 @@
                               }
                             ]
                           },
-                          "openConversations": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
                           "capacity": {
                             "anyOf": [
                               {
@@ -489,32 +523,6 @@
                                 "type": "null"
                               }
                             ]
-                          },
-                          "presence": {
-                            "type": "object",
-                            "properties": {
-                              "memberId": {
-                                "type": "string"
-                              },
-                              "state": {
-                                "type": "string",
-                                "enum": [
-                                  "available",
-                                  "away",
-                                  "offline"
-                                ]
-                              },
-                              "since": {
-                                "type": "string",
-                                "format": "date-time"
-                              }
-                            },
-                            "required": [
-                              "memberId",
-                              "state",
-                              "since"
-                            ],
-                            "additionalProperties": false
                           }
                         },
                         "required": [
@@ -524,10 +532,10 @@
                           "role",
                           "status",
                           "acceptsAutoAssign",
-                          "joinedAt",
                           "openConversations",
-                          "capacity",
-                          "presence"
+                          "presence",
+                          "joinedAt",
+                          "capacity"
                         ],
                         "additionalProperties": false
                       }
@@ -729,6 +737,37 @@
                         "null"
                       ]
                     },
+                    "openConversations": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "presence": {
+                      "type": "object",
+                      "properties": {
+                        "memberId": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "available",
+                            "away",
+                            "offline"
+                          ]
+                        },
+                        "since": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "memberId",
+                        "state",
+                        "since"
+                      ],
+                      "additionalProperties": false
+                    },
                     "joinedAt": {
                       "type": "string",
                       "format": "date-time"
@@ -756,11 +795,6 @@
                         }
                       ]
                     },
-                    "openConversations": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
                     "capacity": {
                       "anyOf": [
                         {
@@ -772,32 +806,6 @@
                           "type": "null"
                         }
                       ]
-                    },
-                    "presence": {
-                      "type": "object",
-                      "properties": {
-                        "memberId": {
-                          "type": "string"
-                        },
-                        "state": {
-                          "type": "string",
-                          "enum": [
-                            "available",
-                            "away",
-                            "offline"
-                          ]
-                        },
-                        "since": {
-                          "type": "string",
-                          "format": "date-time"
-                        }
-                      },
-                      "required": [
-                        "memberId",
-                        "state",
-                        "since"
-                      ],
-                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -807,10 +815,10 @@
                     "role",
                     "status",
                     "acceptsAutoAssign",
-                    "joinedAt",
                     "openConversations",
-                    "capacity",
-                    "presence"
+                    "presence",
+                    "joinedAt",
+                    "capacity"
                   ],
                   "additionalProperties": false
                 }

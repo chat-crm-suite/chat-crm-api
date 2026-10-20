@@ -155,7 +155,10 @@ export const SendTemplateResultSchema = z.object({
 });
 export type SendTemplateResult = z.infer<typeof SendTemplateResultSchema>;
 
-/** `PATCH /templates/:id/settings` (admin): CRM-side settings only. */
+/**
+ * `PATCH /templates/:id/settings` (admin): CRM-side settings only. Responds
+ * with the updated `TemplateSchema`.
+ */
 export const UpdateTemplateSettingsSchema = z.object({
   visibleToAgents: z.boolean().optional(),
   /** `${component}:${key}` -> label; an empty string clears the label. */

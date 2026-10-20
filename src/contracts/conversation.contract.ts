@@ -146,7 +146,9 @@ export type ListScope = z.infer<typeof ListScopeSchema>;
 /**
  * `GET /conversations` query. Responds with `ConversationListItemSchema[]`,
  * newest `lastMessageAt` first. Without `status`, closed and archived
- * conversations are excluded.
+ * conversations are excluded. `GET /conversations/list`, `/unassigned` and
+ * `/needs-response` answer the same item shape (the last two may add
+ * `waitingSince`, stripped by the schema).
  */
 export const ListConversationsQuerySchema = z.object({
   scope: ListScopeSchema.default('mine'),
@@ -198,6 +200,17 @@ export const ConversationLifecycleResultSchema = z.object({
 });
 export type ConversationLifecycleResult = z.infer<
   typeof ConversationLifecycleResultSchema
+>;
+
+/**
+ * `PATCH /conversations/:id/priority` (owner, admin, supervisor): `null`
+ * clears it. Responds with the updated `ConversationListItemSchema`.
+ */
+export const UpdateConversationPrioritySchema = z.object({
+  priority: ConversationPrioritySchema.nullable(),
+});
+export type UpdateConversationPriorityInput = z.infer<
+  typeof UpdateConversationPrioritySchema
 >;
 
 /** `conversation:status:changed` payload (conversation + company rooms). */

@@ -9699,6 +9699,35 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "type": "object"
         },
         "kind": "schema"
+      },
+      "UpdateConversationPrioritySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "priority": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "urgent"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "priority"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
       }
     },
     "customer": {
@@ -17491,4 +17520,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "b8100b6943e7a851c515ba502e7052914f7045cff42751823ce01f56d0c336ee";
+export const CONTRACTS_SNAPSHOT_HASH = "85e50d9dd14e0ff18a8cf96880185e04f6eda53a82295f2862ad45925f9d8670";

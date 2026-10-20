@@ -35,7 +35,7 @@ import {
 import { RemoveUploadedFileInterceptor } from '@common/interceptors/remove-uploaded-file.interceptor';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import type { TenantContext } from '../../auth/auth.types';
-import { CLS_COMPANY_ID, CLS_USER_ID } from '../../config/cls.keys';
+import { CLS_COMPANY_ID, CLS_MEMBER_ID, CLS_USER_ID } from '../../config/cls.keys';
 import { zodResponseSchema } from '../../docs/zod-response';
 import { memberDisplayName } from '../company-members/member-name';
 import { SentimentService } from '../analysis/sentiment/sentiment.service';
@@ -137,6 +137,7 @@ export class ConversationsController {
     const outcome = await this.service.assign(conversationId, memberId, {
       companyId: this.cls.get<string>(CLS_COMPANY_ID),
       requesterId: this.cls.get<string>(CLS_USER_ID),
+      actorMemberId: this.cls.get<string>(CLS_MEMBER_ID),
     });
 
     if (outcome === AssignmentOutcome.CONFLICT) {

@@ -198,16 +198,17 @@ export class ConversationsService {
   async assign(
     conversationId: string,
     memberId: string,
-    options?: { companyId?: string; requesterId?: string },
+    options?: { companyId?: string; requesterId?: string; actorMemberId?: string },
   ): Promise<AssignmentOutcome> {
+    const { actorMemberId, ...assignOptions } = options ?? {};
     const outcome = await this.assignment.assignToAgent(
       conversationId,
       memberId,
-      options,
+      assignOptions,
     );
 
     if (outcome === AssignmentOutcome.ASSIGNED) {
-      await this.notifier.notifyAssigned(conversationId, memberId);
+      await this.notifier.notifyAssigned(conversationId, memberId, { actorMemberId });
     }
 
     return outcome;
@@ -255,11 +256,9 @@ export class ConversationsService {
     if (outcome === AssignmentOutcome.ASSIGNED) {
       const active = await this.assignment.getActiveAssignment(conversationId);
       if (active?.memberId) {
-        await this.notifier.notifyAssigned(
-          conversationId,
-          active.memberId,
-          false,
-        );
+        await this.notifier.notifyAssigned(conversationId, active.memberId, {
+          notify: false,
+        });
       }
     }
 
@@ -279,7 +278,7 @@ export class ConversationsService {
     );
 
     if (outcome === AssignmentOutcome.ASSIGNED) {
-      await this.notifier.notifyAssigned(conversationId, memberId, false);
+      await this.notifier.notifyAssigned(conversationId, memberId, { notify: false });
     }
 
     return outcome;

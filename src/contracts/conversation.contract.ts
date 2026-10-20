@@ -58,7 +58,13 @@ export const ConversationSocketEvent = {
   MessageStatus: 'conversation:message:status',
   MessageAttachment: 'conversation:message:attachment',
   UpdateSentimentIndicator: 'conversation:sentiment:update',
+  /** `NotificationEventSchema`, a new bell row. */
   NewNotification: 'notification:new',
+  /** `NotificationEventSchema`, a grouped row grew (`count`). */
+  NotificationUpdated: 'notification:updated',
+  /** `NotificationReadEventSchema`, sync read state across tabs/devices. */
+  NotificationRead: 'notification:read',
+  /** Data-only (cache refresh); the user-facing toast comes from `notification:new`. */
   ConversationAssigned: 'conversation:assigned',
   ConversationUnassigned: 'conversation:unassigned',
   /** Lifecycle change (resolve, pending, reopen): `ConversationStatusChangedSchema`. */

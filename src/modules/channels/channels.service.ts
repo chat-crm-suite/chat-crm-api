@@ -205,7 +205,7 @@ export class ChannelsService {
         name: response.name,
         status: response.status,
         statusReason: null,
-      });
+      }, previousStatus);
     }
     return response;
   }
@@ -279,7 +279,7 @@ export class ChannelsService {
         name: channel.name,
         status: to,
         statusReason: reason,
-      });
+      }, from);
     }
     return true;
   }
@@ -289,16 +289,21 @@ export class ChannelsService {
     channel: Pick<ChannelResponse, 'id' | 'type' | 'name' | 'status'> & {
       statusReason: string | null;
     },
+    previousStatus: ChannelStatus,
   ): void {
     this.eventBus?.publish(
-      new ChannelStatusChangedEvent(companyId, {
-        channelId: channel.id,
-        type: channel.type,
-        name: channel.name,
-        status: channel.status,
-        statusReason: channel.statusReason,
-        at: new Date(),
-      }),
+      new ChannelStatusChangedEvent(
+        companyId,
+        {
+          channelId: channel.id,
+          type: channel.type,
+          name: channel.name,
+          status: channel.status,
+          statusReason: channel.statusReason,
+          at: new Date(),
+        },
+        previousStatus,
+      ),
     );
   }
 

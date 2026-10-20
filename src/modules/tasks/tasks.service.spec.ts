@@ -5,6 +5,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DataSource, DataSourceOptions } from 'typeorm';
 
 import { inboxSeed } from '@helpers/inbox-seed';
+import { inlineNotifications } from '@helpers/inline-notifications';
 import { MemoryRedis } from '@helpers/memory-redis';
 import {
   clearSQLiteTables,
@@ -14,6 +15,7 @@ import {
 import { TaskSchema, WorkQueueResponseSchema } from '../../contracts/index';
 import type { CompanyMember } from '../company-members/entities/company-member.entity';
 import { ConversationAssignmentService } from '../conversations/assignment/conversation-assignment.service';
+import { Notification } from '../notifications/entities/notification.entity';
 import { Task } from './entities/task.entity';
 import { TasksService, type TaskActor } from './tasks.service';
 import { WorkQueueCache } from './work-queue.cache';
@@ -32,10 +34,10 @@ describe('TasksService + WorkQueueService', () => {
   const redis = new MemoryRedis();
   const emits: { rooms: string[]; event: string; payload: unknown }[] = [];
   const operator = (rooms: string[]) => ({
-    to: (room: string) => operator([...rooms, room]),
+    to: (room: string | string[]) => operator([...rooms, ...[room].flat()]),
     emit: (event: string, payload: unknown) => emits.push({ rooms, event, payload }),
   });
-  const gateway = { server: { to: (room: string) => operator([room]) } };
+  const gateway = { server: { to: (room: string | string[]) => operator([room].flat()) } };
 
   beforeAll(async () => {
     dataSource = new DataSource(getTestSQLiteConfig(getSQLiteEntities()) as DataSourceOptions);
@@ -49,6 +51,7 @@ describe('TasksService + WorkQueueService', () => {
       gateway as never,
       cache,
       logger as never,
+      inlineNotifications(dataSource, null, logger as never).dispatcher,
     );
     workQueue = new WorkQueueService(
       dataSource,
@@ -121,11 +124,37 @@ describe('TasksService + WorkQueueService', () => {
       conversation: null,
       customer: null,
     });
+    // Staff + the assignee: other agents never hear about it.
     expect(emits.at(-1)).toMatchObject({
-      rooms: [`company:${company.id}`, `user:${agent.userId}`],
+      rooms: [
+        `company:${company.id}:role:admin`,
+        `company:${company.id}:role:supervisor`,
+        `user:${agent.userId}`,
+      ],
       event: 'task:changed',
       payload: { taskId: assigned.id, action: 'created', assigneeMemberId: agent.id },
     });
+
+    // The assignee got one notice; the supervisor who assigned it none.
+    const notices = await dataSource.getRepository(Notification).find();
+    expect(notices).toEqual([
+      expect.objectContaining({
+        type: 'task_assigned',
+        recipientMemberId: agent.id,
+        body: expect.stringMatching(/^Seguimiento · de /) as string,
+        data: { taskId: assigned.id },
+      }),
+    ]);
+
+    // Reassigning notifies the new assignee; editing a field does not.
+    const other = await seed.member(company);
+    await tasks.update(actor(supervisor), assigned.id, { assigneeMemberId: other.id });
+    await tasks.update(actor(supervisor), assigned.id, { title: 'Seguimiento VIP' });
+    expect(
+      (await dataSource.getRepository(Notification).find()).map((n) => n.recipientMemberId),
+    ).toEqual(expect.arrayContaining([agent.id, other.id]));
+    expect(await dataSource.getRepository(Notification).count()).toBe(2);
+    await tasks.update(actor(supervisor), assigned.id, { assigneeMemberId: agent.id });
 
     await expect(tasks.update(actor(peer), assigned.id, { title: 'mine?' })).rejects.toBeInstanceOf(
       NotFoundException,

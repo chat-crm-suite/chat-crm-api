@@ -29,11 +29,3 @@ export class PresenceChangedEvent {
 export class IaStatusChangedEvent {
   constructor(public readonly status: IaStatus) {}
 }
-
-/** A persisted notification to push live to one user (`notification:new`). */
-export class RealtimeNotificationEvent {
-  constructor(
-    public readonly userId: string,
-    public readonly payload: Record<string, unknown>,
-  ) {}
-}

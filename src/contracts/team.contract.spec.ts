@@ -88,8 +88,11 @@ describe('team / customer / platform contracts', () => {
     );
   });
 
-  it('defaults notification preferences to nothing muted', () => {
-    expect(NotificationPreferencesSchema.parse({})).toEqual({ muted: [] });
+  it('defaults notification preferences to nothing muted, OS notices for own work', () => {
+    expect(NotificationPreferencesSchema.parse({})).toEqual({
+      muted: [],
+      desktop: ['conversation_assigned', 'conversation_message', 'task_assigned'],
+    });
     expect(
       NotificationPreferencesSchema.safeParse({ muted: ['bogus'] }).success,
     ).toBe(false);

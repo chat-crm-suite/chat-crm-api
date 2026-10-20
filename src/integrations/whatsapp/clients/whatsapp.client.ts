@@ -12,14 +12,18 @@ import { join } from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-import type { WhatsAppCredentials } from '@contracts';
+import {
+  DEFAULT_WHATSAPP_API_VERSION,
+  WHATSAPP_GRAPH_BASE_URL,
+  type WhatsAppCredentials,
+} from '@contracts';
 import type { ChannelTransmission } from '@modules/channels/channels.service';
 import type { Channel } from '@modules/channels/entities/channel.entity';
 import type { WhatsAppPayload } from '../interfaces/whatsapp-message.interface';
 import type { WhatsAppErrorResponse } from '../interfaces/whatsapp.interface';
 
-const DEFAULT_API_VERSION = 'v22.0';
-const DEFAULT_API_BASE_URL = 'https://graph.facebook.com';
+const DEFAULT_API_VERSION = DEFAULT_WHATSAPP_API_VERSION;
+const DEFAULT_API_BASE_URL = WHATSAPP_GRAPH_BASE_URL;
 const MAX_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 500;
 const RETRY_MAX_DELAY_MS = 5_000;

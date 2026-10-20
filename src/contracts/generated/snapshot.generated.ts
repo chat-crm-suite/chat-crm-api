@@ -6739,13 +6739,35 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           }
         }
       },
+      "CHANNEL_STATUS": {
+        "kind": "value",
+        "value": {
+          "active": "active",
+          "error": "error",
+          "inactive": "inactive",
+          "pending": "pending"
+        }
+      },
       "CHANNEL_STATUSES": {
         "kind": "value",
         "value": [
+          "pending",
           "active",
           "inactive",
           "error"
         ]
+      },
+      "CHANNEL_TYPE": {
+        "kind": "value",
+        "value": {
+          "email": "email",
+          "instagram": "instagram",
+          "messenger": "messenger",
+          "sms": "sms",
+          "telegram": "telegram",
+          "webchat": "webchat",
+          "whatsapp": "whatsapp"
+        }
       },
       "CHANNEL_TYPES": {
         "kind": "value",
@@ -6757,6 +6779,22 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "email",
           "sms",
           "webchat"
+        ]
+      },
+      "CONNECTION_CHECK": {
+        "kind": "value",
+        "value": {
+          "failed": "failed",
+          "ok": "ok",
+          "skipped": "skipped"
+        }
+      },
+      "CONNECTION_CHECK_STATUSES": {
+        "kind": "value",
+        "value": [
+          "ok",
+          "failed",
+          "skipped"
         ]
       },
       "ChannelResponseSchema": {
@@ -6790,7 +6828,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               ]
             },
             "externalAccountId": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "hasAppSecret": {
               "type": "boolean"
@@ -6806,6 +6847,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             },
             "status": {
               "enum": [
+                "pending",
                 "active",
                 "inactive",
                 "error"
@@ -6840,7 +6882,6 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           },
           "required": [
             "createdAt",
-            "externalAccountId",
             "hasAppSecret",
             "hasCredentials",
             "id",
@@ -6857,6 +6898,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "enum": [
+            "pending",
             "active",
             "inactive",
             "error"
@@ -6876,6 +6918,43 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "email",
             "sms",
             "webchat"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
+      "ConnectionCheckSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "ok",
+                "failed",
+                "skipped"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "message",
+            "status"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "ConnectionCheckStatusSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "ok",
+            "failed",
+            "skipped"
           ],
           "type": "string"
         },
@@ -6955,6 +7034,17 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "kind": "value",
         "value": "v22.0"
       },
+      "DEFAULT_WHATSAPP_CHANNEL_NAME": {
+        "kind": "value",
+        "value": "WhatsApp"
+      },
+      "DEFAULT_WHATSAPP_SETTINGS": {
+        "kind": "value",
+        "value": {
+          "apiBaseUrl": "https://graph.facebook.com",
+          "apiVersion": "v22.0"
+        }
+      },
       "MAX_UPLOAD_BYTES": {
         "kind": "value",
         "value": 104857600
@@ -7002,6 +7092,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             },
             "status": {
               "enum": [
+                "pending",
                 "active",
                 "inactive",
                 "error"
@@ -7042,6 +7133,14 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "v22.0",
           "v23.0"
         ]
+      },
+      "WHATSAPP_GRAPH_BASE_URL": {
+        "kind": "value",
+        "value": "https://graph.facebook.com"
+      },
+      "WHATSAPP_WEBHOOK_PATH": {
+        "kind": "value",
+        "value": "integration/webhook/whatsapp"
       },
       "WhatsAppApiVersionSchema": {
         "jsonSchema": {
@@ -7128,7 +7227,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               ]
             },
             "externalAccountId": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "hasAppSecret": {
               "type": "boolean"
@@ -7144,6 +7246,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             },
             "status": {
               "enum": [
+                "pending",
                 "active",
                 "inactive",
                 "error"
@@ -7178,7 +7281,6 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           },
           "required": [
             "createdAt",
-            "externalAccountId",
             "hasAppSecret",
             "hasCredentials",
             "id",
@@ -7186,6 +7288,106 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "status",
             "type",
             "updatedAt"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "WhatsAppConnectionTestSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "sending": {
+              "additionalProperties": false,
+              "properties": {
+                "displayPhoneNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "skipped"
+                  ],
+                  "type": "string"
+                },
+                "verifiedName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "message",
+                "status"
+              ],
+              "type": "object"
+            },
+            "subscription": {
+              "additionalProperties": false,
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "skipped"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "message",
+                "status"
+              ],
+              "type": "object"
+            },
+            "webhook": {
+              "additionalProperties": false,
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "skipped"
+                  ],
+                  "type": "string"
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "message",
+                "status"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "ok",
+            "sending",
+            "subscription",
+            "webhook"
           ],
           "type": "object"
         },
@@ -14660,4 +14862,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "36688481fdb7f74ff8d71b96cb59681b528b70992e65761654a697fb763526e7";
+export const CONTRACTS_SNAPSHOT_HASH = "ac9cf72ea55897a3f9baea37bb83aec6b9186acf49c044b822f90a72ec009004";

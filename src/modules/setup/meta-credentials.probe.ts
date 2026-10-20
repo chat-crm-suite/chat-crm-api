@@ -4,13 +4,13 @@
 import { createHmac } from 'crypto';
 import { Injectable } from '@nestjs/common';
 
-import type { SetupStepError } from '@contracts';
+import { WHATSAPP_GRAPH_BASE_URL, type SetupStepError } from '@contracts';
 
 /**
  * Always Meta's public host: the setup endpoint is public, so a client-chosen
  * base URL would let anyone make this server call arbitrary URLs (SSRF).
  */
-const GRAPH_BASE_URL = 'https://graph.facebook.com';
+const GRAPH_BASE_URL = WHATSAPP_GRAPH_BASE_URL;
 const PROBE_TIMEOUT_MS = 8_000;
 
 export interface MetaProbeInput {

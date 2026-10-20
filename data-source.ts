@@ -4,6 +4,8 @@
 import { DataSource } from "typeorm"
 import { SnakeNamingStrategy } from "typeorm-naming-strategies";
 
+import { entitySubscribers } from "@config/database.config";
+
 export default new DataSource({
   type: 'mysql',
   host: process.env.DB_HOST,
@@ -17,6 +19,7 @@ export default new DataSource({
     __dirname + '/src/integrations/**/*.entity{.ts,.js}',
   ],
   migrations: [__dirname + '/src/migrations/*{.ts,.js}'],
+  subscribers: entitySubscribers,
   migrationsTableName: "migrations",
   synchronize: false,
   migrationsRun: process.env.NODE_ENV === 'production',

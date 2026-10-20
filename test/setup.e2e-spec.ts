@@ -13,6 +13,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { join } from 'path';
 import request from 'supertest';
 import type { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 
 import { AuthModule } from '@auth/auth.module';
 import { APP_REDIS } from '@common/redis/app-redis.module';
@@ -22,6 +23,8 @@ import { ZodValidationExceptionFilter } from '@common/filters/zod-validation.fil
 import { loggerConfig } from '@config/logger.config';
 import { i18nConfig } from '@config/i18n.config';
 import { clsConfig } from '@config/cls.config';
+import { ChannelsModule } from '@modules/channels/channels.module';
+import { Channel } from '@modules/channels/entities/channel.entity';
 import { MetaCredentialsProbe } from '@modules/setup/meta-credentials.probe';
 import { SetupModule } from '@modules/setup/setup.module';
 import {
@@ -66,6 +69,8 @@ const metaProbe = {
 };
 
 const createApp = async (setupToken?: string): Promise<INestApplication> => {
+  // Channel credentials are encrypted: a fixed test key, never the machine's .env.
+  process.env.CREDENTIALS_ENCRYPTION_KEY = '0'.repeat(64);
   if (setupToken === undefined) {
     delete process.env.SETUP_TOKEN;
   } else {
@@ -89,6 +94,7 @@ const createApp = async (setupToken?: string): Promise<INestApplication> => {
       testCacheModule(),
       TestInfraModule,
       SetupModule,
+      ChannelsModule,
       AuthModule,
     ],
   })
@@ -102,7 +108,8 @@ const createApp = async (setupToken?: string): Promise<INestApplication> => {
   process.env.BOOTSTRAP_COMPANY_NAME = '';
 
   const app = moduleFixture.createNestApplication();
-  app.useLogger(false);
+  // E2E_DEBUG=1 keeps the Nest logger on to see the exception behind a 500.
+  if (!process.env.E2E_DEBUG) app.useLogger(false);
   app.use(cookieParser());
   // Same validation pipeline the HTTP bootstrap registers for Zod DTOs.
   app.useGlobalPipes(new ZodValidationPipe());
@@ -219,6 +226,62 @@ describe('Setup first-run flow (e2e)', () => {
       );
     });
 
+    it('gives the company a pending whatsapp channel with a verify token', async () => {
+      const agent = request.agent(server);
+      await agent
+        .post('/auth/login')
+        .send({ username: 'admin', password: 'secreta-123' })
+        .expect(200);
+
+      const res = await agent
+        .get('/channels/whatsapp/config')
+        .set('x-company-id', companyId)
+        .expect(200);
+
+      const body = res.body as {
+        type: string;
+        status: string;
+        externalAccountId: string | null;
+        hasCredentials: boolean;
+        webhookVerifyToken: string | null;
+      };
+      expect(body).toMatchObject({
+        type: 'whatsapp',
+        status: 'pending',
+        externalAccountId: null,
+        hasCredentials: false,
+      });
+      expect(body.webhookVerifyToken).toMatch(/^[a-f0-9]{64}$/);
+    });
+
+    it('protects the connection test with the session (401 without it)', async () => {
+      await request(server)
+        .post('/channels/whatsapp/test')
+        .set('x-company-id', companyId)
+        .expect(401);
+    });
+
+    it('reports the pending channel as not ready to send', async () => {
+      const agent = request.agent(server);
+      await agent
+        .post('/auth/login')
+        .send({ username: 'admin', password: 'secreta-123' })
+        .expect(200);
+
+      const res = await agent
+        .post('/channels/whatsapp/test')
+        .set('x-company-id', companyId)
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        ok: false,
+        sending: { status: 'skipped' },
+        webhook: { status: 'skipped' },
+        subscription: { status: 'skipped' },
+      });
+      expect(metaProbe.probe).not.toHaveBeenCalled();
+    });
+
     it('rejects an empty login payload with the standard 400 envelope', async () => {
       const res = await request(server)
         .post('/auth/login')
@@ -277,6 +340,16 @@ describe('Setup first-run flow (e2e)', () => {
 
       expect(body.initialized).toBe(true);
       expect(body.hasWhatsapp).toBe(true);
+
+      // The pending channel the company was born with was filled in place.
+      const channels = await app.get(DataSource).getRepository(Channel).find();
+      expect(channels).toHaveLength(1);
+      expect(channels[0]).toMatchObject({
+        id: createdBody.channel?.id,
+        status: 'active',
+        externalAccountId: 'phone-1',
+        webhookVerifyToken: createdBody.channel?.webhookVerifyToken,
+      });
     });
   });
 

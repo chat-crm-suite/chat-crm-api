@@ -19,7 +19,11 @@ import { Company } from '../company/entities/company.entity';
 import { User } from '../users/entities/user.entity';
 import { encryptCredentials } from '../../lib/helpers/credentials.helper';
 import {
+  CHANNEL_STATUS,
+  CHANNEL_TYPE,
   DEFAULT_WHATSAPP_API_VERSION,
+  DEFAULT_WHATSAPP_CHANNEL_NAME,
+  WHATSAPP_GRAPH_BASE_URL,
   type SetupStepResult,
   type ValidateSetupStepInput,
 } from '@contracts';
@@ -90,7 +94,9 @@ export class SetupService {
       // only company from the platform console must not reopen POST /setup.
       this.companies.count({ withDeleted: true }),
       this.members.count({ where: { role: 'admin', status: 'active' } }),
-      this.channels.count({ where: { type: 'whatsapp', status: 'active' } }),
+      this.channels.count({
+        where: { type: CHANNEL_TYPE.whatsapp, status: CHANNEL_STATUS.active },
+      }),
       this.users.count(),
     ]);
 
@@ -274,19 +280,26 @@ export class SetupService {
             userId: user.id,
             companyId: company.id,
             role: 'admin',
-            status: 'active',
+            status: CHANNEL_STATUS.active,
           }),
         );
       }
 
       let channel: Channel | null = null;
       if (dto.whatsapp) {
+        // The company was born with a `pending` WhatsApp channel: fill it
+        // (keeps its verify token) instead of adding a second one.
+        const pending = await channels.findOne({
+          where: { companyId: company.id, type: CHANNEL_TYPE.whatsapp },
+          order: { createdAt: 'ASC' },
+        });
         channel = await channels.save(
-          channels.create({
-            companyId: company.id,
-            type: 'whatsapp',
+          channels.merge(pending ?? channels.create({ companyId: company.id }), {
+            type: CHANNEL_TYPE.whatsapp,
             name:
-              dto.whatsapp.name ?? dto.whatsapp.displayAddress ?? 'WhatsApp',
+              dto.whatsapp.name ??
+              dto.whatsapp.displayAddress ??
+              DEFAULT_WHATSAPP_CHANNEL_NAME,
             externalAccountId: dto.whatsapp.externalAccountId,
             displayAddress: dto.whatsapp.displayAddress,
             credentials: encryptCredentials({
@@ -295,15 +308,15 @@ export class SetupService {
               appSecret: dto.whatsapp.appSecret,
             }),
             settings: {
-              apiVersion: dto.whatsapp.apiVersion ?? 'v22.0',
-              apiBaseUrl:
-                dto.whatsapp.apiBaseUrl ?? 'https://graph.facebook.com',
+              apiVersion:
+                dto.whatsapp.apiVersion ?? DEFAULT_WHATSAPP_API_VERSION,
+              apiBaseUrl: dto.whatsapp.apiBaseUrl ?? WHATSAPP_GRAPH_BASE_URL,
               webhookUrl: dto.whatsapp.webhookUrl,
             },
-            webhookVerifyToken:
-              dto.whatsapp.webhookVerifyToken ??
-              randomBytes(32).toString('hex'),
-            status: 'active',
+            ...(dto.whatsapp.webhookVerifyToken
+              ? { webhookVerifyToken: dto.whatsapp.webhookVerifyToken }
+              : {}),
+            status: CHANNEL_STATUS.active,
           }),
         );
       }

@@ -266,6 +266,40 @@ describe('PlatformCompaniesService (integration)', () => {
       expect(shown.meta.totalItems).toBe(2);
     });
 
+    it('sorts by a count without soft-deleted or pending rows', async () => {
+      const channel = (companyId: string, name: string, extra: Partial<Channel> = {}) =>
+        save(Channel, {
+          companyId,
+          type: 'whatsapp',
+          name,
+          externalAccountId: `acc-${name}`,
+          credentials: '{}',
+          ...extra,
+        });
+      // One live channel.
+      const one = await save(Company, { name: 'One' });
+      await channel(one.id, 'one-live');
+      // Three rows, none of them configured: two deleted, one pending.
+      const ghost = await save(Company, { name: 'Ghost' });
+      const a = await channel(ghost.id, 'ghost-a');
+      const b = await channel(ghost.id, 'ghost-b');
+      await dataSource.getRepository(Channel).softDelete([a.id, b.id]);
+      await channel(ghost.id, 'ghost-pending', {
+        status: 'pending',
+        externalAccountId: null,
+        credentials: null,
+      });
+
+      const { items } = await service.table(
+        query({ sort: [{ id: 'channelsCount', desc: true }] }),
+      );
+
+      expect(items.map((c) => [c.name, c.channelsCount])).toEqual([
+        ['One', 1],
+        ['Ghost', 0],
+      ]);
+    });
+
     it('filters by text and status, sorts by a count, and paginates', async () => {
       const big = await save(Company, { name: 'Big Corp', email: 'big@x.test' });
       await addMember(big);

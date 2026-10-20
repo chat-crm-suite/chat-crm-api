@@ -21,6 +21,7 @@ import {
   type WhatsappNotificationStatus,
 } from '@daweto/whatsapp-api-types';
 
+import { WHATSAPP_WEBHOOK_PATH } from '@contracts';
 import { WebhookQuery } from '../dto/webhook.query.dto';
 import { withReEngagementAction } from '../legacy-error';
 import { WhatsAppService } from '../whatsapp.service';
@@ -63,7 +64,7 @@ export const enum WhatsappNotificationStatusStatus {
 }
 
 @Public()
-@Controller('integration/webhook/whatsapp')
+@Controller(WHATSAPP_WEBHOOK_PATH)
 export class WebhookController {
   constructor(
     private readonly service: WhatsAppService,

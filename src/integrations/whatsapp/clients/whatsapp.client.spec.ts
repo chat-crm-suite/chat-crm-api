@@ -15,7 +15,7 @@ import { of, throwError } from 'rxjs';
 
 import type { ChannelTransmission } from '@modules/channels/channels.service';
 import type { WhatsAppPayload } from '../interfaces/whatsapp-message.interface';
-import { WhatsAppClient } from './whatsapp.client';
+import { WhatsAppClient, classifyWhatsAppError } from './whatsapp.client';
 
 /**
  * T3 stateless provider: every operation carries its transmission (Graph
@@ -397,5 +397,38 @@ describe('WhatsAppClient.uploadMedia (Graph media id)', () => {
 
     expect(http.post).toHaveBeenCalledTimes(2);
     jest.useRealTimers();
+  });
+});
+
+describe('classifyWhatsAppError (auth faults vs message faults)', () => {
+  const graphError = (status: number, code: number, type = 'OAuthException') =>
+    axiosError(status, { error: { type, code, message: `(#${code}) graph error` } });
+
+  it.each([
+    ['an expired token (190)', graphError(400, 190)],
+    ['a missing permission (200)', graphError(400, 200)],
+    ['a permission in the 200-299 range (299)', graphError(400, 299)],
+    ['an app permission error (10)', graphError(400, 10)],
+    ['a session error (102)', graphError(400, 102)],
+    ['an HTTP 401', axiosError(401)],
+    ['an HTTP 403', axiosError(403)],
+  ])('flags %s as an authorization fault', (_label, error) => {
+    expect(classifyWhatsAppError(error)).toMatchObject({
+      authFault: true,
+      retryable: false,
+    });
+  });
+
+  // Meta tags most request errors `OAuthException`, even pure format ones.
+  it.each([
+    ['a template parameter mismatch (132012)', graphError(400, 132012), '132012'],
+    ['an invalid parameter (100)', graphError(400, 100), '100'],
+    ['a re-engagement error (131047)', graphError(400, 131047), '131047'],
+  ])('treats %s as a message fault, not an auth fault', (_label, error, code) => {
+    expect(classifyWhatsAppError(error)).toMatchObject({
+      authFault: false,
+      retryable: false,
+      code,
+    });
   });
 });

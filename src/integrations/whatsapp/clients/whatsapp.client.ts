@@ -377,9 +377,21 @@ function authHeaders(credentials: WhatsAppCredentials) {
 }
 
 /**
+ * Graph codes that mean the token or its permissions are unusable: 190
+ * (invalid/expired token), 102 (session), 10 and 200-299 (permissions).
+ * The error `type` is no signal: Meta tags most request errors
+ * `OAuthException`, template format errors (132012) included.
+ * @link https://developers.facebook.com/docs/graph-api/guides/error-handling
+ */
+function isAuthErrorCode(code: number | string | undefined): boolean {
+  const value = Number(code);
+  return value === 190 || value === 102 || value === 10 || (value >= 200 && value <= 299);
+}
+
+/**
  * Classifies a Graph/transport failure. Authorization faults (HTTP 401/403 or
- * Meta `OAuthException`) are never retryable; transport failures (no response)
- * and server/rate-limit statuses are.
+ * a token/permission code) are never retryable; transport failures (no
+ * response) and server/rate-limit statuses are.
  */
 export function classifyWhatsAppError(error: unknown): WhatsAppErrorInfo {
   if (error instanceof WhatsAppMediaTooLargeError) {
@@ -407,7 +419,7 @@ export function classifyWhatsAppError(error: unknown): WhatsAppErrorInfo {
         ? String(status)
         : undefined;
 
-  if (status === 401 || status === 403 || apiError?.type === 'OAuthException') {
+  if (status === 401 || status === 403 || isAuthErrorCode(apiError?.code)) {
     return {
       authFault: true,
       retryable: false,

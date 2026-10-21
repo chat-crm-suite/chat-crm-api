@@ -35,13 +35,28 @@ import { Conversation } from '../../conversations/entities/conversation.entity';
 export interface TemplateSnapshot {
   name: string;
   language: string;
-  header:
-    | { kind: 'text'; text: string }
-    | { kind: 'media'; mediaType: TemplateHeaderMedia; filename: string | null }
-    | null;
+  header: { kind: 'text'; text: string } | TemplateSnapshotMedia | null;
   body: string;
   footer: string | null;
   buttons: TemplateButton[];
+  /** Carousel cards in order (absent on older rows and other templates). */
+  cards?: Array<{
+    header: TemplateSnapshotMedia | null;
+    body: string;
+    buttons: TemplateButton[];
+  }>;
+}
+
+/**
+ * A header file of a sent template. `attachmentId` points at its row in
+ * `message_attachments` (a carousel has one per card); older rows without
+ * it use the message's first attachment.
+ */
+export interface TemplateSnapshotMedia {
+  kind: 'media';
+  mediaType: TemplateHeaderMedia;
+  filename: string | null;
+  attachmentId?: string;
 }
 
 @Entity('messages')

@@ -57,11 +57,27 @@ export interface ResolvedTemplate {
    * The header file, once the provider holds it. Set by the sender after
    * the upload, never by the `TemplateProvider` (which only knows text).
    */
-  headerMedia?: {
-    type: TemplateHeaderMedia;
-    media: ProviderMedia;
-    filename?: string;
-  };
+  headerMedia?: ResolvedTemplateMedia;
+  /**
+   * Carousel cards in order. Values come from the `TemplateProvider`; each
+   * card's `headerMedia` is set by the sender after its upload.
+   */
+  cards?: ResolvedTemplateCard[];
+}
+
+/** A template header file the provider already holds. */
+export interface ResolvedTemplateMedia {
+  type: TemplateHeaderMedia;
+  media: ProviderMedia;
+  filename?: string;
+}
+
+/** One carousel card ready to send. */
+export interface ResolvedTemplateCard {
+  index: number;
+  body: TemplateParameter[];
+  buttons: ResolvedTemplate['buttons'];
+  headerMedia?: ResolvedTemplateMedia;
 }
 
 /** How a provider failure must be handled by the caller. */

@@ -87,6 +87,12 @@ export class OutgoingMediaService {
     );
   }
 
+  /** Every stored file of a message, oldest first. */
+  async attachmentsOf(messageId: string): Promise<MessageAttachment[]> {
+    const attachments = await this.messages.findAttachments(messageId);
+    return attachments.filter((attachment) => !!attachment.storageUrl);
+  }
+
   /** The file persisted with a message (its first attachment). */
   async attachmentOf(messageId: string): Promise<MessageAttachment | null> {
     const [attachment] = await this.messages.findAttachments(messageId);

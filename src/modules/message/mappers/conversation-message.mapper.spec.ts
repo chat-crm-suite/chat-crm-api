@@ -40,23 +40,13 @@ describe('toMessageView (template)', () => {
       body: 'Hola Ana',
       footer: 'Gracias',
       buttons: [{ type: 'url', text: 'Ver', url: 'https://x.test/9' }],
+      cards: [],
     });
     expect(MessageViewSchema.parse(view)).toEqual(view);
   });
 
   it('takes a media header file from the message attachment', () => {
-    const attachment = {
-      id: 'att-1',
-      type: 'image',
-      status: 'ready',
-      mimeType: 'image/jpeg',
-      fileName: 'promo.jpg',
-      storageUrl: '/uploads/co-1/att.jpg',
-      sizeBytes: 2048,
-      durationMs: null,
-      width: 800,
-      height: 600,
-    } as MessageAttachment;
+    const attachment = imageAttachment('att-1', 'promo.jpg');
 
     const view = toMessageView(
       templateMessage({
@@ -64,7 +54,7 @@ describe('toMessageView (template)', () => {
           header: { kind: 'media', mediaType: 'image', filename: 'old-name.jpg' },
         }),
       }),
-      attachment,
+      [attachment],
     );
 
     expect(view).toMatchObject({
@@ -113,6 +103,49 @@ describe('toMessageView (template)', () => {
       body: 'Hola Ana',
       footer: null,
       buttons: [],
+      cards: [],
     });
   });
+
+  it('renders carousel cards, each with the file its snapshot names', () => {
+    const card = (body: string, attachmentId: string) => ({
+      header: { kind: 'media' as const, mediaType: 'image' as const, filename: null, attachmentId },
+      body,
+      buttons: [{ type: 'url' as const, text: 'Receta', url: 'https://x.test/r' }],
+    });
+    // Stored out of order on purpose: cards follow ids, never positions.
+    const attachments = [imageAttachment('att-2', 'two.jpg'), imageAttachment('att-1', 'one.jpg')];
+
+    const view = toMessageView(
+      templateMessage({
+        templateSnapshot: snapshot({ header: null, cards: [card('Uno', 'att-1'), card('Dos', 'att-2')] }),
+      }),
+      attachments,
+    );
+
+    expect(view).toMatchObject({
+      type: 'template',
+      header: null,
+      cards: [
+        { body: 'Uno', header: { filename: 'one.jpg', media: { attachmentId: 'att-1' } } },
+        { body: 'Dos', header: { filename: 'two.jpg', media: { attachmentId: 'att-2' } } },
+      ],
+    });
+    expect(() => MessageViewSchema.parse(view)).not.toThrow();
+  });
 });
+
+function imageAttachment(id: string, fileName: string): MessageAttachment {
+  return {
+    id,
+    type: 'image',
+    status: 'ready',
+    mimeType: 'image/jpeg',
+    fileName,
+    storageUrl: `/uploads/co-1/${id}.jpg`,
+    sizeBytes: 2048,
+    durationMs: null,
+    width: 800,
+    height: 600,
+  } as MessageAttachment;
+}

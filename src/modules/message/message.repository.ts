@@ -19,6 +19,8 @@ import { MessageStatusEvent } from './entities/message-status-event.entity';
 import { Message, type TemplateSnapshot } from './entities/message.entity';
 
 export interface SaveMessageAttachment {
+  /** Preset id, when a caller must reference the row before it exists. */
+  id?: string;
   type: AttachmentType;
   mimeType?: string;
   fileName?: string;
@@ -92,6 +94,7 @@ export class MessageRepository {
         await manager.save(
           data.attachments.map((attachment) =>
             manager.create(MessageAttachment, {
+              ...(attachment.id ? { id: attachment.id } : {}),
               messageId: message.id,
               type: attachment.type,
               // Column is NOT NULL; callers may omit the mime type.

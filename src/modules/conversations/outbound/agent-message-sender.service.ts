@@ -17,10 +17,15 @@ import type {
   ProviderMedia,
   ResolvedOutgoing,
   ResolvedTemplate,
+  ResolvedTemplateMedia,
 } from '../../channels/ports/channel-adapter.port';
 import { ChannelAdapterRegistry } from '../../channels/ports/channel-adapter.registry';
 import { ChannelsService } from '../../channels/channels.service';
-import type { Message, TemplateSnapshot } from '@modules/message/entities/message.entity';
+import type {
+  Message,
+  TemplateSnapshot,
+  TemplateSnapshotMedia,
+} from '@modules/message/entities/message.entity';
 import { toMessageStatusPatch } from '@modules/message/mappers/message-status-patch.mapper';
 import { MessageService } from '@modules/message/message.service';
 import { SpendService } from '@modules/spend/spend.service';
@@ -38,6 +43,8 @@ import {
 import { toLegacySendError } from './legacy-send-error';
 import { OutgoingMediaService, type OutgoingFile } from './outgoing-media.service';
 import { SendTimer } from './send-timer';
+import { uuidv7 } from '@lib/helpers/uuid.helper';
+import type { StagedTemplateFile } from '../../templates/templates.service';
 
 /**
  * Channel-agnostic outbound pipeline (T5). An agent send is persisted first
@@ -161,35 +168,22 @@ export class AgentMessageSender {
    */
   async sendTemplate(job: TemplateSendJob): Promise<Message> {
     const timer = new SendTimer(Date.now());
-    const { headerMedia } = job;
-    // An expired header upload still leaves a visible (failed) row.
-    const header = headerMedia
-      ? await this.media
-          .prepareTemplateHeader(headerMedia.uploadId, {
-            companyId: job.companyId,
-            templateId: job.templateId,
-            kind: headerMedia.kind,
-          })
-          .then(
-            (file) => ({ file, error: null }),
-            (error: unknown) => ({ file: null, error: errorMessage(error) }),
-          )
-      : { file: null, error: null };
+    const files = await this.prepareTemplateFiles(job);
+    const snapshot = withAttachmentIds(job.snapshot, files);
 
     const { message: saved, created } = await this.conversations.saveOutbound(
       job.conversationId,
       {
         type: 'template',
-        content: {
-          body: job.body,
-          ...(header.file ? { filename: header.file.filename } : {}),
-        },
+        content: { body: job.body },
         clientMessageId: job.clientMessageId ?? null,
         templateId: job.templateId,
-        templateSnapshot: job.snapshot,
-        ...(header.file && headerMedia
-          ? { attachmentType: headerMedia.kind, ...fileFields(header.file) }
-          : {}),
+        templateSnapshot: snapshot,
+        attachments: [files.header, ...files.cards].flatMap((slot) =>
+          slot?.file
+            ? [{ id: slot.id, type: slot.kind, fileName: slot.file.filename, ...attachmentFields(slot.file) }]
+            : [],
+        ),
       },
       { id: job.senderMemberId, type: 'member' },
       job.companyId,
@@ -207,31 +201,53 @@ export class AgentMessageSender {
       message,
       'template',
       async ({ adapter, context }) => {
-        if (!headerMedia) return { type: 'template' as const, ...job.template };
-
-        const attachment = await this.media.attachmentOf(message.id);
-        if (!attachment) {
-          return failure(header.error ?? 'The header file of this template is missing');
+        // The saved row's snapshot names its files (a replay keeps its own).
+        const stored = message.templateSnapshot ?? snapshot;
+        const refs = [stored.header, ...(stored.cards ?? []).map((card) => card.header)];
+        if (!refs.some((ref) => ref?.kind === 'media')) {
+          return { type: 'template' as const, ...job.template };
         }
-        const uploaded = await this.media.toProvider(
-          adapter,
-          { channelId: context.channelId, companyId: context.companyId },
-          attachment,
-        );
+
+        const attachments = await this.media.attachmentsOf(message.id);
+        const target = { channelId: context.channelId, companyId: context.companyId };
+        const upload = async (
+          ref: TemplateSnapshotMedia,
+        ): Promise<ResolvedTemplateMedia | ChannelFailure> => {
+          const attachment = ref.attachmentId
+            ? attachments.find((item) => item.id === ref.attachmentId)
+            : attachments[0];
+          if (!attachment) {
+            return failure(files.error ?? 'A header file of this template is missing');
+          }
+          const uploaded = await this.media.toProvider(adapter, target, attachment);
+          if (!uploaded.ok) return uploaded.error;
+          return {
+            type: ref.mediaType,
+            media: { providerMediaId: uploaded.providerMediaId, mimeType: attachment.mimeType },
+            ...(attachment.fileName ? { filename: attachment.fileName } : {}),
+          };
+        };
+
+        let headerMedia: ResolvedTemplateMedia | undefined;
+        if (stored.header?.kind === 'media') {
+          const media = await upload(stored.header);
+          if (!isMedia(media)) return media;
+          headerMedia = media;
+        }
+        const cards = [...(job.template.cards ?? [])];
+        for (const [index, card] of (stored.cards ?? []).entries()) {
+          if (card.header?.kind !== 'media' || !cards[index]) continue;
+          const media = await upload(card.header);
+          if (!isMedia(media)) return media;
+          cards[index] = { ...cards[index], headerMedia: media };
+        }
         timer.mark('uploaded');
-        if (!uploaded.ok) return uploaded.error;
 
         return {
           type: 'template' as const,
           ...job.template,
-          headerMedia: {
-            type: headerMedia.kind,
-            media: {
-              providerMediaId: uploaded.providerMediaId,
-              mimeType: attachment.mimeType,
-            },
-            ...(attachment.fileName ? { filename: attachment.fileName } : {}),
-          },
+          ...(headerMedia ? { headerMedia } : {}),
+          ...(cards.length ? { cards } : {}),
         };
       },
       timer,
@@ -241,6 +257,34 @@ export class AgentMessageSender {
       'send.template',
     );
     return result;
+  }
+
+  /**
+   * Consumes the staged header and card files of a template send, each with
+   * a preset attachment id the snapshot points at. An expired upload leaves
+   * its slot without a file: the row is still saved, then fails visibly.
+   */
+  private async prepareTemplateFiles(job: TemplateSendJob): Promise<TemplateFiles> {
+    let error: string | null = null;
+    const prepare = async (staged: StagedTemplateFile | null | undefined) => {
+      if (!staged) return null;
+      const file = await this.media
+        .prepareTemplateHeader(staged.uploadId, {
+          companyId: job.companyId,
+          templateId: job.templateId,
+          kind: staged.kind,
+        })
+        .catch((cause: unknown) => {
+          error ??= errorMessage(cause);
+          return null;
+        });
+      return { id: uuidv7(), kind: staged.kind, file };
+    };
+
+    const header = await prepare(job.headerMedia);
+    const cards: TemplateFiles['cards'] = [];
+    for (const staged of job.cardMedia ?? []) cards.push(await prepare(staged));
+    return { header, cards, error };
   }
 
   /**
@@ -423,8 +467,50 @@ export interface TemplateSendJob {
   snapshot: TemplateSnapshot;
   template: ResolvedTemplate;
   /** Staged header file (`POST /templates/:id/header-upload`). */
-  headerMedia?: { uploadId: string; kind: TemplateHeaderMedia };
+  headerMedia?: StagedTemplateFile;
+  /** Carousel: each card's staged header file (null = none), by card. */
+  cardMedia?: Array<StagedTemplateFile | null>;
   clientMessageId?: string | null;
+}
+
+/** One staged template file once consumed (`file` null when it expired). */
+interface TemplateFileSlot {
+  id: string;
+  kind: TemplateHeaderMedia;
+  file: OutgoingFile | null;
+}
+
+interface TemplateFiles {
+  header: TemplateFileSlot | null;
+  cards: Array<TemplateFileSlot | null>;
+  error: string | null;
+}
+
+/** The snapshot with each header file pointing at its attachment row. */
+function withAttachmentIds(snapshot: TemplateSnapshot, files: TemplateFiles): TemplateSnapshot {
+  const link = (
+    header: TemplateSnapshotMedia | null,
+    slot: TemplateFileSlot | null | undefined,
+  ): TemplateSnapshotMedia | null =>
+    header && slot ? { ...header, attachmentId: slot.id, filename: slot.file?.filename ?? header.filename } : header;
+
+  return {
+    ...snapshot,
+    header:
+      snapshot.header?.kind === 'media' ? link(snapshot.header, files.header) : snapshot.header,
+    ...(snapshot.cards
+      ? {
+          cards: snapshot.cards.map((card, index) => ({
+            ...card,
+            header: link(card.header, files.cards[index]),
+          })),
+        }
+      : {}),
+  };
+}
+
+function isMedia(value: ResolvedTemplateMedia | ChannelFailure): value is ResolvedTemplateMedia {
+  return 'media' in value;
 }
 
 function isResolved(value: ResolvedOutgoing | ChannelFailure): value is ResolvedOutgoing {
@@ -460,6 +546,18 @@ function toSaveContent(
 }
 
 /** The stored file's facts, kept on the message's attachment row. */
+/** A consumed file as an attachment row (template header and card files). */
+function attachmentFields(file: OutgoingFile) {
+  return {
+    storageUrl: file.storageUrl,
+    mimeType: file.mimeType,
+    sizeBytes: file.sizeBytes,
+    durationMs: file.durationMs,
+    width: file.width,
+    height: file.height,
+  };
+}
+
 function fileFields(
   file: OutgoingFile,
 ): Pick<

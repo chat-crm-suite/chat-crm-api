@@ -162,6 +162,15 @@ export const MediaRefSchema = z.object({
 });
 export type MediaRef = z.infer<typeof MediaRefSchema>;
 
+/** A sent template's header file (the header or a carousel card). */
+export const TemplateMediaHeaderSchema = z.object({
+  kind: z.literal('media'),
+  mediaType: TemplateHeaderMediaSchema,
+  media: MediaRefSchema,
+  filename: z.string().nullable(),
+});
+export type TemplateMediaHeader = z.infer<typeof TemplateMediaHeaderSchema>;
+
 /** How a message renders (REST history and socket broadcast). */
 export const MessageViewSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
@@ -200,17 +209,20 @@ export const MessageViewSchema = z.discriminatedUnion('type', [
     header: z
       .discriminatedUnion('kind', [
         z.object({ kind: z.literal('text'), text: z.string() }),
-        z.object({
-          kind: z.literal('media'),
-          mediaType: TemplateHeaderMediaSchema,
-          media: MediaRefSchema,
-          filename: z.string().nullable(),
-        }),
+        TemplateMediaHeaderSchema,
       ])
       .nullable(),
     body: z.string(),
     footer: z.string().nullable(),
     buttons: z.array(TemplateButtonSchema),
+    /** Carousel cards in order (empty for any other template). */
+    cards: z.array(
+      z.object({
+        header: TemplateMediaHeaderSchema.nullable(),
+        body: z.string(),
+        buttons: z.array(TemplateButtonSchema),
+      }),
+    ),
   }),
   /**
    * Kinds the product does not render yet (location, contact, interactive,

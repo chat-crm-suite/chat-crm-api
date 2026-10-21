@@ -9,6 +9,7 @@ import type {
 import type {
   WhatsAppPayload,
   WhatsAppPayloadBase,
+  WhatsAppTemplateCard,
   WhatsAppTemplateComponent,
   WhatsAppTemplateMediaParameter,
   WhatsAppTemplateParameter,
@@ -74,23 +75,14 @@ export function toWhatsAppPayload(
 }
 
 function toTemplate(template: ResolvedTemplate) {
-  const components: WhatsAppTemplateComponent[] = [];
-  if (template.headerMedia) {
-    // A media header takes exactly its file (no text placeholders).
-    components.push({ type: 'header', parameters: [toMediaParameter(template.headerMedia)] });
-  } else if (template.header.length) {
-    components.push({ type: 'header', parameters: template.header.map(toParameter) });
-  }
-  if (template.body.length) {
-    components.push({ type: 'body', parameters: template.body.map(toParameter) });
-  }
-  for (const button of template.buttons) {
-    if (!button.parameters.length) continue;
+  const components: WhatsAppTemplateComponent[] = componentsOf(template);
+  if (template.cards?.length) {
     components.push({
-      type: 'button',
-      sub_type: button.subType,
-      index: String(button.index),
-      parameters: button.parameters.map(toParameter),
+      type: 'carousel',
+      cards: template.cards.map((card) => ({
+        card_index: card.index,
+        components: componentsOf({ ...card, header: [] }),
+      })),
     });
   }
 
@@ -100,6 +92,34 @@ function toTemplate(template: ResolvedTemplate) {
     ...(components.length ? { components } : {}),
   };
 }
+
+/** Header (file or values), body values and dynamic buttons of a template or card. */
+function componentsOf(
+  source: Pick<ResolvedTemplate, 'header' | 'body' | 'buttons' | 'headerMedia'>,
+): CardComponent[] {
+  const components: CardComponent[] = [];
+  if (source.headerMedia) {
+    // A media header takes exactly its file (no text placeholders).
+    components.push({ type: 'header', parameters: [toMediaParameter(source.headerMedia)] });
+  } else if (source.header.length) {
+    components.push({ type: 'header', parameters: source.header.map(toParameter) });
+  }
+  if (source.body.length) {
+    components.push({ type: 'body', parameters: source.body.map(toParameter) });
+  }
+  for (const button of source.buttons) {
+    if (!button.parameters.length) continue;
+    components.push({
+      type: 'button',
+      sub_type: button.subType,
+      index: String(button.index),
+      parameters: button.parameters.map(toParameter),
+    });
+  }
+  return components;
+}
+
+type CardComponent = WhatsAppTemplateCard['components'][number];
 
 function toMediaParameter({
   type,

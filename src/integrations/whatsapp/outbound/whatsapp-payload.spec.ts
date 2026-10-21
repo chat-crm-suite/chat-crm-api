@@ -164,4 +164,60 @@ describe('toWhatsAppPayload', () => {
       },
     });
   });
+
+  it('sends a carousel: one card per entry with its own header file, body and buttons', () => {
+    const card = (index: number, id: string) => ({
+      index,
+      body: index ? [{ key: '1', value: 'Luis' }] : [],
+      buttons: index
+        ? [{ index: 0, subType: 'url', parameters: [{ key: '1', value: 'abc' }] }]
+        : [],
+      headerMedia: { type: 'image' as const, media: { providerMediaId: id, mimeType: 'image/jpeg' } },
+    });
+
+    const payload = toWhatsAppPayload('51999000111', {
+      type: 'template',
+      name: 'carousel',
+      language: 'en_US',
+      header: [],
+      body: [],
+      buttons: [],
+      cards: [card(0, 'media-a'), card(1, 'media-b')],
+    });
+
+    expect(payload).toEqual({
+      ...base,
+      type: 'template',
+      template: {
+        name: 'carousel',
+        language: { code: 'en_US' },
+        components: [
+          {
+            type: 'carousel',
+            cards: [
+              {
+                card_index: 0,
+                components: [
+                  { type: 'header', parameters: [{ type: 'image', image: { id: 'media-a' } }] },
+                ],
+              },
+              {
+                card_index: 1,
+                components: [
+                  { type: 'header', parameters: [{ type: 'image', image: { id: 'media-b' } }] },
+                  { type: 'body', parameters: [{ type: 'text', text: 'Luis' }] },
+                  {
+                    type: 'button',
+                    sub_type: 'url',
+                    index: '0',
+                    parameters: [{ type: 'text', text: 'abc' }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+  });
 });

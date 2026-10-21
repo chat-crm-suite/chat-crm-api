@@ -15,7 +15,11 @@ import { DataSource, Repository } from 'typeorm';
 import {
   channelCapabilities,
   ConversationErrorCode,
+  renderTemplateCardText,
   renderTemplateText,
+  templateCardMedia,
+  templateCards,
+  templateCardVariableKey,
   templateHeaderMedia,
   templateParamKey,
   templateSendSupport,
@@ -62,7 +66,16 @@ export interface PreparedTemplateSend {
   snapshot: TemplateSnapshot;
   template: ResolvedTemplate;
   /** The staged header file, checked to exist; the sender consumes it. */
-  headerMedia?: { uploadId: string; kind: TemplateHeaderMedia };
+  headerMedia?: StagedTemplateFile;
+  /** Carousel: each card's staged header file (null = none), by card. */
+  cardMedia?: Array<StagedTemplateFile | null>;
+}
+
+/** A header file staged for a template, checked to exist and match. */
+export interface StagedTemplateFile {
+  uploadId: string;
+  kind: TemplateHeaderMedia;
+  filename: string;
 }
 
 const isAgent = (role: MemberRole) => role === 'agent';
@@ -311,12 +324,19 @@ export class TemplatesService {
       });
     }
 
-    const headerMedia = await this.checkHeaderMedia(row, viewer.companyId, input);
+    const headerMedia = await this.checkStaged(
+      row,
+      viewer.companyId,
+      templateHeaderMedia(components),
+      input.headerMedia?.uploadId,
+      'The template header',
+    );
+    const cardMedia = await this.checkCardMedia(row, viewer.companyId, input);
 
     return {
       templateId: row.id,
       body: renderBody(row, params),
-      snapshot: toSnapshot(row, params, headerMedia?.filename ?? null),
+      snapshot: toSnapshot(row, params, headerMedia?.filename ?? null, cardMedia),
       template: provider.buildSend(
         {
           name: row.name,
@@ -326,9 +346,8 @@ export class TemplatesService {
         },
         params,
       ),
-      ...(headerMedia
-        ? { headerMedia: { uploadId: headerMedia.uploadId, kind: headerMedia.kind } }
-        : {}),
+      ...(headerMedia ? { headerMedia } : {}),
+      ...(cardMedia.some(Boolean) ? { cardMedia } : {}),
     };
   }
 
@@ -341,6 +360,7 @@ export class TemplatesService {
     viewer: TemplateViewer,
     templateId: string,
     upload: IncomingUpload,
+    card?: number,
   ): Promise<StagedUpload> {
     const row = await this.templates.findOne({
       where: { id: templateId, companyId: viewer.companyId },
@@ -355,11 +375,16 @@ export class TemplatesService {
     const components = row.components ?? [];
     assertSendSupported(components, row.channel.type);
 
-    const kind = templateHeaderMedia(components);
+    // `card` targets a carousel card's header; none = the template header.
+    const kind =
+      card === undefined ? templateHeaderMedia(components) : templateCardMedia(components)[card];
     if (!kind) {
       throw new ConflictException({
         code: ConversationErrorCode.TemplateHeaderMediaNotNeeded,
-        message: 'The template header takes no file',
+        message:
+          card === undefined
+            ? 'The template header takes no file'
+            : `Card ${card + 1} of the template takes no file`,
       });
     }
 
@@ -375,22 +400,22 @@ export class TemplatesService {
   }
 
   /**
-   * The header file a send references: required when the header takes one,
-   * refused when it does not, and it must still be staged for this template
-   * with the right kind (an expired upload is a mismatch too).
+   * A header file a send references (the template header or one card):
+   * required when the header takes one, refused when it does not, and it
+   * must still be staged for this template with the right kind (an expired
+   * upload is a mismatch too).
    */
-  private async checkHeaderMedia(
+  private async checkStaged(
     row: MessageTemplate,
     companyId: string,
-    input: SendTemplateInput,
-  ): Promise<{ uploadId: string; kind: TemplateHeaderMedia; filename: string } | null> {
-    const kind = templateHeaderMedia(row.components ?? []);
-    const uploadId = input.headerMedia?.uploadId;
-
+    kind: TemplateHeaderMedia | null,
+    uploadId: string | undefined,
+    what: string,
+  ): Promise<StagedTemplateFile | null> {
     if (kind && !uploadId) {
       throw new BadRequestException({
         code: ConversationErrorCode.TemplateHeaderMediaMissing,
-        message: `The template header needs a ${kind} file`,
+        message: `${what} needs a ${kind} file`,
       });
     }
     if (!uploadId) return null;
@@ -406,11 +431,39 @@ export class TemplatesService {
       throw new BadRequestException({
         code: ConversationErrorCode.TemplateHeaderMediaMismatch,
         message: kind
-          ? `The header file is not a staged ${kind} for this template`
-          : 'The template header takes no file',
+          ? `${what} file is not a staged ${kind} for this template`
+          : `${what} takes no file`,
       });
     }
     return { uploadId, kind, filename: staged.filename };
+  }
+
+  /** Each carousel card's header file, in card order. */
+  private async checkCardMedia(
+    row: MessageTemplate,
+    companyId: string,
+    input: SendTemplateInput,
+  ): Promise<Array<StagedTemplateFile | null>> {
+    const kinds = templateCardMedia(row.components ?? []);
+    if ((input.cards?.length ?? 0) > kinds.length) {
+      throw new BadRequestException({
+        code: ConversationErrorCode.TemplateHeaderMediaMismatch,
+        message: `The template has ${kinds.length} cards`,
+      });
+    }
+    const files: Array<StagedTemplateFile | null> = [];
+    for (const [index, kind] of kinds.entries()) {
+      files.push(
+        await this.checkStaged(
+          row,
+          companyId,
+          kind,
+          input.cards?.[index]?.headerMedia?.uploadId,
+          `Card ${index + 1}`,
+        ),
+      );
+    }
+    return files;
   }
 
   /** The channel type's provider, or 409 `templates_unsupported`. */
@@ -460,11 +513,13 @@ function toSnapshot(
   row: MessageTemplate,
   params: Readonly<Record<string, string>>,
   headerFilename: string | null,
+  cardMedia: Array<StagedTemplateFile | null> = [],
 ): TemplateSnapshot {
   const components = row.components ?? [];
   const find = (type: string) => components.find((component) => component.type === type);
   const header = find('header');
   const mediaType = templateHeaderMedia(components);
+  const cards = templateCards(components);
 
   return {
     name: row.name,
@@ -476,16 +531,38 @@ function toSnapshot(
         : null,
     body: renderTemplateText(find('body')?.text ?? '', 'body', params),
     footer: find('footer')?.text ?? null,
-    buttons: (find('buttons')?.buttons ?? []).map(
-      (button, index): TemplateButton => ({
-        ...button,
-        url: button.url?.replace(
-          /\{\{\s*1\s*\}\}/,
-          params[templateParamKey({ component: 'buttons', key: String(index) })] ?? '',
-        ),
-      }),
+    buttons: withUrlSuffixes(find('buttons')?.buttons ?? [], (index) =>
+      templateParamKey({ component: 'buttons', key: String(index) }),
     ),
+    ...(cards.length
+      ? {
+          cards: cards.map((card, index) => {
+            const file = cardMedia[index];
+            return {
+              header: file ? { kind: 'media', mediaType: file.kind, filename: file.filename } : null,
+              body: renderTemplateCardText(card.body ?? '', index, params),
+              buttons: withUrlSuffixes(card.buttons, (button) =>
+                templateParamKey({
+                  component: 'carousel',
+                  key: templateCardVariableKey(index, 'button', button),
+                }),
+              ),
+            };
+          }),
+        }
+      : {}),
   };
+
+  /** A dynamic URL button gets its value in place of the `{{1}}` of its URL. */
+  function withUrlSuffixes(
+    buttons: readonly TemplateButton[],
+    paramKey: (index: number) => string,
+  ): TemplateButton[] {
+    return buttons.map((button, index) => ({
+      ...button,
+      url: button.url?.replace(/\{\{\s*1\s*\}\}/, params[paramKey(index)] ?? ''),
+    }));
+  }
 }
 
 /** Header (text), body and footer with the values filled, one per paragraph. */

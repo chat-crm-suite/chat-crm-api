@@ -45,6 +45,7 @@ function build() {
     prepare: jest.fn().mockResolvedValue(null),
     prepareTemplateHeader: jest.fn(),
     attachmentOf: jest.fn(),
+    attachmentsOf: jest.fn(),
     toProvider: jest.fn(),
   };
   const fanout = { emitStatusPatch: jest.fn(), emitError: jest.fn() };
@@ -713,29 +714,43 @@ describe('AgentMessageSender template header media', () => {
       header: { kind: 'media' as const, mediaType: 'image' as const, filename: 'promo.jpg' },
     },
     template,
-    headerMedia: { uploadId: UPLOAD_ID, kind: 'image' as const },
+    headerMedia: { uploadId: UPLOAD_ID, kind: 'image' as const, filename: 'promo.jpg' },
   };
-  const file = {
-    storageUrl: '/uploads/co-1/promo.jpg',
+  const file = (filename = 'promo.jpg') => ({
+    storageUrl: `/uploads/co-1/${filename}`,
     mimeType: 'image/jpeg',
-    filename: 'promo.jpg',
+    filename,
     sizeBytes: 2048,
     durationMs: null,
     width: 800,
     height: 600,
-  };
-  const attachment = {
-    id: 'att-1',
-    mimeType: 'image/jpeg',
-    fileName: 'promo.jpg',
-    storageUrl: '/uploads/co-1/promo.jpg',
-  };
+  });
+
+  interface SavedAttachment {
+    id: string;
+    fileName: string;
+    storageUrl: string;
+  }
+
+  /** The rows saved with the message, as `attachmentsOf` reads them back. */
+  function storedAttachments(conversations: ReturnType<typeof build>['conversations']) {
+    const [, content] = conversations.saveOutbound.mock.calls[0] as [
+      string,
+      { attachments: SavedAttachment[] },
+    ];
+    return content.attachments.map((item) => ({
+      id: item.id,
+      mimeType: 'image/jpeg',
+      fileName: item.fileName,
+      storageUrl: item.storageUrl,
+    }));
+  }
 
   it('stores the header file on the row, uploads it once and sends it by provider id', async () => {
     const { sender, conversations, messages, adapter, media } = build();
-    media.prepareTemplateHeader.mockResolvedValue(file);
+    media.prepareTemplateHeader.mockResolvedValue(file());
     conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
-    media.attachmentOf.mockResolvedValue(attachment);
+    media.attachmentsOf.mockImplementation(() => Promise.resolve(storedAttachments(conversations)));
     media.toProvider.mockResolvedValue({ ok: true, providerMediaId: 'media-9' });
     adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-9' });
     messages.markSent.mockResolvedValue(message({ status: 'sent' }));
@@ -747,15 +762,26 @@ describe('AgentMessageSender template header media', () => {
       templateId: 'tpl-1',
       kind: 'image',
     });
+    const [attachment] = storedAttachments(conversations);
     expect(conversations.saveOutbound).toHaveBeenCalledWith(
       'conv-1',
       expect.objectContaining({
         type: 'template',
-        attachmentType: 'image',
-        mediaUrl: '/uploads/co-1/promo.jpg',
-        mimeType: 'image/jpeg',
-        templateSnapshot: job.snapshot,
-        content: { body: 'Hola', filename: 'promo.jpg' },
+        content: { body: 'Hola' },
+        attachments: [
+          expect.objectContaining({
+            id: attachment.id,
+            type: 'image',
+            fileName: 'promo.jpg',
+            storageUrl: '/uploads/co-1/promo.jpg',
+            mimeType: 'image/jpeg',
+          }),
+        ],
+        // The snapshot points at the file's attachment row.
+        templateSnapshot: {
+          ...job.snapshot,
+          header: { ...job.snapshot.header, attachmentId: attachment.id },
+        },
       }),
       { id: 'member-1', type: 'member' },
       'co-1',
@@ -776,14 +802,14 @@ describe('AgentMessageSender template header media', () => {
     const { sender, conversations, messages, adapter, media } = build();
     media.prepareTemplateHeader.mockRejectedValue(new Error('Upload not found or expired'));
     conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
-    media.attachmentOf.mockResolvedValue(null);
+    media.attachmentsOf.mockResolvedValue([]);
     messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
 
     await sender.sendTemplate(job);
 
     expect(conversations.saveOutbound).toHaveBeenCalledWith(
       'conv-1',
-      expect.not.objectContaining({ mediaUrl: expect.anything() as unknown }),
+      expect.objectContaining({ attachments: [] }),
       expect.anything(),
       'co-1',
     );
@@ -796,9 +822,9 @@ describe('AgentMessageSender template header media', () => {
 
   it('fails the row when the provider refuses the header upload', async () => {
     const { sender, conversations, messages, adapter, media } = build();
-    media.prepareTemplateHeader.mockResolvedValue(file);
+    media.prepareTemplateHeader.mockResolvedValue(file());
     conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
-    media.attachmentOf.mockResolvedValue(attachment);
+    media.attachmentsOf.mockImplementation(() => Promise.resolve(storedAttachments(conversations)));
     media.toProvider.mockResolvedValue({
       ok: false,
       error: { authFault: false, retryable: false, code: '131053', message: 'scrutiny failed' },
@@ -811,6 +837,78 @@ describe('AgentMessageSender template header media', () => {
     expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
       code: '131053',
       message: 'scrutiny failed',
+    });
+  });
+
+  it('sends a carousel with each card file uploaded and linked to its own row', async () => {
+    const { sender, conversations, messages, adapter, media } = build();
+    const card = (body: string) => ({
+      header: { kind: 'media' as const, mediaType: 'image' as const, filename: null },
+      body,
+      buttons: [],
+    });
+    const carouselJob = {
+      ...job,
+      snapshot: { ...textSnapshot, cards: [card('Uno'), card('Dos')] },
+      template: {
+        ...template,
+        cards: [
+          { index: 0, body: [], buttons: [] },
+          { index: 1, body: [], buttons: [] },
+        ],
+      },
+      headerMedia: undefined,
+      cardMedia: [
+        { uploadId: UPLOAD_ID, kind: 'image' as const, filename: 'one.jpg' },
+        {
+          uploadId: '1c0a7b4f-6d2e-4a8f-8b3c-4d5e6f7a8b9c',
+          kind: 'image' as const,
+          filename: 'two.jpg',
+        },
+      ],
+    };
+    media.prepareTemplateHeader
+      .mockResolvedValueOnce(file('one.jpg'))
+      .mockResolvedValueOnce(file('two.jpg'));
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentsOf.mockImplementation(() => Promise.resolve(storedAttachments(conversations)));
+    media.toProvider.mockImplementation(
+      (_adapter: unknown, _target: unknown, row: SavedAttachment) =>
+        Promise.resolve({ ok: true, providerMediaId: `media-${row.fileName}` }),
+    );
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-c' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+
+    await sender.sendTemplate(carouselJob);
+
+    const [one, two] = storedAttachments(conversations);
+    const [, saved] = conversations.saveOutbound.mock.calls[0] as [
+      string,
+      { templateSnapshot: unknown },
+    ];
+    const linked = (body: string, id: string, filename: string) => ({
+      ...card(body),
+      header: { ...card(body).header, attachmentId: id, filename },
+    });
+    expect(saved.templateSnapshot).toEqual({
+      ...textSnapshot,
+      cards: [linked('Uno', one.id, 'one.jpg'), linked('Dos', two.id, 'two.jpg')],
+    });
+    expect(media.toProvider).toHaveBeenCalledTimes(2);
+    const sent = (index: number, filename: string) => ({
+      index,
+      body: [],
+      buttons: [],
+      headerMedia: {
+        type: 'image',
+        media: { providerMediaId: `media-${filename}`, mimeType: 'image/jpeg' },
+        filename,
+      },
+    });
+    expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', {
+      type: 'template',
+      ...template,
+      cards: [sent(0, 'one.jpg'), sent(1, 'two.jpg')],
     });
   });
 });

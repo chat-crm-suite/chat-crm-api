@@ -3,7 +3,11 @@
 
 import {
   TEMPLATE_HEADER_FORMATS,
+  templateCardVariableKey,
+  templateCards,
   templateParamKey,
+  type TemplateButton,
+  type TemplateCard,
   type TemplateCategory,
   type TemplateComponent,
   type TemplateComponentType,
@@ -84,29 +88,41 @@ export function normalizeWhatsAppTemplate(template: WhatsAppGraphTemplate): Remo
     } else if (type === 'FOOTER') {
       components.push({ type: 'footer', text: component.text ?? null });
     } else if (type === 'BUTTONS') {
-      const buttons = component.buttons ?? [];
-      components.push({
-        type: 'buttons',
-        buttons: buttons.map((button) => ({
-          type:
-            BUTTON_TYPES[button.type?.toUpperCase() as keyof typeof BUTTON_TYPES] ?? 'other',
-          text: button.text ?? '',
-          url: button.url ?? null,
-          phoneNumber: button.phone_number ?? null,
-        })),
-      });
+      components.push({ type: 'buttons', buttons: toButtons(component) });
       // A dynamic URL button takes one value: the suffix of `{{1}}`.
-      buttons.forEach((button, index) => {
-        if (button.type?.toUpperCase() !== 'URL' || !placeholderKeys(button.url).length) return;
-        variables.push({
-          key: String(index),
-          component: 'buttons',
-          example: button.example?.[0] ?? null,
-        });
-      });
+      for (const [index, example] of dynamicUrlButtons(component)) {
+        variables.push({ key: String(index), component: 'buttons', example });
+      }
     } else if (type === 'CAROUSEL') {
-      // Kept so the template reads as unsendable; its cards are not stored.
-      components.push({ type: 'carousel' });
+      const cards = (component.cards ?? []).map((card, index) => {
+        const parts = card.components ?? [];
+        const find = (part: string) => parts.find((item) => item.type?.toUpperCase() === part);
+        const header = find('HEADER');
+        const body = find('BODY');
+        const buttons = find('BUTTONS');
+        const format = header?.format?.toLowerCase();
+
+        for (const variable of textVariables('body', body ?? { type: 'BODY' })) {
+          variables.push({
+            ...variable,
+            component: 'carousel',
+            key: templateCardVariableKey(index, 'body', variable.key),
+          });
+        }
+        for (const [button, example] of dynamicUrlButtons(buttons)) {
+          variables.push({
+            key: templateCardVariableKey(index, 'button', button),
+            component: 'carousel',
+            example,
+          });
+        }
+        return {
+          headerFormat: isHeaderFormat(format) ? format : null,
+          body: body?.text ?? null,
+          buttons: toButtons(buttons),
+        } satisfies TemplateCard;
+      });
+      components.push({ type: 'carousel', cards });
     }
     // Limited-time offers…: not rendered by the CRM yet.
   }
@@ -141,6 +157,13 @@ export function buildWhatsAppTemplateSend(
         .map((variable) => variable.key),
     ).map((key) => ({ key, value: params[templateParamKey({ component, key })] ?? '' }));
 
+  const urlButton = (index: number, variable: RemoteTemplateVariable) => ({
+    index,
+    subType: 'url',
+    parameters: [{ key: '1', value: params[templateParamKey(variable)] ?? '' }],
+  });
+  const cards = templateCards(template.components);
+
   return {
     name: template.name,
     language: template.language,
@@ -148,14 +171,54 @@ export function buildWhatsAppTemplateSend(
     body: valuesOf('body'),
     buttons: template.variables
       .filter((variable) => variable.component === 'buttons')
-      .map((variable) => ({
-        index: Number(variable.key),
-        subType: 'url',
-        parameters: [
-          { key: '1', value: params[templateParamKey(variable)] ?? '' },
-        ],
-      })),
+      .map((variable) => urlButton(Number(variable.key), variable)),
+    ...(cards.length
+      ? {
+          cards: cards.map((_card, index) => {
+            const ofCard = (part: 'body' | 'button') => {
+              const prefix = templateCardVariableKey(index, part, '');
+              return template.variables
+                .filter((variable) => variable.component === 'carousel' && variable.key.startsWith(prefix))
+                .map((variable) => ({ variable, key: variable.key.slice(prefix.length) }));
+            };
+            return {
+              index,
+              body: sortKeys(ofCard('body').map(({ key }) => key)).map((key) => ({
+                key,
+                value:
+                  params[
+                    templateParamKey({
+                      component: 'carousel',
+                      key: templateCardVariableKey(index, 'body', key),
+                    })
+                  ] ?? '',
+              })),
+              buttons: ofCard('button').map(({ variable, key }) => urlButton(Number(key), variable)),
+            };
+          }),
+        }
+      : {}),
   };
+}
+
+function toButtons(source: WhatsAppGraphTemplateComponent | undefined): TemplateButton[] {
+  return (source?.buttons ?? []).map((button) => ({
+    type: BUTTON_TYPES[button.type?.toUpperCase() as keyof typeof BUTTON_TYPES] ?? 'other',
+    text: button.text ?? '',
+    url: button.url ?? null,
+    phoneNumber: button.phone_number ?? null,
+  }));
+}
+
+/** `[index, example]` of each URL button whose URL ends in a placeholder. */
+function dynamicUrlButtons(
+  source: WhatsAppGraphTemplateComponent | undefined,
+): Array<[number, string | null]> {
+  return (source?.buttons ?? []).flatMap((button, index): Array<[number, string | null]> =>
+    button.type?.toUpperCase() === 'URL' && placeholderKeys(button.url).length
+      ? [[index, button.example?.[0] ?? null]]
+      : [],
+  );
 }
 
 function textVariables(

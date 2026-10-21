@@ -83,7 +83,14 @@ export type WhatsAppTemplateComponent =
       sub_type: string;
       index: string;
       parameters: WhatsAppTemplateParameter[];
-    };
+    }
+  | { type: 'carousel'; cards: WhatsAppTemplateCard[] };
+
+/** One carousel card: its own header file, body values and buttons. */
+export interface WhatsAppTemplateCard {
+  card_index: number;
+  components: Exclude<WhatsAppTemplateComponent, { type: 'carousel' }>[];
+}
 
 /** An approved template; only components with values (or a file) are sent. */
 export interface WhatsAppTemplateMessage extends WhatsAppPayloadBase {

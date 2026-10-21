@@ -266,6 +266,8 @@ export interface ChannelCapabilities {
    * its `media` rule (mime types, size), which the header upload enforces.
    */
   readonly templateHeaderMedia: readonly TemplateHeaderMedia[];
+  /** Carousel templates (swipeable cards), or null when unsupported. */
+  readonly templateCarousel: { readonly maxCards: number } | null;
 }
 
 /**
@@ -319,6 +321,8 @@ const WHATSAPP_CAPABILITIES: ChannelCapabilities = {
   replyWindowMs: 24 * 60 * 60 * 1000,
   supportsTemplates: true,
   templateHeaderMedia: ['image', 'video', 'document'],
+  // Graph media card carousels: 2 to 10 cards.
+  templateCarousel: { maxCards: 10 },
 };
 
 export const CHANNEL_CAPABILITIES: Readonly<

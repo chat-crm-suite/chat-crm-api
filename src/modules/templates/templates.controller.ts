@@ -34,6 +34,7 @@ import {
 } from '../../contracts/index';
 import { zodResponseSchema } from '../../docs/zod-response';
 import { SyncTemplatesDto } from './dto/sync-templates.dto';
+import { TemplateHeaderUploadQueryDto } from './dto/template-header-upload-query.dto';
 import { TemplateListQueryDto } from './dto/template-list-query.dto';
 import { UpdateTemplateSettingsDto } from './dto/update-template-settings.dto';
 import { TemplatesService } from './templates.service';
@@ -90,7 +91,7 @@ export class TemplatesController {
   /**
    * Stages the header file of a template (multipart `file`) before sending
    * it. Same streaming and checks as `POST /conversations/:id/uploads`; the
-   * kind is the template's header format.
+   * kind is the template's header format, or the card's with `?card=`.
    */
   @Post(':id/header-upload')
   @UseInterceptors(
@@ -106,9 +107,10 @@ export class TemplatesController {
   stageHeaderMedia(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File | undefined,
+    @Query() query: TemplateHeaderUploadQueryDto,
     @CurrentTenant() tenant: TenantContext,
   ) {
     if (!file) throw new BadRequestException('A file is required');
-    return this.templates.stageHeaderMedia(tenant, id, file);
+    return this.templates.stageHeaderMedia(tenant, id, file, query.card);
   }
 }

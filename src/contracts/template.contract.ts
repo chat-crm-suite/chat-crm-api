@@ -42,7 +42,7 @@ export const TEMPLATE_COMPONENT_TYPES = [
   'body',
   'footer',
   'buttons',
-  /** Stored so the template can be flagged unsendable; never rendered. */
+  /** Swipeable cards (`cards`), each with its own header file. */
   'carousel',
 ] as const;
 export const TemplateComponentTypeSchema = z.enum(TEMPLATE_COMPONENT_TYPES);
@@ -58,8 +58,24 @@ export const TEMPLATE_HEADER_FORMATS = [
 export const TemplateHeaderFormatSchema = z.enum(TEMPLATE_HEADER_FORMATS);
 
 /**
- * Why a template cannot be sent from the CRM (yet): a carousel, a location
- * header, or a header file kind the channel does not accept.
+ * One card of a `carousel` component. Its body placeholders and dynamic URL
+ * buttons are variables of component `carousel` keyed by card
+ * (`templateCardParamKey`).
+ */
+export const TemplateCardSchema = z.object({
+  headerFormat: TemplateHeaderFormatSchema.nullable(),
+  body: z.string().nullable(),
+  buttons: z.array(TemplateButtonSchema),
+});
+export type TemplateCard = z.infer<typeof TemplateCardSchema>;
+
+/** Most cards a carousel can carry (also bounds `SendTemplateSchema.cards`). */
+export const TEMPLATE_CAROUSEL_MAX_CARDS = 10;
+
+/**
+ * Why a template cannot be sent from the CRM (yet): a carousel on a channel
+ * without carousels, a location header, or a header file kind the channel
+ * does not accept.
  */
 export const TEMPLATE_UNSENDABLE_REASONS = [
   'carousel',
@@ -86,6 +102,8 @@ export const TemplateComponentSchema = z.object({
   format: TemplateHeaderFormatSchema.nullish(),
   text: z.string().nullish(),
   buttons: z.array(TemplateButtonSchema).nullish(),
+  /** `type: 'carousel'` only. */
+  cards: z.array(TemplateCardSchema).nullish(),
 });
 export type TemplateComponent = z.infer<typeof TemplateComponentSchema>;
 
@@ -181,6 +199,14 @@ export const SendTemplateSchema = z.object({
   params: z.record(z.string(), z.string().trim().min(1).max(1024)).default({}),
   /** The header file, staged by `POST /templates/:id/header-upload`. */
   headerMedia: z.object({ uploadId: z.uuid() }).optional(),
+  /**
+   * Carousel templates: one entry per card, in card order. A card whose
+   * header takes a file carries it, staged with `?card=<index>`.
+   */
+  cards: z
+    .array(z.object({ headerMedia: z.object({ uploadId: z.uuid() }).optional() }))
+    .max(TEMPLATE_CAROUSEL_MAX_CARDS)
+    .optional(),
   /** Same idempotency key as free-form sends. */
   clientMessageId: z.string().min(1).max(64).optional(),
 });
@@ -194,6 +220,12 @@ export type SendTemplateInput = z.infer<typeof SendTemplateSchema>;
  * 409 `template_header_media_not_needed` when the header takes no file.
  */
 export const TemplateHeaderUploadResultSchema = StagedUploadSchema;
+
+/** `POST /templates/:id/header-upload` query: `card` targets a carousel card. */
+export const TemplateHeaderUploadQuerySchema = z.object({
+  card: z.coerce.number().int().min(0).max(TEMPLATE_CAROUSEL_MAX_CARDS - 1).optional(),
+});
+export type TemplateHeaderUploadQuery = z.infer<typeof TemplateHeaderUploadQuerySchema>;
 export type TemplateHeaderUploadResult = z.infer<typeof TemplateHeaderUploadResultSchema>;
 
 export const SendTemplateResultSchema = z.object({
@@ -249,10 +281,7 @@ export type SyncTemplatesResult = z.infer<typeof SyncTemplatesResultSchema>;
 export function templateHeaderMedia(
   components: readonly TemplateComponent[],
 ): TemplateHeaderMedia | null {
-  const format = components.find((component) => component.type === 'header')?.format;
-  return (TEMPLATE_HEADER_MEDIA as readonly string[]).includes(format ?? '')
-    ? (format as TemplateHeaderMedia)
-    : null;
+  return asHeaderMedia(components.find((component) => component.type === 'header')?.format);
 }
 
 /**
@@ -264,18 +293,71 @@ export function templateSendSupport(
   channelType: ChannelType,
 ): TemplateSendSupport {
   const unsendable = (reason: TemplateUnsendableReason) => ({ ok: false, reason });
-  if (components.some((component) => component.type === 'carousel')) {
+  const capabilities = channelCapabilities(channelType);
+  const cards = templateCards(components);
+  // No cards = stored before cards were kept: unsendable until re-synced.
+  if (
+    components.some((component) => component.type === 'carousel') &&
+    (!capabilities?.templateCarousel ||
+      !cards.length ||
+      cards.length > capabilities.templateCarousel.maxCards)
+  ) {
     return unsendable('carousel');
   }
-  const header = components.find((component) => component.type === 'header');
-  if (header?.format === 'location') return unsendable('location_header');
 
-  const media = templateHeaderMedia(components);
-  const capabilities = channelCapabilities(channelType);
-  if (media && !(capabilities?.templateHeaderMedia.includes(media) && capabilities.media[media])) {
-    return unsendable('header_media_unsupported');
-  }
+  const header = components.find((component) => component.type === 'header');
+  const formats = [header?.format, ...cards.map((card) => card.headerFormat)];
+  if (formats.includes('location')) return unsendable('location_header');
+
+  const media = [templateHeaderMedia(components), ...templateCardMedia(components)];
+  const accepted = (kind: TemplateHeaderMedia | null) =>
+    !kind || (capabilities?.templateHeaderMedia.includes(kind) && !!capabilities.media[kind]);
+  if (!media.every(accepted)) return unsendable('header_media_unsupported');
+
   return { ok: true, reason: null };
+}
+
+/** The cards of a carousel template, or none. */
+export function templateCards(components: readonly TemplateComponent[]): TemplateCard[] {
+  return components.find((component) => component.type === 'carousel')?.cards ?? [];
+}
+
+/** The file each carousel card's header needs (null = no file), by card. */
+export function templateCardMedia(
+  components: readonly TemplateComponent[],
+): Array<TemplateHeaderMedia | null> {
+  return templateCards(components).map((card) => asHeaderMedia(card.headerFormat));
+}
+
+/**
+ * Key of a card variable: `${card}.body.${placeholder}` for the card body,
+ * `${card}.button.${index}` for a dynamic URL button (component `carousel`).
+ */
+export function templateCardVariableKey(
+  card: number,
+  part: 'body' | 'button',
+  key: string | number,
+): string {
+  return `${card}.${part}.${key}`;
+}
+
+/** Fill a card body's `{{key}}` placeholders (missing values keep them). */
+export function renderTemplateCardText(
+  text: string,
+  card: number,
+  params: Readonly<Record<string, string>>,
+): string {
+  return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (placeholder, key: string) => {
+    const value =
+      params[templateParamKey({ component: 'carousel', key: templateCardVariableKey(card, 'body', key) })];
+    return value ? value : placeholder;
+  });
+}
+
+function asHeaderMedia(format: string | null | undefined): TemplateHeaderMedia | null {
+  return (TEMPLATE_HEADER_MEDIA as readonly string[]).includes(format ?? '')
+    ? (format as TemplateHeaderMedia)
+    : null;
 }
 
 /** Key of a variable inside `SendTemplateInput.params`. */

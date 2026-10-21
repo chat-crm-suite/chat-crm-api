@@ -53,6 +53,7 @@ export interface SaveMessageParams {
   templateSnapshot?: TemplateSnapshot | null;
   status?: MessageStatus;
   attachments?: Array<{
+    id?: string;
     type: AttachmentType;
     mimeType?: string;
     fileName?: string;

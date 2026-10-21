@@ -15,6 +15,7 @@ import type {
 } from '../../contracts/index';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
 import type { TemplateSnapshot } from '../message/entities/message.entity';
+import type { SaveMessageAttachment } from '../message/message.repository';
 import {
   MessageService,
   type SaveMessageParams,
@@ -59,6 +60,11 @@ export interface SaveConversationMessageContent {
    * header file); media message types derive it themselves.
    */
   attachmentType?: AttachmentType;
+  /**
+   * Several files with preset ids (a template's header and carousel card
+   * files); replaces the single-file fields above.
+   */
+  attachments?: SaveMessageAttachment[];
 }
 
 const ATTACHMENT_TYPE_BY_MESSAGE_TYPE: Partial<
@@ -163,8 +169,9 @@ export class ConversationsService {
       // T5: an outbound row is born pending; Graph's wamid (or the failure)
       // moves it. Inbound rows are already delivered when persisted.
       status: inbound ? 'delivered' : 'pending',
-      attachments:
-        attachmentType && (link || msg.externalMediaId)
+      attachments: msg.attachments?.length
+        ? msg.attachments
+        : attachmentType && (link || msg.externalMediaId)
           ? [
               {
                 type: attachmentType,

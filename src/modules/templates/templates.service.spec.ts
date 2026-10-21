@@ -249,7 +249,7 @@ describe('TemplatesService', () => {
       ]);
     });
 
-    it('refuses a carousel with 409 template_unsendable', async () => {
+    it('refuses a carousel stored without its cards with 409 template_unsendable', async () => {
       const { admin, conversation, slides } = await setup();
 
       await expect(
@@ -290,7 +290,7 @@ describe('TemplatesService', () => {
         headerMedia: { uploadId: UPLOAD_ID },
       });
 
-      expect(prepared.headerMedia).toEqual({ uploadId: UPLOAD_ID, kind: 'image' });
+      expect(prepared.headerMedia).toEqual({ uploadId: UPLOAD_ID, kind: 'image', filename: 'promo.jpg' });
       expect(prepared.snapshot).toEqual({
         name: 'image_cta',
         language: 'es',
@@ -336,6 +336,132 @@ describe('TemplatesService', () => {
       );
       await expect(service.stageHeaderMedia(admin, slides.id, file)).rejects.toMatchObject({
         response: { code: 'template_unsendable' },
+      });
+    });
+
+    describe('carousel with cards', () => {
+      const CARD_UPLOAD = '1c0a7b4f-6d2e-4a8f-8b3c-4d5e6f7a8b9c';
+      const recipes = remote({
+        name: 'recipes',
+        externalId: 'ext-rec',
+        components: [
+          { type: 'body', text: 'Recetas' },
+          {
+            type: 'carousel',
+            cards: [
+              {
+                headerFormat: 'image',
+                body: 'Cena',
+                buttons: [{ type: 'url', text: 'Ver', url: 'https://x.test/1', phoneNumber: null }],
+              },
+              {
+                headerFormat: 'image',
+                body: 'Ensalada para {{1}}',
+                buttons: [{ type: 'url', text: 'Ver', url: 'https://x.test/r/{{1}}', phoneNumber: null }],
+              },
+            ],
+          },
+        ],
+        variables: [
+          { key: '1.body.1', component: 'carousel', example: 'Ana' },
+          { key: '1.button.0', component: 'carousel', example: null },
+        ],
+      });
+      const params = { 'carousel:1.body.1': 'Luis', 'carousel:1.button.0': 'abc' };
+
+      async function setupRecipes() {
+        const company = await seed.company();
+        const channel = await seed.channel(company);
+        remotes = [recipes];
+        await service.sync(company.id, channel.id);
+        return {
+          admin: { companyId: company.id, role: 'admin' as const },
+          conversation: { channelId: channel.id, channelType: 'whatsapp' as const },
+          row: await dataSource.getRepository(MessageTemplate).findOneByOrFail({ name: 'recipes' }),
+        };
+      }
+
+      it('lists it as sendable', async () => {
+        const { admin } = await setupRecipes();
+        const [listed] = await service.list(admin);
+        expect(listed.sendSupport).toEqual({ ok: true, reason: null });
+      });
+
+      it('requires one staged file per card that takes one', async () => {
+        const { admin, conversation, row } = await setupRecipes();
+        staged.find.mockResolvedValue({ uploadId: UPLOAD_ID, filename: 'one.jpg' });
+
+        await expect(
+          service.prepareSend(admin, conversation, {
+            templateId: row.id,
+            params,
+            cards: [{ headerMedia: { uploadId: UPLOAD_ID } }],
+          }),
+        ).rejects.toMatchObject({
+          status: 400,
+          response: { code: 'template_header_media_missing', message: 'Card 2 needs a image file' },
+        });
+        staged.find.mockReset();
+      });
+
+      it('prepares each card file and a snapshot with the cards filled', async () => {
+        const { admin, conversation, row } = await setupRecipes();
+        staged.find
+          .mockResolvedValueOnce({ uploadId: UPLOAD_ID, filename: 'one.jpg' })
+          .mockResolvedValueOnce({ uploadId: CARD_UPLOAD, filename: 'two.jpg' });
+
+        const prepared = await service.prepareSend(admin, conversation, {
+          templateId: row.id,
+          params,
+          cards: [{ headerMedia: { uploadId: UPLOAD_ID } }, { headerMedia: { uploadId: CARD_UPLOAD } }],
+        });
+
+        expect(prepared.cardMedia).toEqual([
+          { uploadId: UPLOAD_ID, kind: 'image', filename: 'one.jpg' },
+          { uploadId: CARD_UPLOAD, kind: 'image', filename: 'two.jpg' },
+        ]);
+        expect(prepared.snapshot.cards).toEqual([
+          {
+            header: { kind: 'media', mediaType: 'image', filename: 'one.jpg' },
+            body: 'Cena',
+            buttons: [{ type: 'url', text: 'Ver', url: 'https://x.test/1', phoneNumber: null }],
+          },
+          {
+            header: { kind: 'media', mediaType: 'image', filename: 'two.jpg' },
+            body: 'Ensalada para Luis',
+            buttons: [{ type: 'url', text: 'Ver', url: 'https://x.test/r/abc', phoneNumber: null }],
+          },
+        ]);
+        expect(prepared.template.cards).toEqual([
+          { index: 0, body: [], buttons: [] },
+          {
+            index: 1,
+            body: [{ key: '1', value: 'Luis' }],
+            buttons: [{ index: 0, subType: 'url', parameters: [{ key: '1', value: 'abc' }] }],
+          },
+        ]);
+      });
+
+      it('stages a card file with the card header kind', async () => {
+        const { admin, row } = await setupRecipes();
+        const file = { path: '/tmp/x', size: 1, mimetype: 'image/png', originalname: 'x.png' };
+        uploads.stageFor.mockResolvedValueOnce({ uploadId: CARD_UPLOAD });
+
+        await expect(service.stageHeaderMedia(admin, row.id, file, 1)).resolves.toEqual({
+          uploadId: CARD_UPLOAD,
+        });
+        expect(uploads.stageFor).toHaveBeenCalledWith(
+          { companyId: admin.companyId, scope: `template:${row.id}`, channelType: 'whatsapp' },
+          file,
+          { kind: 'image' },
+        );
+        // The template itself has no header file, and there is no card 3.
+        await expect(service.stageHeaderMedia(admin, row.id, file)).rejects.toMatchObject({
+          response: { code: 'template_header_media_not_needed' },
+        });
+        await expect(service.stageHeaderMedia(admin, row.id, file, 2)).rejects.toMatchObject({
+          response: { code: 'template_header_media_not_needed' },
+        });
       });
     });
   });

@@ -67,6 +67,8 @@ export interface WhatsAppGraphTemplateComponent {
     phone_number?: string;
     example?: string[];
   }>;
+  /** `CAROUSEL` only: each card is a list of components of its own. */
+  cards?: Array<{ components?: WhatsAppGraphTemplateComponent[] }>;
 }
 
 interface WhatsAppTemplatePage {

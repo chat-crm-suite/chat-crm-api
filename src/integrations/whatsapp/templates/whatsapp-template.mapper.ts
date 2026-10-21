@@ -104,8 +104,11 @@ export function normalizeWhatsAppTemplate(template: WhatsAppGraphTemplate): Remo
           example: button.example?.[0] ?? null,
         });
       });
+    } else if (type === 'CAROUSEL') {
+      // Kept so the template reads as unsendable; its cards are not stored.
+      components.push({ type: 'carousel' });
     }
-    // Carousel, limited-time offers…: not rendered by the CRM yet.
+    // Limited-time offers…: not rendered by the CRM yet.
   }
 
   return {

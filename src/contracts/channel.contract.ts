@@ -7,6 +7,7 @@ import {
   type AttachmentType,
   CAPTION_MAX_LENGTH,
   TEXT_MAX_LENGTH,
+  type TemplateHeaderMedia,
 } from './message.contract';
 
 /**
@@ -260,6 +261,11 @@ export interface ChannelCapabilities {
    * write outside the reply window). True requires a `TemplateProvider`.
    */
   readonly supportsTemplates: boolean;
+  /**
+   * Header files a template can carry on this channel. Each kind also needs
+   * its `media` rule (mime types, size), which the header upload enforces.
+   */
+  readonly templateHeaderMedia: readonly TemplateHeaderMedia[];
 }
 
 /**
@@ -312,6 +318,7 @@ const WHATSAPP_CAPABILITIES: ChannelCapabilities = {
   captionMaxLength: CAPTION_MAX_LENGTH,
   replyWindowMs: 24 * 60 * 60 * 1000,
   supportsTemplates: true,
+  templateHeaderMedia: ['image', 'video', 'document'],
 };
 
 export const CHANNEL_CAPABILITIES: Readonly<

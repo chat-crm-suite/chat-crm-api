@@ -127,4 +127,41 @@ describe('toWhatsAppPayload', () => {
       template: { name: 'hello_world', language: { code: 'en_US' } },
     });
   });
+
+  it.each([
+    ['image', undefined, { type: 'image', image: { id: 'media-1' } }],
+    ['video', undefined, { type: 'video', video: { id: 'media-1' } }],
+    [
+      'document',
+      'menu.pdf',
+      { type: 'document', document: { id: 'media-1', filename: 'menu.pdf' } },
+    ],
+  ] as const)('sends a %s header as its Graph media id', (type, filename, parameter) => {
+    const payload = toWhatsAppPayload('51999000111', {
+      type: 'template',
+      name: 'promo',
+      language: 'es',
+      header: [],
+      body: [{ key: '1', value: 'Ana' }],
+      buttons: [],
+      headerMedia: {
+        type,
+        media: { providerMediaId: 'media-1', mimeType: 'application/octet-stream' },
+        ...(filename ? { filename } : {}),
+      },
+    });
+
+    expect(payload).toEqual({
+      ...base,
+      type: 'template',
+      template: {
+        name: 'promo',
+        language: { code: 'es' },
+        components: [
+          { type: 'header', parameters: [parameter] },
+          { type: 'body', parameters: [{ type: 'text', text: 'Ana' }] },
+        ],
+      },
+    });
+  });
 });

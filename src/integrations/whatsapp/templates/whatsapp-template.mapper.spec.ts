@@ -123,6 +123,28 @@ describe('WhatsApp template mapper', () => {
     });
   });
 
+  it('keeps a media header format and flags carousels instead of dropping them', () => {
+    const template = normalizeWhatsAppTemplate({
+      name: 'jaspers_market_media_carousel_v1',
+      language: 'en_US',
+      status: 'APPROVED',
+      category: 'MARKETING',
+      components: [
+        { type: 'HEADER', format: 'IMAGE', example: { header_handle: ['https://x.test/h'] } },
+        { type: 'BODY', text: 'Fresh recipes' },
+        { type: 'CAROUSEL', cards: [] },
+      ],
+    } as never);
+
+    expect(template.components).toEqual([
+      { type: 'header', format: 'image', text: null },
+      { type: 'body', text: 'Fresh recipes' },
+      { type: 'carousel' },
+    ]);
+    expect(template.variables).toEqual([]);
+    expect(template.components.map((component) => TemplateComponentSchema.parse(component))).toHaveLength(3);
+  });
+
   it('lists placeholder keys once, in order of appearance', () => {
     expect(placeholderKeys('{{2}} y {{ 1 }} y {{2}}')).toEqual(['2', '1']);
     expect(placeholderKeys(null)).toEqual([]);

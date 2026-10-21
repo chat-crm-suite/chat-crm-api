@@ -6735,6 +6735,11 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               "width": 512
             },
             "supportsTemplates": true,
+            "templateHeaderMedia": [
+              "image",
+              "video",
+              "document"
+            ],
             "textMaxLength": 4096,
             "voiceMimeType": "audio/ogg"
           }
@@ -8525,8 +8530,12 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         "value": {
           "ChannelUnavailable": "channel_unavailable",
           "ReplyWindowClosed": "reply_window_closed",
+          "TemplateHeaderMediaMismatch": "template_header_media_mismatch",
+          "TemplateHeaderMediaMissing": "template_header_media_missing",
+          "TemplateHeaderMediaNotNeeded": "template_header_media_not_needed",
           "TemplateParamsMissing": "template_params_missing",
           "TemplateUnavailable": "template_unavailable",
+          "TemplateUnsendable": "template_unsendable",
           "TemplatesUnsupported": "templates_unsupported"
         }
       },
@@ -9791,6 +9800,20 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                   "maxLength": 64,
                   "minLength": 1,
                   "type": "string"
+                },
+                "headerMedia": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "uploadId": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "uploadId"
+                  ],
+                  "type": "object"
                 },
                 "params": {
                   "additionalProperties": {
@@ -12551,6 +12574,209 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                 {
                   "additionalProperties": false,
                   "properties": {
+                    "body": {
+                      "type": "string"
+                    },
+                    "buttons": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "phoneNumber": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "enum": [
+                              "quick_reply",
+                              "url",
+                              "phone_number",
+                              "copy_code",
+                              "other"
+                            ],
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "text",
+                          "type"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "footer": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "header": {
+                      "anyOf": [
+                        {
+                          "oneOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "kind": {
+                                  "const": "text",
+                                  "type": "string"
+                                },
+                                "text": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "text"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "filename": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "kind": {
+                                  "const": "media",
+                                  "type": "string"
+                                },
+                                "media": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "attachmentId": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "durationMs": {
+                                      "type": [
+                                        "number",
+                                        "null"
+                                      ]
+                                    },
+                                    "height": {
+                                      "type": [
+                                        "number",
+                                        "null"
+                                      ]
+                                    },
+                                    "mimeType": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "sizeBytes": {
+                                      "type": [
+                                        "number",
+                                        "null"
+                                      ]
+                                    },
+                                    "status": {
+                                      "enum": [
+                                        "pending",
+                                        "ready",
+                                        "failed"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "url": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "width": {
+                                      "type": [
+                                        "number",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "attachmentId",
+                                    "durationMs",
+                                    "height",
+                                    "mimeType",
+                                    "sizeBytes",
+                                    "status",
+                                    "url",
+                                    "width"
+                                  ],
+                                  "type": "object"
+                                },
+                                "mediaType": {
+                                  "enum": [
+                                    "image",
+                                    "video",
+                                    "document"
+                                  ],
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "filename",
+                                "kind",
+                                "media",
+                                "mediaType"
+                              ],
+                              "type": "object"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "language": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "templateId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "type": {
+                      "const": "template",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "body",
+                    "buttons",
+                    "footer",
+                    "header",
+                    "language",
+                    "name",
+                    "templateId",
+                    "type"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
                     "originalType": {
                       "enum": [
                         "text",
@@ -13264,6 +13490,209 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             {
               "additionalProperties": false,
               "properties": {
+                "body": {
+                  "type": "string"
+                },
+                "buttons": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "phoneNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "enum": [
+                          "quick_reply",
+                          "url",
+                          "phone_number",
+                          "copy_code",
+                          "other"
+                        ],
+                        "type": "string"
+                      },
+                      "url": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "type"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "footer": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "header": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "text",
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "text"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "filename": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "kind": {
+                              "const": "media",
+                              "type": "string"
+                            },
+                            "media": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "attachmentId": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "durationMs": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "height": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "mimeType": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "sizeBytes": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "status": {
+                                  "enum": [
+                                    "pending",
+                                    "ready",
+                                    "failed"
+                                  ],
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "width": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "attachmentId",
+                                "durationMs",
+                                "height",
+                                "mimeType",
+                                "sizeBytes",
+                                "status",
+                                "url",
+                                "width"
+                              ],
+                              "type": "object"
+                            },
+                            "mediaType": {
+                              "enum": [
+                                "image",
+                                "video",
+                                "document"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "filename",
+                            "kind",
+                            "media",
+                            "mediaType"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "language": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "templateId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "type": {
+                  "const": "template",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "body",
+                "buttons",
+                "footer",
+                "header",
+                "language",
+                "name",
+                "templateId",
+                "type"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
                 "originalType": {
                   "enum": [
                     "text",
@@ -13675,9 +14104,68 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "TEMPLATE_HEADER_MEDIA": {
+        "kind": "value",
+        "value": [
+          "image",
+          "video",
+          "document"
+        ]
+      },
       "TEXT_MAX_LENGTH": {
         "kind": "value",
         "value": 4096
+      },
+      "TemplateButtonSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "phoneNumber": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "text": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "quick_reply",
+                "url",
+                "phone_number",
+                "copy_code",
+                "other"
+              ],
+              "type": "string"
+            },
+            "url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "text",
+            "type"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TemplateHeaderMediaSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "image",
+            "video",
+            "document"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
       },
       "UPLOAD_ERROR_CODES": {
         "kind": "value",
@@ -17119,6 +17607,20 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               "minLength": 1,
               "type": "string"
             },
+            "headerMedia": {
+              "additionalProperties": false,
+              "properties": {
+                "uploadId": {
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uploadId"
+              ],
+              "type": "object"
+            },
             "params": {
               "additionalProperties": {
                 "maxLength": 1024,
@@ -17268,7 +17770,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "header",
           "body",
           "footer",
-          "buttons"
+          "buttons",
+          "carousel"
         ]
       },
       "TEMPLATE_HEADER_FORMATS": {
@@ -17291,44 +17794,13 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "disabled"
         ]
       },
-      "TemplateButtonSchema": {
-        "jsonSchema": {
-          "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "additionalProperties": false,
-          "properties": {
-            "phoneNumber": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "text": {
-              "type": "string"
-            },
-            "type": {
-              "enum": [
-                "quick_reply",
-                "url",
-                "phone_number",
-                "copy_code",
-                "other"
-              ],
-              "type": "string"
-            },
-            "url": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          "required": [
-            "text",
-            "type"
-          ],
-          "type": "object"
-        },
-        "kind": "schema"
+      "TEMPLATE_UNSENDABLE_REASONS": {
+        "kind": "value",
+        "value": [
+          "carousel",
+          "location_header",
+          "header_media_unsupported"
+        ]
       },
       "TemplateCategorySchema": {
         "jsonSchema": {
@@ -17420,7 +17892,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                 "header",
                 "body",
                 "footer",
-                "buttons"
+                "buttons",
+                "carousel"
               ],
               "type": "string"
             }
@@ -17439,7 +17912,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "header",
             "body",
             "footer",
-            "buttons"
+            "buttons",
+            "carousel"
           ],
           "type": "string"
         },
@@ -17550,6 +18024,70 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "location"
           ],
           "type": "string"
+        },
+        "kind": "schema"
+      },
+      "TemplateHeaderUploadResultSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "durationMs": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "expiresAt": {},
+            "filename": {
+              "type": "string"
+            },
+            "height": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "kind": {
+              "enum": [
+                "image",
+                "audio",
+                "video",
+                "document",
+                "sticker"
+              ],
+              "type": "string"
+            },
+            "mimeType": {
+              "type": "string"
+            },
+            "sizeBytes": {
+              "type": "number"
+            },
+            "uploadId": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            },
+            "width": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "durationMs",
+            "expiresAt",
+            "filename",
+            "height",
+            "kind",
+            "mimeType",
+            "sizeBytes",
+            "uploadId",
+            "width"
+          ],
+          "type": "object"
         },
         "kind": "schema"
       },
@@ -17688,7 +18226,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                       "header",
                       "body",
                       "footer",
-                      "buttons"
+                      "buttons",
+                      "carousel"
                     ],
                     "type": "string"
                   }
@@ -17706,6 +18245,21 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                 "null"
               ]
             },
+            "headerMedia": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "image",
+                    "video",
+                    "document"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "id": {
               "type": "string"
             },
@@ -17714,6 +18268,34 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             },
             "name": {
               "type": "string"
+            },
+            "sendSupport": {
+              "additionalProperties": false,
+              "properties": {
+                "ok": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "carousel",
+                        "location_header",
+                        "header_media_unsupported"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "ok",
+                "reason"
+              ],
+              "type": "object"
             },
             "status": {
               "enum": [
@@ -17749,7 +18331,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                       "header",
                       "body",
                       "footer",
-                      "buttons"
+                      "buttons",
+                      "carousel"
                     ],
                     "type": "string"
                   },
@@ -17790,15 +18373,49 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "channelType",
             "components",
             "externalId",
+            "headerMedia",
             "id",
             "language",
             "name",
+            "sendSupport",
             "status",
             "statusReason",
             "syncedAt",
             "updatedAt",
             "variables",
             "visibleToAgents"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
+      },
+      "TemplateSendSupportSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "carousel",
+                    "location_header",
+                    "header_media_unsupported"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "ok",
+            "reason"
           ],
           "type": "object"
         },
@@ -17818,6 +18435,18 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "TemplateUnsendableReasonSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "enum": [
+            "carousel",
+            "location_header",
+            "header_media_unsupported"
+          ],
+          "type": "string"
+        },
+        "kind": "schema"
+      },
       "TemplateVariableSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -17828,7 +18457,8 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                 "header",
                 "body",
                 "footer",
-                "buttons"
+                "buttons",
+                "carousel"
               ],
               "type": "string"
             },
@@ -17884,7 +18514,13 @@ export const CONTRACTS_SNAPSHOT: unknown = {
       "renderTemplateText": {
         "kind": "factory"
       },
+      "templateHeaderMedia": {
+        "kind": "factory"
+      },
       "templateParamKey": {
+        "kind": "factory"
+      },
+      "templateSendSupport": {
         "kind": "factory"
       }
     },
@@ -18245,4 +18881,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "c7c34cc1e8c6895fdc59d821030464f6b29d58c24396bf3caa3610ab96591371";
+export const CONTRACTS_SNAPSHOT_HASH = "4abbdd89314b222a6742a913aef86d4675982afae498c341e75b0a842652997c";

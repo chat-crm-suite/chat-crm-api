@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import type { ChannelType } from '@contracts';
+import type { ChannelType, TemplateHeaderMedia } from '@contracts';
 
 /** A file stored on our side, ready to be handed to a provider. */
 export interface StoredMedia {
@@ -53,6 +53,15 @@ export interface ResolvedTemplate {
   body: TemplateParameter[];
   /** Dynamic buttons (e.g. a URL suffix), by button position. */
   buttons: Array<{ index: number; subType: string; parameters: TemplateParameter[] }>;
+  /**
+   * The header file, once the provider holds it. Set by the sender after
+   * the upload, never by the `TemplateProvider` (which only knows text).
+   */
+  headerMedia?: {
+    type: TemplateHeaderMedia;
+    media: ProviderMedia;
+    filename?: string;
+  };
 }
 
 /** How a provider failure must be handled by the caller. */

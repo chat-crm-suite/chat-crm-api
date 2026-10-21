@@ -68,15 +68,47 @@ export function toMessageView(
       };
     case 'sticker':
       return { type: 'sticker', media: toMediaRef(attachment) };
+    case 'template':
+      return toTemplateView(message, attachment);
     case 'location':
     case 'contact':
-    case 'template':
     case 'interactive':
     case 'reaction':
       return { type: 'unsupported', originalType: message.type, text };
     default:
       return unreachable(message.type);
   }
+}
+
+/**
+ * A sent template from its snapshot; the header file is the message's
+ * attachment. Rows sent before snapshots existed only have their text.
+ */
+function toTemplateView(
+  message: Message,
+  attachment?: MessageAttachment,
+): Extract<MessageView, { type: 'template' }> {
+  const snapshot = message.templateSnapshot;
+  const header = snapshot?.header ?? null;
+
+  return {
+    type: 'template',
+    templateId: message.templateId ?? null,
+    name: snapshot?.name ?? '',
+    language: snapshot?.language ?? '',
+    header:
+      header?.kind === 'media'
+        ? {
+            kind: 'media',
+            mediaType: header.mediaType,
+            media: toMediaRef(attachment),
+            filename: attachment?.fileName ?? header.filename,
+          }
+        : header,
+    body: snapshot?.body ?? message.body ?? '',
+    footer: snapshot?.footer ?? null,
+    buttons: snapshot?.buttons ?? [],
+  };
 }
 
 /**

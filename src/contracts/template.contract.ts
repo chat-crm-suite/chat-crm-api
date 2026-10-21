@@ -3,7 +3,18 @@
 
 import { z } from 'zod';
 
-import { ChannelTypeSchema } from './channel.contract';
+import {
+  type ChannelType,
+  ChannelTypeSchema,
+  channelCapabilities,
+} from './channel.contract';
+import {
+  StagedUploadSchema,
+  TemplateButtonSchema,
+  TEMPLATE_HEADER_MEDIA,
+  type TemplateHeaderMedia,
+  TemplateHeaderMediaSchema,
+} from './message.contract';
 
 /**
  * Message template contracts (provider-approved templates, e.g. WhatsApp HSM).
@@ -31,6 +42,8 @@ export const TEMPLATE_COMPONENT_TYPES = [
   'body',
   'footer',
   'buttons',
+  /** Stored so the template can be flagged unsendable; never rendered. */
+  'carousel',
 ] as const;
 export const TemplateComponentTypeSchema = z.enum(TEMPLATE_COMPONENT_TYPES);
 export type TemplateComponentType = z.infer<typeof TemplateComponentTypeSchema>;
@@ -44,12 +57,24 @@ export const TEMPLATE_HEADER_FORMATS = [
 ] as const;
 export const TemplateHeaderFormatSchema = z.enum(TEMPLATE_HEADER_FORMATS);
 
-export const TemplateButtonSchema = z.object({
-  type: z.enum(['quick_reply', 'url', 'phone_number', 'copy_code', 'other']),
-  text: z.string(),
-  url: z.string().nullish(),
-  phoneNumber: z.string().nullish(),
+/**
+ * Why a template cannot be sent from the CRM (yet): a carousel, a location
+ * header, or a header file kind the channel does not accept.
+ */
+export const TEMPLATE_UNSENDABLE_REASONS = [
+  'carousel',
+  'location_header',
+  'header_media_unsupported',
+] as const;
+export const TemplateUnsendableReasonSchema = z.enum(TEMPLATE_UNSENDABLE_REASONS);
+export type TemplateUnsendableReason = z.infer<typeof TemplateUnsendableReasonSchema>;
+
+export const TemplateSendSupportSchema = z.object({
+  ok: z.boolean(),
+  /** Null when `ok`. */
+  reason: TemplateUnsendableReasonSchema.nullable(),
 });
+export type TemplateSendSupport = z.infer<typeof TemplateSendSupportSchema>;
 
 /**
  * Provider-neutral template component, normalized by each channel's
@@ -92,6 +117,13 @@ export const TemplateSchema = z.object({
   statusReason: z.string().nullable(),
   components: z.array(TemplateComponentSchema),
   variables: z.array(TemplateVariableSchema),
+  /**
+   * File the header needs at send time (`SendTemplateSchema.headerMedia`),
+   * or null for a text/no header.
+   */
+  headerMedia: TemplateHeaderMediaSchema.nullable(),
+  /** Whether the CRM can send it on its channel, and why not. */
+  sendSupport: TemplateSendSupportSchema,
   /** Agents only see (and send) approved templates with this flag on. */
   visibleToAgents: z.boolean(),
   externalId: z.string().nullable(),
@@ -138,16 +170,31 @@ export type TemplateGroup = z.infer<typeof TemplateGroupSchema>;
  * Body of `POST /conversations/:id/template` (and `template` of
  * `POST /conversations/start`). `params` maps `${component}:${key}` to its
  * value; every variable is required (400 `template_params_missing`).
+ * A template with `headerMedia` also needs its file (400
+ * `template_header_media_missing` / `template_header_media_mismatch`); one
+ * with `sendSupport.ok === false` answers 409 `template_unsendable`.
  * Responds with `SendTemplateResultSchema`; the message itself arrives
  * through `conversation:message:broadcast` like any outbound message.
  */
 export const SendTemplateSchema = z.object({
   templateId: z.string(),
   params: z.record(z.string(), z.string().trim().min(1).max(1024)).default({}),
+  /** The header file, staged by `POST /templates/:id/header-upload`. */
+  headerMedia: z.object({ uploadId: z.uuid() }).optional(),
   /** Same idempotency key as free-form sends. */
   clientMessageId: z.string().min(1).max(64).optional(),
 });
 export type SendTemplateInput = z.infer<typeof SendTemplateSchema>;
+
+/**
+ * `POST /templates/:id/header-upload` (multipart `file`): stages the header
+ * file of a template before sending it, in a conversation or when starting
+ * one. The kind is the template's `headerMedia`; the file follows the
+ * channel's upload rules (same `UPLOAD_ERROR_CODES` as message uploads).
+ * 409 `template_header_media_not_needed` when the header takes no file.
+ */
+export const TemplateHeaderUploadResultSchema = StagedUploadSchema;
+export type TemplateHeaderUploadResult = z.infer<typeof TemplateHeaderUploadResultSchema>;
 
 export const SendTemplateResultSchema = z.object({
   messageId: z.string(),
@@ -197,6 +244,39 @@ export const SyncTemplatesResultSchema = z.object({
   syncedAt: z.coerce.date(),
 });
 export type SyncTemplatesResult = z.infer<typeof SyncTemplatesResultSchema>;
+
+/** The file a template's header needs at send time, or null. */
+export function templateHeaderMedia(
+  components: readonly TemplateComponent[],
+): TemplateHeaderMedia | null {
+  const format = components.find((component) => component.type === 'header')?.format;
+  return (TEMPLATE_HEADER_MEDIA as readonly string[]).includes(format ?? '')
+    ? (format as TemplateHeaderMedia)
+    : null;
+}
+
+/**
+ * Whether the CRM can send a template on a channel type. Shared by the API
+ * (refuses the send) and the app (disables the template with the reason).
+ */
+export function templateSendSupport(
+  components: readonly TemplateComponent[],
+  channelType: ChannelType,
+): TemplateSendSupport {
+  const unsendable = (reason: TemplateUnsendableReason) => ({ ok: false, reason });
+  if (components.some((component) => component.type === 'carousel')) {
+    return unsendable('carousel');
+  }
+  const header = components.find((component) => component.type === 'header');
+  if (header?.format === 'location') return unsendable('location_header');
+
+  const media = templateHeaderMedia(components);
+  const capabilities = channelCapabilities(channelType);
+  if (media && !(capabilities?.templateHeaderMedia.includes(media) && capabilities.media[media])) {
+    return unsendable('header_media_unsupported');
+  }
+  return { ok: true, reason: null };
+}
 
 /** Key of a variable inside `SendTemplateInput.params`. */
 export function templateParamKey(

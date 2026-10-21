@@ -43,6 +43,7 @@ function build() {
   const adapters = { for: jest.fn().mockReturnValue(adapter) };
   const media = {
     prepare: jest.fn().mockResolvedValue(null),
+    prepareTemplateHeader: jest.fn(),
     attachmentOf: jest.fn(),
     toProvider: jest.fn(),
   };
@@ -625,6 +626,15 @@ describe('AgentMessageSender media', () => {
   });
 });
 
+const textSnapshot = {
+  name: 'welcome',
+  language: 'es',
+  header: null,
+  body: 'Hola',
+  footer: null,
+  buttons: [],
+};
+
 describe('AgentMessageSender reply window (inbox v2)', () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -664,12 +674,18 @@ describe('AgentMessageSender reply window (inbox v2)', () => {
       senderMemberId: 'member-1',
       templateId: 'tpl-1',
       body: 'Hola',
+      snapshot: textSnapshot,
       template,
     });
 
     expect(conversations.saveOutbound).toHaveBeenCalledWith(
       'conv-1',
-      expect.objectContaining({ type: 'template', templateId: 'tpl-1', content: { body: 'Hola' } }),
+      expect.objectContaining({
+        type: 'template',
+        templateId: 'tpl-1',
+        templateSnapshot: textSnapshot,
+        content: { body: 'Hola' },
+      }),
       { id: 'member-1', type: 'member' },
       'co-1',
     );
@@ -677,6 +693,124 @@ describe('AgentMessageSender reply window (inbox v2)', () => {
     expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', {
       type: 'template',
       ...template,
+    });
+  });
+});
+
+describe('AgentMessageSender template header media', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const UPLOAD_ID = '0b9f6a3e-5c1d-4f7e-9a2b-3c4d5e6f7a8b';
+  const template = { name: 'image_cta', language: 'es', header: [], body: [], buttons: [] };
+  const job = {
+    conversationId: 'conv-1',
+    companyId: 'co-1',
+    senderMemberId: 'member-1',
+    templateId: 'tpl-1',
+    body: 'Hola',
+    snapshot: {
+      ...textSnapshot,
+      header: { kind: 'media' as const, mediaType: 'image' as const, filename: 'promo.jpg' },
+    },
+    template,
+    headerMedia: { uploadId: UPLOAD_ID, kind: 'image' as const },
+  };
+  const file = {
+    storageUrl: '/uploads/co-1/promo.jpg',
+    mimeType: 'image/jpeg',
+    filename: 'promo.jpg',
+    sizeBytes: 2048,
+    durationMs: null,
+    width: 800,
+    height: 600,
+  };
+  const attachment = {
+    id: 'att-1',
+    mimeType: 'image/jpeg',
+    fileName: 'promo.jpg',
+    storageUrl: '/uploads/co-1/promo.jpg',
+  };
+
+  it('stores the header file on the row, uploads it once and sends it by provider id', async () => {
+    const { sender, conversations, messages, adapter, media } = build();
+    media.prepareTemplateHeader.mockResolvedValue(file);
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentOf.mockResolvedValue(attachment);
+    media.toProvider.mockResolvedValue({ ok: true, providerMediaId: 'media-9' });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-9' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+
+    await sender.sendTemplate(job);
+
+    expect(media.prepareTemplateHeader).toHaveBeenCalledWith(UPLOAD_ID, {
+      companyId: 'co-1',
+      templateId: 'tpl-1',
+      kind: 'image',
+    });
+    expect(conversations.saveOutbound).toHaveBeenCalledWith(
+      'conv-1',
+      expect.objectContaining({
+        type: 'template',
+        attachmentType: 'image',
+        mediaUrl: '/uploads/co-1/promo.jpg',
+        mimeType: 'image/jpeg',
+        templateSnapshot: job.snapshot,
+        content: { body: 'Hola', filename: 'promo.jpg' },
+      }),
+      { id: 'member-1', type: 'member' },
+      'co-1',
+    );
+    expect(media.toProvider).toHaveBeenCalledTimes(1);
+    expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', {
+      type: 'template',
+      ...template,
+      headerMedia: {
+        type: 'image',
+        media: { providerMediaId: 'media-9', mimeType: 'image/jpeg' },
+        filename: 'promo.jpg',
+      },
+    });
+  });
+
+  it('keeps a visible failed row when the header upload expired', async () => {
+    const { sender, conversations, messages, adapter, media } = build();
+    media.prepareTemplateHeader.mockRejectedValue(new Error('Upload not found or expired'));
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentOf.mockResolvedValue(null);
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.sendTemplate(job);
+
+    expect(conversations.saveOutbound).toHaveBeenCalledWith(
+      'conv-1',
+      expect.not.objectContaining({ mediaUrl: expect.anything() as unknown }),
+      expect.anything(),
+      'co-1',
+    );
+    expect(adapter.send).not.toHaveBeenCalled();
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: null,
+      message: 'Upload not found or expired',
+    });
+  });
+
+  it('fails the row when the provider refuses the header upload', async () => {
+    const { sender, conversations, messages, adapter, media } = build();
+    media.prepareTemplateHeader.mockResolvedValue(file);
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentOf.mockResolvedValue(attachment);
+    media.toProvider.mockResolvedValue({
+      ok: false,
+      error: { authFault: false, retryable: false, code: '131053', message: 'scrutiny failed' },
+    });
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.sendTemplate(job);
+
+    expect(adapter.send).not.toHaveBeenCalled();
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: '131053',
+      message: 'scrutiny failed',
     });
   });
 });

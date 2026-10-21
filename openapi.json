@@ -13187,7 +13187,8 @@
                                 "header",
                                 "body",
                                 "footer",
-                                "buttons"
+                                "buttons",
+                                "carousel"
                               ]
                             },
                             "format": {
@@ -13279,7 +13280,8 @@
                                 "header",
                                 "body",
                                 "footer",
-                                "buttons"
+                                "buttons",
+                                "carousel"
                               ]
                             },
                             "label": {
@@ -13303,6 +13305,49 @@
                           ],
                           "additionalProperties": false
                         }
+                      },
+                      "headerMedia": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "image",
+                              "video",
+                              "document"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sendSupport": {
+                        "type": "object",
+                        "properties": {
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "carousel",
+                                  "location_header",
+                                  "header_media_unsupported"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "ok",
+                          "reason"
+                        ],
+                        "additionalProperties": false
                       },
                       "visibleToAgents": {
                         "type": "boolean"
@@ -13341,6 +13386,8 @@
                       "statusReason",
                       "components",
                       "variables",
+                      "headerMedia",
+                      "sendSupport",
                       "visibleToAgents",
                       "externalId",
                       "syncedAt",
@@ -13741,7 +13788,8 @@
                               "header",
                               "body",
                               "footer",
-                              "buttons"
+                              "buttons",
+                              "carousel"
                             ]
                           },
                           "format": {
@@ -13833,7 +13881,8 @@
                               "header",
                               "body",
                               "footer",
-                              "buttons"
+                              "buttons",
+                              "carousel"
                             ]
                           },
                           "label": {
@@ -13857,6 +13906,49 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "headerMedia": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "image",
+                            "video",
+                            "document"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sendSupport": {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "carousel",
+                                "location_header",
+                                "header_media_unsupported"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "reason"
+                      ],
+                      "additionalProperties": false
                     },
                     "visibleToAgents": {
                       "type": "boolean"
@@ -13895,6 +13987,8 @@
                     "statusReason",
                     "components",
                     "variables",
+                    "headerMedia",
+                    "sendSupport",
                     "visibleToAgents",
                     "externalId",
                     "syncedAt",
@@ -13912,6 +14006,103 @@
           }
         ],
         "summary": "CRM-side template settings (visibility, labels)",
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/templates/{id}/header-upload": {
+      "post": {
+        "operationId": "TemplatesController_stageHeaderMedia",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "uploadId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "image",
+                        "audio",
+                        "video",
+                        "document",
+                        "sticker"
+                      ]
+                    },
+                    "mimeType": {
+                      "type": "string"
+                    },
+                    "sizeBytes": {
+                      "type": "number"
+                    },
+                    "filename": {
+                      "type": "string"
+                    },
+                    "durationMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "uploadId",
+                    "kind",
+                    "mimeType",
+                    "sizeBytes",
+                    "filename",
+                    "durationMs",
+                    "width",
+                    "height",
+                    "expiresAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Stage a template's header file",
         "tags": [
           "Templates"
         ]
@@ -16143,6 +16334,19 @@
                   "maxLength": 1024
                 }
               },
+              "headerMedia": {
+                "type": "object",
+                "properties": {
+                  "uploadId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "uploadId"
+                ]
+              },
               "clientMessageId": {
                 "type": "string",
                 "minLength": 1,
@@ -16303,6 +16507,19 @@
               "minLength": 1,
               "maxLength": 1024
             }
+          },
+          "headerMedia": {
+            "type": "object",
+            "properties": {
+              "uploadId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": [
+              "uploadId"
+            ]
           },
           "clientMessageId": {
             "type": "string",

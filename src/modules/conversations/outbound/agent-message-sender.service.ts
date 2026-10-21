@@ -9,6 +9,7 @@ import {
   BILLABLE_SENDS_PAUSED_ERROR,
   ConversationErrorCode,
   type OutgoingMessage,
+  type TemplateHeaderMedia,
 } from '@contracts';
 import type {
   ChannelAdapter,
@@ -19,7 +20,7 @@ import type {
 } from '../../channels/ports/channel-adapter.port';
 import { ChannelAdapterRegistry } from '../../channels/ports/channel-adapter.registry';
 import { ChannelsService } from '../../channels/channels.service';
-import type { Message } from '@modules/message/entities/message.entity';
+import type { Message, TemplateSnapshot } from '@modules/message/entities/message.entity';
 import { toMessageStatusPatch } from '@modules/message/mappers/message-status-patch.mapper';
 import { MessageService } from '@modules/message/message.service';
 import { SpendService } from '@modules/spend/spend.service';
@@ -160,17 +161,40 @@ export class AgentMessageSender {
    */
   async sendTemplate(job: TemplateSendJob): Promise<Message> {
     const timer = new SendTimer(Date.now());
+    const { headerMedia } = job;
+    // An expired header upload still leaves a visible (failed) row.
+    const header = headerMedia
+      ? await this.media
+          .prepareTemplateHeader(headerMedia.uploadId, {
+            companyId: job.companyId,
+            templateId: job.templateId,
+            kind: headerMedia.kind,
+          })
+          .then(
+            (file) => ({ file, error: null }),
+            (error: unknown) => ({ file: null, error: errorMessage(error) }),
+          )
+      : { file: null, error: null };
+
     const { message: saved, created } = await this.conversations.saveOutbound(
       job.conversationId,
       {
         type: 'template',
-        content: { body: job.body },
+        content: {
+          body: job.body,
+          ...(header.file ? { filename: header.file.filename } : {}),
+        },
         clientMessageId: job.clientMessageId ?? null,
         templateId: job.templateId,
+        templateSnapshot: job.snapshot,
+        ...(header.file && headerMedia
+          ? { attachmentType: headerMedia.kind, ...fileFields(header.file) }
+          : {}),
       },
       { id: job.senderMemberId, type: 'member' },
       job.companyId,
     );
+    timer.mark('saved');
 
     const message = await this.claimSend(saved, {
       created,
@@ -182,7 +206,34 @@ export class AgentMessageSender {
     const result = await this.dispatch(
       message,
       'template',
-      () => Promise.resolve({ type: 'template' as const, ...job.template }),
+      async ({ adapter, context }) => {
+        if (!headerMedia) return { type: 'template' as const, ...job.template };
+
+        const attachment = await this.media.attachmentOf(message.id);
+        if (!attachment) {
+          return failure(header.error ?? 'The header file of this template is missing');
+        }
+        const uploaded = await this.media.toProvider(
+          adapter,
+          { channelId: context.channelId, companyId: context.companyId },
+          attachment,
+        );
+        timer.mark('uploaded');
+        if (!uploaded.ok) return uploaded.error;
+
+        return {
+          type: 'template' as const,
+          ...job.template,
+          headerMedia: {
+            type: headerMedia.kind,
+            media: {
+              providerMediaId: uploaded.providerMediaId,
+              mimeType: attachment.mimeType,
+            },
+            ...(attachment.fileName ? { filename: attachment.fileName } : {}),
+          },
+        };
+      },
       timer,
     );
     this.logger.info(
@@ -366,9 +417,13 @@ export interface TemplateSendJob {
   companyId: string;
   senderMemberId: string;
   templateId: string;
-  /** Rendered text stored as the message body (what the thread shows). */
+  /** Rendered text stored as the message body (search, list preview). */
   body: string;
+  /** The template as sent: how the thread renders it. */
+  snapshot: TemplateSnapshot;
   template: ResolvedTemplate;
+  /** Staged header file (`POST /templates/:id/header-upload`). */
+  headerMedia?: { uploadId: string; kind: TemplateHeaderMedia };
   clientMessageId?: string | null;
 }
 
@@ -400,16 +455,24 @@ function toSaveContent(
           : {}),
     },
     clientMessageId: job.clientMessageId,
-    ...(file
-      ? {
-          mediaUrl: file.storageUrl,
-          mimeType: file.mimeType,
-          sizeBytes: file.sizeBytes,
-          durationMs: file.durationMs,
-          width: file.width,
-          height: file.height,
-        }
-      : {}),
+    ...(file ? fileFields(file) : {}),
+  };
+}
+
+/** The stored file's facts, kept on the message's attachment row. */
+function fileFields(
+  file: OutgoingFile,
+): Pick<
+  SaveConversationMessageContent,
+  'mediaUrl' | 'mimeType' | 'sizeBytes' | 'durationMs' | 'width' | 'height'
+> {
+  return {
+    mediaUrl: file.storageUrl,
+    mimeType: file.mimeType,
+    sizeBytes: file.sizeBytes,
+    durationMs: file.durationMs,
+    width: file.width,
+    height: file.height,
   };
 }
 

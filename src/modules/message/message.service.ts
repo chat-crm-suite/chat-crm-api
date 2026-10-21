@@ -17,7 +17,7 @@ import type {
   MessageType,
 } from '@contracts';
 import type { MessageAttachment } from './entities/message-attachment.entity';
-import type { Message } from './entities/message.entity';
+import type { Message, TemplateSnapshot } from './entities/message.entity';
 import { toConversationMessage } from './mappers/conversation-message.mapper';
 import { MessageRepository } from './message.repository';
 import type { MessageAttachmentContext } from './message.repository';
@@ -50,6 +50,7 @@ export interface SaveMessageParams {
   externalId?: string | null;
   clientMessageId?: string | null;
   templateId?: string | null;
+  templateSnapshot?: TemplateSnapshot | null;
   status?: MessageStatus;
   attachments?: Array<{
     type: AttachmentType;

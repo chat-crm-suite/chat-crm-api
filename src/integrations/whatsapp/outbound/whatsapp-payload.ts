@@ -10,6 +10,7 @@ import type {
   WhatsAppPayload,
   WhatsAppPayloadBase,
   WhatsAppTemplateComponent,
+  WhatsAppTemplateMediaParameter,
   WhatsAppTemplateParameter,
 } from '../interfaces/whatsapp-message.interface';
 
@@ -74,7 +75,10 @@ export function toWhatsAppPayload(
 
 function toTemplate(template: ResolvedTemplate) {
   const components: WhatsAppTemplateComponent[] = [];
-  if (template.header.length) {
+  if (template.headerMedia) {
+    // A media header takes exactly its file (no text placeholders).
+    components.push({ type: 'header', parameters: [toMediaParameter(template.headerMedia)] });
+  } else if (template.header.length) {
     components.push({ type: 'header', parameters: template.header.map(toParameter) });
   }
   if (template.body.length) {
@@ -95,6 +99,22 @@ function toTemplate(template: ResolvedTemplate) {
     language: { code: template.language },
     ...(components.length ? { components } : {}),
   };
+}
+
+function toMediaParameter({
+  type,
+  media,
+  filename,
+}: NonNullable<ResolvedTemplate['headerMedia']>): WhatsAppTemplateMediaParameter {
+  const id = media.providerMediaId;
+  switch (type) {
+    case 'image':
+      return { type: 'image', image: { id } };
+    case 'video':
+      return { type: 'video', video: { id } };
+    case 'document':
+      return { type: 'document', document: filename ? { id, filename } : { id } };
+  }
 }
 
 /** Positional placeholders (`{{1}}`) go by order; named ones carry their name. */

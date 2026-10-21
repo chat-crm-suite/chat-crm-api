@@ -6735,6 +6735,9 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               "width": 512
             },
             "supportsTemplates": true,
+            "templateCarousel": {
+              "maxCards": 10
+            },
             "templateHeaderMedia": [
               "image",
               "video",
@@ -9796,6 +9799,30 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "template": {
               "additionalProperties": false,
               "properties": {
+                "cards": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "headerMedia": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "uploadId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "uploadId"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "maxItems": 10,
+                  "type": "array"
+                },
                 "clientMessageId": {
                   "maxLength": 64,
                   "minLength": 1,
@@ -12615,6 +12642,164 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                       },
                       "type": "array"
                     },
+                    "cards": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "body": {
+                            "type": "string"
+                          },
+                          "buttons": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "phoneNumber": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "enum": [
+                                    "quick_reply",
+                                    "url",
+                                    "phone_number",
+                                    "copy_code",
+                                    "other"
+                                  ],
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "text",
+                                "type"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "header": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "filename": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "kind": {
+                                    "const": "media",
+                                    "type": "string"
+                                  },
+                                  "media": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "attachmentId": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "durationMs": {
+                                        "type": [
+                                          "number",
+                                          "null"
+                                        ]
+                                      },
+                                      "height": {
+                                        "type": [
+                                          "number",
+                                          "null"
+                                        ]
+                                      },
+                                      "mimeType": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "sizeBytes": {
+                                        "type": [
+                                          "number",
+                                          "null"
+                                        ]
+                                      },
+                                      "status": {
+                                        "enum": [
+                                          "pending",
+                                          "ready",
+                                          "failed"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      "url": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "width": {
+                                        "type": [
+                                          "number",
+                                          "null"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "attachmentId",
+                                      "durationMs",
+                                      "height",
+                                      "mimeType",
+                                      "sizeBytes",
+                                      "status",
+                                      "url",
+                                      "width"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "mediaType": {
+                                    "enum": [
+                                      "image",
+                                      "video",
+                                      "document"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "filename",
+                                  "kind",
+                                  "media",
+                                  "mediaType"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "body",
+                          "buttons",
+                          "header"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "footer": {
                       "type": [
                         "string",
@@ -12765,6 +12950,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                   "required": [
                     "body",
                     "buttons",
+                    "cards",
                     "footer",
                     "header",
                     "language",
@@ -13531,6 +13717,164 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                   },
                   "type": "array"
                 },
+                "cards": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "body": {
+                        "type": "string"
+                      },
+                      "buttons": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "phoneNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "text": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "enum": [
+                                "quick_reply",
+                                "url",
+                                "phone_number",
+                                "copy_code",
+                                "other"
+                              ],
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "text",
+                            "type"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "header": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "filename": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "kind": {
+                                "const": "media",
+                                "type": "string"
+                              },
+                              "media": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "attachmentId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "durationMs": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "height": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "mimeType": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "sizeBytes": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "status": {
+                                    "enum": [
+                                      "pending",
+                                      "ready",
+                                      "failed"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "url": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "width": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "attachmentId",
+                                  "durationMs",
+                                  "height",
+                                  "mimeType",
+                                  "sizeBytes",
+                                  "status",
+                                  "url",
+                                  "width"
+                                ],
+                                "type": "object"
+                              },
+                              "mediaType": {
+                                "enum": [
+                                  "image",
+                                  "video",
+                                  "document"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "filename",
+                              "kind",
+                              "media",
+                              "mediaType"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "body",
+                      "buttons",
+                      "header"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
                 "footer": {
                   "type": [
                     "string",
@@ -13681,6 +14025,7 @@ export const CONTRACTS_SNAPSHOT: unknown = {
               "required": [
                 "body",
                 "buttons",
+                "cards",
                 "footer",
                 "header",
                 "language",
@@ -14164,6 +14509,106 @@ export const CONTRACTS_SNAPSHOT: unknown = {
             "document"
           ],
           "type": "string"
+        },
+        "kind": "schema"
+      },
+      "TemplateMediaHeaderSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "filename": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "const": "media",
+              "type": "string"
+            },
+            "media": {
+              "additionalProperties": false,
+              "properties": {
+                "attachmentId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "durationMs": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "height": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "mimeType": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "sizeBytes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "enum": [
+                    "pending",
+                    "ready",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "width": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "attachmentId",
+                "durationMs",
+                "height",
+                "mimeType",
+                "sizeBytes",
+                "status",
+                "url",
+                "width"
+              ],
+              "type": "object"
+            },
+            "mediaType": {
+              "enum": [
+                "image",
+                "video",
+                "document"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "filename",
+            "kind",
+            "media",
+            "mediaType"
+          ],
+          "type": "object"
         },
         "kind": "schema"
       },
@@ -17602,6 +18047,30 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
+            "cards": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "headerMedia": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "uploadId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "uploadId"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              },
+              "maxItems": 10,
+              "type": "array"
+            },
             "clientMessageId": {
               "maxLength": 64,
               "minLength": 1,
@@ -17756,6 +18225,10 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "TEMPLATE_CAROUSEL_MAX_CARDS": {
+        "kind": "value",
+        "value": 10
+      },
       "TEMPLATE_CATEGORIES": {
         "kind": "value",
         "value": [
@@ -17801,6 +18274,82 @@ export const CONTRACTS_SNAPSHOT: unknown = {
           "location_header",
           "header_media_unsupported"
         ]
+      },
+      "TemplateCardSchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "buttons": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "phoneNumber": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "enum": [
+                      "quick_reply",
+                      "url",
+                      "phone_number",
+                      "copy_code",
+                      "other"
+                    ],
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "text",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "headerFormat": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "text",
+                    "image",
+                    "video",
+                    "document",
+                    "location"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "body",
+            "buttons",
+            "headerFormat"
+          ],
+          "type": "object"
+        },
+        "kind": "schema"
       },
       "TemplateCategorySchema": {
         "jsonSchema": {
@@ -17854,6 +18403,88 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                     "required": [
                       "text",
                       "type"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "cards": {
+              "anyOf": [
+                {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "body": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "buttons": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "phoneNumber": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "text": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "enum": [
+                                "quick_reply",
+                                "url",
+                                "phone_number",
+                                "copy_code",
+                                "other"
+                              ],
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "text",
+                            "type"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "headerFormat": {
+                        "anyOf": [
+                          {
+                            "enum": [
+                              "text",
+                              "image",
+                              "video",
+                              "document",
+                              "location"
+                            ],
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "body",
+                      "buttons",
+                      "headerFormat"
                     ],
                     "type": "object"
                   },
@@ -18027,6 +18658,21 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "TemplateHeaderUploadQuerySchema": {
+        "jsonSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "card": {
+              "maximum": 9,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "kind": "schema"
+      },
       "TemplateHeaderUploadResultSchema": {
         "jsonSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -18188,6 +18834,88 @@ export const CONTRACTS_SNAPSHOT: unknown = {
                           "required": [
                             "text",
                             "type"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "cards": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "body": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "buttons": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "phoneNumber": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "enum": [
+                                      "quick_reply",
+                                      "url",
+                                      "phone_number",
+                                      "copy_code",
+                                      "other"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "url": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "text",
+                                  "type"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "headerFormat": {
+                              "anyOf": [
+                                {
+                                  "enum": [
+                                    "text",
+                                    "image",
+                                    "video",
+                                    "document",
+                                    "location"
+                                  ],
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "body",
+                            "buttons",
+                            "headerFormat"
                           ],
                           "type": "object"
                         },
@@ -18511,7 +19239,19 @@ export const CONTRACTS_SNAPSHOT: unknown = {
         },
         "kind": "schema"
       },
+      "renderTemplateCardText": {
+        "kind": "factory"
+      },
       "renderTemplateText": {
+        "kind": "factory"
+      },
+      "templateCardMedia": {
+        "kind": "factory"
+      },
+      "templateCardVariableKey": {
+        "kind": "factory"
+      },
+      "templateCards": {
         "kind": "factory"
       },
       "templateHeaderMedia": {
@@ -18881,4 +19621,4 @@ export const CONTRACTS_SNAPSHOT: unknown = {
 }
 
 
-export const CONTRACTS_SNAPSHOT_HASH = "4abbdd89314b222a6742a913aef86d4675982afae498c341e75b0a842652997c";
+export const CONTRACTS_SNAPSHOT_HASH = "3411332fa8d61b34168b5084a745a396a2fe5b6a100169e2fb949891148a3176";

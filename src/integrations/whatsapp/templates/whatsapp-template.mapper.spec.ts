@@ -123,6 +123,98 @@ describe('WhatsApp template mapper', () => {
     });
   });
 
+  it('keeps a media header format', () => {
+    const template = normalizeWhatsAppTemplate({
+      name: 'jaspers_market_image_cta_v1',
+      language: 'en_US',
+      status: 'APPROVED',
+      category: 'MARKETING',
+      components: [
+        { type: 'HEADER', format: 'IMAGE', example: { header_handle: ['https://x.test/h'] } },
+        { type: 'BODY', text: 'Free delivery' },
+      ],
+    } as never);
+
+    expect(template.components).toEqual([
+      { type: 'header', format: 'image', text: null },
+      { type: 'body', text: 'Free delivery' },
+    ]);
+    expect(template.variables).toEqual([]);
+  });
+
+  // Same shape as Meta's `jaspers_market_media_carousel_v1` sample.
+  it('stores carousel cards with their header format, body, buttons and card variables', () => {
+    const template = normalizeWhatsAppTemplate({
+      name: 'jaspers_market_media_carousel_v1',
+      language: 'en_US',
+      status: 'APPROVED',
+      category: 'MARKETING',
+      components: [
+        { type: 'BODY', text: 'Fresh recipes' },
+        { type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Get free delivery', url: 'https://x.test' }] },
+        {
+          type: 'CAROUSEL',
+          cards: [
+            {
+              components: [
+                { type: 'HEADER', format: 'IMAGE' },
+                { type: 'BODY', text: 'Sheet pan dinner' },
+                { type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Get this recipe', url: 'https://x.test/1' }] },
+              ],
+            },
+            {
+              components: [
+                { type: 'HEADER', format: 'IMAGE' },
+                { type: 'BODY', text: 'Salad for {{1}}', example: { body_text: [['Ana']] } },
+                {
+                  type: 'BUTTONS',
+                  buttons: [
+                    { type: 'URL', text: 'Open', url: 'https://x.test/r/{{1}}', example: ['https://x.test/r/9'] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(template.components[2]).toEqual({
+      type: 'carousel',
+      cards: [
+        {
+          headerFormat: 'image',
+          body: 'Sheet pan dinner',
+          buttons: [{ type: 'url', text: 'Get this recipe', url: 'https://x.test/1', phoneNumber: null }],
+        },
+        {
+          headerFormat: 'image',
+          body: 'Salad for {{1}}',
+          buttons: [{ type: 'url', text: 'Open', url: 'https://x.test/r/{{1}}', phoneNumber: null }],
+        },
+      ],
+    });
+    expect(template.variables).toEqual([
+      { key: '1.body.1', component: 'carousel', example: 'Ana' },
+      { key: '1.button.0', component: 'carousel', example: 'https://x.test/r/9' },
+    ]);
+    expect(template.components.map((component) => TemplateComponentSchema.parse(component))).toHaveLength(3);
+
+    expect(
+      buildWhatsAppTemplateSend(
+        { name: template.name, language: template.language, components: template.components, variables: template.variables },
+        { 'carousel:1.body.1': 'Luis', 'carousel:1.button.0': 'abc' },
+      ).cards,
+    ).toEqual([
+      { index: 0, body: [], buttons: [] },
+      {
+        index: 1,
+        body: [{ key: '1', value: 'Luis' }],
+        buttons: [{ index: 0, subType: 'url', parameters: [{ key: '1', value: 'abc' }] }],
+      },
+    ]);
+  });
+
   it('lists placeholder keys once, in order of appearance', () => {
     expect(placeholderKeys('{{2}} y {{ 1 }} y {{2}}')).toEqual(['2', '1']);
     expect(placeholderKeys(null)).toEqual([]);

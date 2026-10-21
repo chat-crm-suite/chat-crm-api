@@ -57,6 +57,28 @@ export const AttachmentTypeSchema = z.enum(ATTACHMENT_TYPES);
 export type AttachmentType = z.infer<typeof AttachmentTypeSchema>;
 
 /**
+ * Files a template header can carry: a subset of the attachment kinds, so a
+ * header file goes through the same upload rules as any message file. Lives
+ * here (not in `template.contract`) because the message view renders it.
+ */
+export const TEMPLATE_HEADER_MEDIA = [
+  'image',
+  'video',
+  'document',
+] as const satisfies readonly AttachmentType[];
+export const TemplateHeaderMediaSchema = z.enum(TEMPLATE_HEADER_MEDIA);
+export type TemplateHeaderMedia = z.infer<typeof TemplateHeaderMediaSchema>;
+
+/** One button of a template, provider-neutral (also in sent template views). */
+export const TemplateButtonSchema = z.object({
+  type: z.enum(['quick_reply', 'url', 'phone_number', 'copy_code', 'other']),
+  text: z.string(),
+  url: z.string().nullish(),
+  phoneNumber: z.string().nullish(),
+});
+export type TemplateButton = z.infer<typeof TemplateButtonSchema>;
+
+/**
  * Attachment lifecycle (T3): inbound media is born `pending` (the row is
  * already visible) and the async enrichment moves it to `ready` or `failed`.
  * Uploaded/outbound files are `ready` from the start.
@@ -140,6 +162,15 @@ export const MediaRefSchema = z.object({
 });
 export type MediaRef = z.infer<typeof MediaRefSchema>;
 
+/** A sent template's header file (the header or a carousel card). */
+export const TemplateMediaHeaderSchema = z.object({
+  kind: z.literal('media'),
+  mediaType: TemplateHeaderMediaSchema,
+  media: MediaRefSchema,
+  filename: z.string().nullable(),
+});
+export type TemplateMediaHeader = z.infer<typeof TemplateMediaHeaderSchema>;
+
 /** How a message renders (REST history and socket broadcast). */
 export const MessageViewSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
@@ -166,8 +197,36 @@ export const MessageViewSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('sticker'), media: MediaRefSchema }),
   /**
-   * Kinds the product does not render yet (location, contact, template,
-   * interactive, reaction): the original type plus any text it carried.
+   * A sent provider template as the customer saw it: a snapshot taken at
+   * send time with every value filled, so editing or deleting the template
+   * later never rewrites history. `templateId` is null once it is deleted.
+   */
+  z.object({
+    type: z.literal('template'),
+    templateId: z.string().nullable(),
+    name: z.string(),
+    language: z.string(),
+    header: z
+      .discriminatedUnion('kind', [
+        z.object({ kind: z.literal('text'), text: z.string() }),
+        TemplateMediaHeaderSchema,
+      ])
+      .nullable(),
+    body: z.string(),
+    footer: z.string().nullable(),
+    buttons: z.array(TemplateButtonSchema),
+    /** Carousel cards in order (empty for any other template). */
+    cards: z.array(
+      z.object({
+        header: TemplateMediaHeaderSchema.nullable(),
+        body: z.string(),
+        buttons: z.array(TemplateButtonSchema),
+      }),
+    ),
+  }),
+  /**
+   * Kinds the product does not render yet (location, contact, interactive,
+   * reaction): the original type plus any text it carried.
    */
   z.object({
     type: z.literal('unsupported'),

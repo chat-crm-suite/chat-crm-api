@@ -15,6 +15,8 @@ import { LoggerModule } from 'nestjs-pino';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import request from 'supertest';
 import type { App } from 'supertest/types';
+import { mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { DataSource, IsNull } from 'typeorm';
 
@@ -28,6 +30,7 @@ import {
   ConversationAssignmentEntrySchema,
   ConversationLifecycleResultSchema,
   ConversationListItemSchema,
+  ConversationMessageSchema,
   ConversationSocketEvent,
   StartConversationResultSchema,
   SyncTemplatesResultSchema,
@@ -75,6 +78,16 @@ import { ConversationAccessService } from '@modules/conversations/realtime/conve
 import { ConversationFanoutService } from '@modules/conversations/realtime/conversation-fanout.service';
 import { ConversationSendContextService } from '@modules/conversations/send-context/conversation-send-context.service';
 import { ConversationUploadsService } from '@modules/conversations/uploads/conversation-uploads.service';
+import {
+  ATTACHMENT_STORAGE_ROOT,
+  AttachmentStorageService,
+} from '@modules/media/attachment-storage.service';
+import {
+  MEDIA_NORMALIZERS,
+  MediaNormalizerChain,
+} from '@modules/media/normalize/media-normalizer';
+import { StagedUploadStore } from '@modules/media/staging/staged-upload.store';
+import { MessageAttachment as StoredAttachment } from '@modules/message/entities/message-attachment.entity';
 import { Customer } from '@modules/customers/entities/customer.entity';
 import { MessageAttachment } from '@modules/message/entities/message-attachment.entity';
 import { Message } from '@modules/message/entities/message.entity';
@@ -176,6 +189,7 @@ describe('Inbox v2 (e2e, sqlite)', () => {
   let server: App;
   let dataSource: DataSource;
   let seq = 0;
+  const storageRoot = mkdtempSync(join(tmpdir(), 'inbox-v2-storage-'));
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -241,8 +255,15 @@ describe('Inbox v2 (e2e, sqlite)', () => {
         { provide: ConversationGateway, useValue: fakeGateway },
         { provide: ConversationAssignmentNotifier, useValue: notifier },
         { provide: ConversationRepository, useValue: { listForMember: () => Promise.resolve([]) } },
-        { provide: OutgoingMediaService, useValue: { prepare: () => Promise.resolve(null) } },
-        { provide: ConversationUploadsService, useValue: {} },
+        // Real file pipeline (temp storage): template header files are staged,
+        // consumed and uploaded through the same services as message files.
+        OutgoingMediaService,
+        ConversationUploadsService,
+        StagedUploadStore,
+        AttachmentStorageService,
+        MediaNormalizerChain,
+        { provide: ATTACHMENT_STORAGE_ROOT, useValue: storageRoot },
+        { provide: MEDIA_NORMALIZERS, useValue: [] },
         { provide: SentimentService, useValue: {} },
       ],
     }).compile();
@@ -263,6 +284,7 @@ describe('Inbox v2 (e2e, sqlite)', () => {
 
   afterAll(async () => {
     await app?.close();
+    rmSync(storageRoot, { recursive: true, force: true });
   });
 
   beforeEach(async () => {
@@ -986,6 +1008,224 @@ describe('Inbox v2 (e2e, sqlite)', () => {
             },
           ],
         },
+      });
+    });
+
+    it('sends an image-header template: staged file, Graph media id, native thread view', async () => {
+      const company = await createCompany();
+      const admin = await createSession(company, 'admin');
+      const agent = await createSession(company, 'agent');
+      const { conversation, channel, customer } = await createConversation(company, {
+        owner: agent.member,
+        lastInboundAt: new Date(Date.now() - 30 * HOUR),
+      });
+      remoteTemplates = [
+        remote({
+          name: 'image_cta',
+          category: 'marketing',
+          components: [
+            { type: 'header', format: 'image', text: null },
+            { type: 'body', text: 'Envío gratis, {{1}}' },
+            { type: 'footer', text: 'Jasper' },
+            {
+              type: 'buttons',
+              buttons: [{ type: 'url', text: 'Pedir', url: 'https://x.test/p', phoneNumber: null }],
+            },
+          ],
+          variables: [{ key: '1', component: 'body', example: 'Ana' }],
+        }),
+        remote({
+          name: 'carousel',
+          category: 'marketing',
+          components: [{ type: 'body', text: 'Recetas' }, { type: 'carousel' }],
+          variables: [],
+        }),
+      ];
+      await call(admin, 'post', '/templates/sync', { channelId: channel.id }).expect(200);
+      const listed = TemplateSchema.array().parse((await call(agent, 'get', '/templates').expect(200)).body);
+      const image = listed.find((template) => template.name === 'image_cta')!;
+      const slides = listed.find((template) => template.name === 'carousel')!;
+      expect(image).toMatchObject({ headerMedia: 'image', sendSupport: { ok: true, reason: null } });
+      expect(slides).toMatchObject({ headerMedia: null, sendSupport: { ok: false, reason: 'carousel' } });
+
+      const unsendable = await call(agent, 'post', `/conversations/${conversation.id}/template`, {
+        templateId: slides.id,
+      }).expect(409);
+      expect(unsendable.body).toMatchObject({ code: 'template_unsendable' });
+
+      const missing = await call(agent, 'post', `/conversations/${conversation.id}/template`, {
+        templateId: image.id,
+        params: { 'body:1': 'Ana' },
+      }).expect(400);
+      expect(missing.body).toMatchObject({ code: 'template_header_media_missing' });
+
+      const png = Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]),
+        Buffer.from('IHDR'),
+        Buffer.from([0, 0, 2, 128, 0, 0, 1, 224, 8, 6, 0, 0, 0]),
+      ]);
+      const uploaded = await request(server)
+        .post(`/templates/${image.id}/header-upload`)
+        .set('Cookie', agent.cookie)
+        .set('x-company-id', company.id)
+        .attach('file', png, { filename: 'promo.png', contentType: 'image/png' })
+        .expect(201);
+      const staged = uploaded.body as { uploadId: string; kind: string };
+      expect(staged.kind).toBe('image');
+
+      adapter.uploadMedia.mockResolvedValueOnce({ ok: true, providerMediaId: 'media-77' });
+      const res = await call(agent, 'post', `/conversations/${conversation.id}/template`, {
+        templateId: image.id,
+        params: { 'body:1': 'Ana' },
+        headerMedia: { uploadId: staged.uploadId },
+      }).expect(201);
+      const messageId = (res.body as { messageId: string }).messageId;
+
+      const stored = await dataSource.getRepository(Message).findOneByOrFail({ id: messageId });
+      expect(stored).toMatchObject({
+        type: 'template',
+        status: 'sent',
+        templateSnapshot: {
+          name: 'image_cta',
+          header: { kind: 'media', mediaType: 'image', filename: 'promo.png' },
+          body: 'Envío gratis, Ana',
+          footer: 'Jasper',
+        },
+      });
+      const attachments = await dataSource.getRepository(StoredAttachment).findBy({ messageId });
+      expect(attachments).toEqual([
+        expect.objectContaining({ type: 'image', mimeType: 'image/png', externalMediaId: 'media-77' }),
+      ]);
+
+      expect(adapter.uploadMedia).toHaveBeenCalledTimes(1);
+      expect(toWhatsAppPayload(sends[0].recipient, sends[0].message)).toEqual({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: customer.phoneNumber!.replace(/\D/g, ''),
+        type: 'template',
+        template: {
+          name: 'image_cta',
+          language: { code: 'es' },
+          components: [
+            { type: 'header', parameters: [{ type: 'image', image: { id: 'media-77' } }] },
+            { type: 'body', parameters: [{ type: 'text', text: 'Ana' }] },
+          ],
+        },
+      });
+
+      const thread = ConversationMessageSchema.array().parse(
+        (await call(agent, 'get', `/conversations/${conversation.id}/messages`).expect(200)).body,
+      );
+      expect(thread.find((item) => item.id === messageId)?.msg).toMatchObject({
+        type: 'template',
+        templateId: image.id,
+        header: { kind: 'media', mediaType: 'image', media: { status: 'ready' } },
+        body: 'Envío gratis, Ana',
+        buttons: [{ type: 'url', text: 'Pedir' }],
+      });
+    });
+
+    it('sends a carousel template: one staged file per card, Graph cards, native thread cards', async () => {
+      const company = await createCompany();
+      const admin = await createSession(company, 'admin');
+      const agent = await createSession(company, 'agent');
+      const { conversation, channel, customer } = await createConversation(company, {
+        owner: agent.member,
+        lastInboundAt: new Date(Date.now() - 30 * HOUR),
+      });
+      const card = (body: string) => ({
+        headerFormat: 'image' as const,
+        body,
+        buttons: [{ type: 'url' as const, text: 'Receta', url: 'https://x.test/r', phoneNumber: null }],
+      });
+      remoteTemplates = [
+        remote({
+          name: 'recipes',
+          category: 'marketing',
+          components: [
+            { type: 'body', text: 'Recetas de verano' },
+            { type: 'carousel', cards: [card('Cena'), card('Ensalada')] },
+          ],
+          variables: [],
+        }),
+      ];
+      await call(admin, 'post', '/templates/sync', { channelId: channel.id }).expect(200);
+      const [recipes] = TemplateSchema.array().parse((await call(agent, 'get', '/templates').expect(200)).body);
+      expect(recipes.sendSupport).toEqual({ ok: true, reason: null });
+
+      const png = Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]),
+        Buffer.from('IHDR'),
+        Buffer.from([0, 0, 2, 128, 0, 0, 1, 224, 8, 6, 0, 0, 0]),
+      ]);
+      const stage = async (index: number) => {
+        const res = await request(server)
+          .post(`/templates/${recipes.id}/header-upload?card=${index}`)
+          .set('Cookie', agent.cookie)
+          .set('x-company-id', company.id)
+          .attach('file', png, { filename: `card-${index}.png`, contentType: 'image/png' })
+          .expect(201);
+        return (res.body as { uploadId: string }).uploadId;
+      };
+      const first = await stage(0);
+      const second = await stage(1);
+
+      const missing = await call(agent, 'post', `/conversations/${conversation.id}/template`, {
+        templateId: recipes.id,
+        cards: [{ headerMedia: { uploadId: first } }],
+      }).expect(400);
+      expect(missing.body).toMatchObject({ code: 'template_header_media_missing' });
+
+      adapter.uploadMedia
+        .mockResolvedValueOnce({ ok: true, providerMediaId: 'media-a' })
+        .mockResolvedValueOnce({ ok: true, providerMediaId: 'media-b' });
+      const res = await call(agent, 'post', `/conversations/${conversation.id}/template`, {
+        templateId: recipes.id,
+        cards: [{ headerMedia: { uploadId: first } }, { headerMedia: { uploadId: second } }],
+      }).expect(201);
+      const messageId = (res.body as { messageId: string }).messageId;
+
+      const stored = await dataSource.getRepository(Message).findOneByOrFail({ id: messageId });
+      expect(stored.status).toBe('sent');
+      const attachments = await dataSource.getRepository(StoredAttachment).findBy({ messageId });
+      expect(attachments).toHaveLength(2);
+
+      expect(toWhatsAppPayload(sends[0].recipient, sends[0].message)).toEqual({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: customer.phoneNumber!.replace(/\D/g, ''),
+        type: 'template',
+        template: {
+          name: 'recipes',
+          language: { code: 'es' },
+          components: [
+            {
+              type: 'carousel',
+              cards: [
+                {
+                  card_index: 0,
+                  components: [{ type: 'header', parameters: [{ type: 'image', image: { id: 'media-a' } }] }],
+                },
+                {
+                  card_index: 1,
+                  components: [{ type: 'header', parameters: [{ type: 'image', image: { id: 'media-b' } }] }],
+                },
+              ],
+            },
+          ],
+        },
+      });
+
+      const thread = ConversationMessageSchema.array().parse(
+        (await call(agent, 'get', `/conversations/${conversation.id}/messages`).expect(200)).body,
+      );
+      expect(thread.find((item) => item.id === messageId)?.msg).toMatchObject({
+        type: 'template',
+        body: 'Recetas de verano',
+        cards: [
+          { body: 'Cena', header: { kind: 'media', filename: 'card-0.png', media: { status: 'ready' } } },
+          { body: 'Ensalada', header: { kind: 'media', filename: 'card-1.png', media: { status: 'ready' } } },
+        ],
       });
     });
 

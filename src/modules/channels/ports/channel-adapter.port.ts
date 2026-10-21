@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import type { ChannelType } from '@contracts';
+import type { ChannelType, TemplateHeaderMedia } from '@contracts';
 
 /** A file stored on our side, ready to be handed to a provider. */
 export interface StoredMedia {
@@ -53,6 +53,31 @@ export interface ResolvedTemplate {
   body: TemplateParameter[];
   /** Dynamic buttons (e.g. a URL suffix), by button position. */
   buttons: Array<{ index: number; subType: string; parameters: TemplateParameter[] }>;
+  /**
+   * The header file, once the provider holds it. Set by the sender after
+   * the upload, never by the `TemplateProvider` (which only knows text).
+   */
+  headerMedia?: ResolvedTemplateMedia;
+  /**
+   * Carousel cards in order. Values come from the `TemplateProvider`; each
+   * card's `headerMedia` is set by the sender after its upload.
+   */
+  cards?: ResolvedTemplateCard[];
+}
+
+/** A template header file the provider already holds. */
+export interface ResolvedTemplateMedia {
+  type: TemplateHeaderMedia;
+  media: ProviderMedia;
+  filename?: string;
+}
+
+/** One carousel card ready to send. */
+export interface ResolvedTemplateCard {
+  index: number;
+  body: TemplateParameter[];
+  buttons: ResolvedTemplate['buttons'];
+  headerMedia?: ResolvedTemplateMedia;
 }
 
 /** How a provider failure must be handled by the caller. */

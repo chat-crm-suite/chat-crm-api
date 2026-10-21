@@ -294,6 +294,14 @@ export const ConversationErrorCode = {
   TemplateUnavailable: 'template_unavailable',
   /** Missing value for a template variable. */
   TemplateParamsMissing: 'template_params_missing',
+  /** Carousel, location header or a header file the channel cannot send. */
+  TemplateUnsendable: 'template_unsendable',
+  /** The template header needs a file and `headerMedia` is missing. */
+  TemplateHeaderMediaMissing: 'template_header_media_missing',
+  /** The staged file is not the kind the header needs (or expired). */
+  TemplateHeaderMediaMismatch: 'template_header_media_mismatch',
+  /** Header upload for a template whose header takes no file. */
+  TemplateHeaderMediaNotNeeded: 'template_header_media_not_needed',
   /** The channel is not connected (`pending`/`inactive`/`error`): 409. */
   ChannelUnavailable: 'channel_unavailable',
 } as const;

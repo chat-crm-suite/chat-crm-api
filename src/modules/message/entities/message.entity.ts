@@ -17,6 +17,8 @@ import type {
   MessageSenderType,
   MessageStatus,
   MessageType,
+  TemplateButton,
+  TemplateHeaderMedia,
 } from '@contracts';
 import { UuidV7Entity } from '@lib/entities/uuid-v7.entity';
 import { Company } from '../../company/entities/company.entity';
@@ -24,6 +26,38 @@ import { CompanyMember } from '../../company-members/entities/company-member.ent
 import { Customer } from '../../customers/entities/customer.entity';
 import { MessageTemplate } from '../../channels/entities/message-template.entity';
 import { Conversation } from '../../conversations/entities/conversation.entity';
+
+/**
+ * A sent template as the customer saw it, values filled, frozen at send
+ * time. A media header keeps only its kind: the file is the message's
+ * attachment.
+ */
+export interface TemplateSnapshot {
+  name: string;
+  language: string;
+  header: { kind: 'text'; text: string } | TemplateSnapshotMedia | null;
+  body: string;
+  footer: string | null;
+  buttons: TemplateButton[];
+  /** Carousel cards in order (absent on older rows and other templates). */
+  cards?: Array<{
+    header: TemplateSnapshotMedia | null;
+    body: string;
+    buttons: TemplateButton[];
+  }>;
+}
+
+/**
+ * A header file of a sent template. `attachmentId` points at its row in
+ * `message_attachments` (a carousel has one per card); older rows without
+ * it use the message's first attachment.
+ */
+export interface TemplateSnapshotMedia {
+  kind: 'media';
+  mediaType: TemplateHeaderMedia;
+  filename: string | null;
+  attachmentId?: string;
+}
 
 @Entity('messages')
 @Index(['conversationId', 'createdAt'])
@@ -88,6 +122,10 @@ export class Message extends UuidV7Entity {
   @ManyToOne(() => MessageTemplate, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'template_id' })
   template?: MessageTemplate | null;
+
+  /** `type: 'template'`: what was sent (see `TemplateSnapshot`). */
+  @Column({ name: 'template_snapshot', type: 'json', nullable: true })
+  templateSnapshot?: TemplateSnapshot | null;
 
   /** WA: wamid, stored raw as reported by the provider. */
   @Column({ name: 'external_id', type: 'varchar', length: 128, nullable: true })

@@ -14,6 +14,8 @@ import type {
   MessageType,
 } from '../../contracts/index';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
+import type { TemplateSnapshot } from '../message/entities/message.entity';
+import type { SaveMessageAttachment } from '../message/message.repository';
 import {
   MessageService,
   type SaveMessageParams,
@@ -51,6 +53,18 @@ export interface SaveConversationMessageContent {
   clientMessageId?: string | null;
   /** Provider template the message was sent from (`type: 'template'`). */
   templateId?: string | null;
+  /** The template as sent (`type: 'template'`). */
+  templateSnapshot?: TemplateSnapshot | null;
+  /**
+   * Attachment kind when the message type does not imply one (a template's
+   * header file); media message types derive it themselves.
+   */
+  attachmentType?: AttachmentType;
+  /**
+   * Several files with preset ids (a template's header and carousel card
+   * files); replaces the single-file fields above.
+   */
+  attachments?: SaveMessageAttachment[];
 }
 
 const ATTACHMENT_TYPE_BY_MESSAGE_TYPE: Partial<
@@ -132,7 +146,8 @@ export class ConversationsService {
       : await this.resolveMemberId(sender.id, resolvedCompanyId);
 
     const link = msg.mediaUrl ?? msg.content?.link;
-    const attachmentType = ATTACHMENT_TYPE_BY_MESSAGE_TYPE[msg.type];
+    const attachmentType =
+      ATTACHMENT_TYPE_BY_MESSAGE_TYPE[msg.type] ?? msg.attachmentType;
     // T3: inbound media keeps its reference without a file yet; the async
     // enrichment downloads it and flips the attachment to ready/failed.
     const attachmentStatus =
@@ -150,11 +165,13 @@ export class ConversationsService {
       externalId: msg.externalId ?? null,
       clientMessageId: msg.clientMessageId ?? null,
       templateId: msg.templateId ?? null,
+      templateSnapshot: msg.templateSnapshot ?? null,
       // T5: an outbound row is born pending; Graph's wamid (or the failure)
       // moves it. Inbound rows are already delivered when persisted.
       status: inbound ? 'delivered' : 'pending',
-      attachments:
-        attachmentType && (link || msg.externalMediaId)
+      attachments: msg.attachments?.length
+        ? msg.attachments
+        : attachmentType && (link || msg.externalMediaId)
           ? [
               {
                 type: attachmentType,

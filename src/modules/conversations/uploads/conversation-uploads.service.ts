@@ -12,6 +12,7 @@ import { open, readFile, rm, writeFile } from 'node:fs/promises';
 import {
   channelCapabilities,
   type ChannelCapabilities,
+  type ChannelType,
   type StagedUpload,
   type StageUploadInput,
   type UploadErrorCode,
@@ -33,6 +34,7 @@ import {
   type NormalizedMedia,
 } from '@modules/media/normalize/media-normalizer';
 import {
+  conversationUploadScope,
   StagedUploadStore,
   type StagedFile,
 } from '@modules/media/staging/staged-upload.store';
@@ -44,6 +46,13 @@ export interface IncomingUpload {
   size: number;
   mimetype: string;
   originalname: string;
+}
+
+/** Where a staged file belongs and which channel's rules it must meet. */
+export interface UploadTarget {
+  companyId: string;
+  scope: string;
+  channelType: ChannelType;
 }
 
 /** The checked file, ready to stage. */
@@ -76,15 +85,35 @@ export class ConversationUploadsService {
     upload: IncomingUpload,
     input: StageUploadInput,
   ): Promise<StagedUpload> {
+    const context = await this.sendContext.get(conversationId);
+    if (!context || context.companyId !== companyId) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    return this.stageFor(
+      {
+        companyId,
+        scope: conversationUploadScope(conversationId),
+        channelType: context.channelType,
+      },
+      upload,
+      input,
+    );
+  }
+
+  /**
+   * Same checks for a file staged outside a conversation (a template's
+   * header file): the caller resolved the channel and the scope.
+   */
+  async stageFor(
+    target: UploadTarget,
+    upload: IncomingUpload,
+    input: StageUploadInput,
+  ): Promise<StagedUpload> {
     const normalizedPath = `${upload.path}.normalized`;
 
     try {
-      const context = await this.sendContext.get(conversationId);
-      if (!context || context.companyId !== companyId) {
-        throw new NotFoundException('Conversation not found');
-      }
-
-      const capabilities = channelCapabilities(context.channelType);
+      const capabilities = channelCapabilities(target.channelType);
       const file = await this.inspect(
         upload,
         input,
@@ -93,8 +122,8 @@ export class ConversationUploadsService {
       );
 
       const staged = await this.store.stage({
-        companyId,
-        conversationId,
+        companyId: target.companyId,
+        scope: target.scope,
         kind: input.kind,
         mimeType: file.mimeType,
         sizeBytes: file.sizeBytes,

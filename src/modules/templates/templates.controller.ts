@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -11,20 +12,29 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiCookieAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { diskStorage } from 'multer';
+import { tmpdir } from 'node:os';
 import { ZodSerializerDto } from 'nestjs-zod';
 
+import { RemoveUploadedFileInterceptor } from '@common/interceptors/remove-uploaded-file.interceptor';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { TenantContext } from '../../auth/auth.types';
 import {
+  MAX_UPLOAD_BYTES,
   SyncTemplatesResultSchema,
   TemplateGroupSchema,
+  TemplateHeaderUploadResultSchema,
   TemplateSchema,
 } from '../../contracts/index';
 import { zodResponseSchema } from '../../docs/zod-response';
 import { SyncTemplatesDto } from './dto/sync-templates.dto';
+import { TemplateHeaderUploadQueryDto } from './dto/template-header-upload-query.dto';
 import { TemplateListQueryDto } from './dto/template-list-query.dto';
 import { UpdateTemplateSettingsDto } from './dto/update-template-settings.dto';
 import { TemplatesService } from './templates.service';
@@ -76,5 +86,31 @@ export class TemplatesController {
     @CurrentTenant() tenant: TenantContext,
   ) {
     return this.templates.updateSettings(tenant.companyId, id, body);
+  }
+
+  /**
+   * Stages the header file of a template (multipart `file`) before sending
+   * it. Same streaming and checks as `POST /conversations/:id/uploads`; the
+   * kind is the template's header format, or the card's with `?card=`.
+   */
+  @Post(':id/header-upload')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({ destination: tmpdir() }),
+      limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
+    }),
+    RemoveUploadedFileInterceptor,
+  )
+  @ApiOperation({ summary: "Stage a template's header file" })
+  @ZodSerializerDto(TemplateHeaderUploadResultSchema)
+  @ApiOkResponse({ schema: zodResponseSchema(TemplateHeaderUploadResultSchema) })
+  stageHeaderMedia(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Query() query: TemplateHeaderUploadQueryDto,
+    @CurrentTenant() tenant: TenantContext,
+  ) {
+    if (!file) throw new BadRequestException('A file is required');
+    return this.templates.stageHeaderMedia(tenant, id, file, query.card);
   }
 }

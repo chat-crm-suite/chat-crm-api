@@ -16,9 +16,11 @@ import type {
 import { Conversation } from '../conversations/entities/conversation.entity';
 import { MessageAttachment } from './entities/message-attachment.entity';
 import { MessageStatusEvent } from './entities/message-status-event.entity';
-import { Message } from './entities/message.entity';
+import { Message, type TemplateSnapshot } from './entities/message.entity';
 
 export interface SaveMessageAttachment {
+  /** Preset id, when a caller must reference the row before it exists. */
+  id?: string;
   type: AttachmentType;
   mimeType?: string;
   fileName?: string;
@@ -43,6 +45,7 @@ export interface SaveMessageData {
   externalId?: string | null;
   clientMessageId?: string | null;
   templateId?: string | null;
+  templateSnapshot?: TemplateSnapshot | null;
   status: MessageStatus;
   attachments?: SaveMessageAttachment[];
 }
@@ -80,6 +83,7 @@ export class MessageRepository {
         externalId: data.externalId ?? null,
         clientMessageId: data.clientMessageId ?? null,
         templateId: data.templateId ?? null,
+        templateSnapshot: data.templateSnapshot ?? null,
         type: data.type,
         status: data.status,
       });
@@ -90,6 +94,7 @@ export class MessageRepository {
         await manager.save(
           data.attachments.map((attachment) =>
             manager.create(MessageAttachment, {
+              ...(attachment.id ? { id: attachment.id } : {}),
               messageId: message.id,
               type: attachment.type,
               // Column is NOT NULL; callers may omit the mime type.

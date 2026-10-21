@@ -13187,7 +13187,8 @@
                                 "header",
                                 "body",
                                 "footer",
-                                "buttons"
+                                "buttons",
+                                "carousel"
                               ]
                             },
                             "format": {
@@ -13257,6 +13258,88 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "cards": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "headerFormat": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "text",
+                                              "image",
+                                              "video",
+                                              "document",
+                                              "location"
+                                            ]
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "body": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "buttons": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "type": {
+                                              "type": "string",
+                                              "enum": [
+                                                "quick_reply",
+                                                "url",
+                                                "phone_number",
+                                                "copy_code",
+                                                "other"
+                                              ]
+                                            },
+                                            "text": {
+                                              "type": "string"
+                                            },
+                                            "url": {
+                                              "type": [
+                                                "string",
+                                                "null"
+                                              ]
+                                            },
+                                            "phoneNumber": {
+                                              "type": [
+                                                "string",
+                                                "null"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "type",
+                                            "text"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "headerFormat",
+                                      "body",
+                                      "buttons"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -13279,7 +13362,8 @@
                                 "header",
                                 "body",
                                 "footer",
-                                "buttons"
+                                "buttons",
+                                "carousel"
                               ]
                             },
                             "label": {
@@ -13303,6 +13387,49 @@
                           ],
                           "additionalProperties": false
                         }
+                      },
+                      "headerMedia": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "image",
+                              "video",
+                              "document"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sendSupport": {
+                        "type": "object",
+                        "properties": {
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "carousel",
+                                  "location_header",
+                                  "header_media_unsupported"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "ok",
+                          "reason"
+                        ],
+                        "additionalProperties": false
                       },
                       "visibleToAgents": {
                         "type": "boolean"
@@ -13341,6 +13468,8 @@
                       "statusReason",
                       "components",
                       "variables",
+                      "headerMedia",
+                      "sendSupport",
                       "visibleToAgents",
                       "externalId",
                       "syncedAt",
@@ -13741,7 +13870,8 @@
                               "header",
                               "body",
                               "footer",
-                              "buttons"
+                              "buttons",
+                              "carousel"
                             ]
                           },
                           "format": {
@@ -13811,6 +13941,88 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "cards": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "headerFormat": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "text",
+                                            "image",
+                                            "video",
+                                            "document",
+                                            "location"
+                                          ]
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "body": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "buttons": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "type": {
+                                            "type": "string",
+                                            "enum": [
+                                              "quick_reply",
+                                              "url",
+                                              "phone_number",
+                                              "copy_code",
+                                              "other"
+                                            ]
+                                          },
+                                          "text": {
+                                            "type": "string"
+                                          },
+                                          "url": {
+                                            "type": [
+                                              "string",
+                                              "null"
+                                            ]
+                                          },
+                                          "phoneNumber": {
+                                            "type": [
+                                              "string",
+                                              "null"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "type",
+                                          "text"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "headerFormat",
+                                    "body",
+                                    "buttons"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -13833,7 +14045,8 @@
                               "header",
                               "body",
                               "footer",
-                              "buttons"
+                              "buttons",
+                              "carousel"
                             ]
                           },
                           "label": {
@@ -13857,6 +14070,49 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "headerMedia": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "image",
+                            "video",
+                            "document"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sendSupport": {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "carousel",
+                                "location_header",
+                                "header_media_unsupported"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "reason"
+                      ],
+                      "additionalProperties": false
                     },
                     "visibleToAgents": {
                       "type": "boolean"
@@ -13895,6 +14151,8 @@
                     "statusReason",
                     "components",
                     "variables",
+                    "headerMedia",
+                    "sendSupport",
                     "visibleToAgents",
                     "externalId",
                     "syncedAt",
@@ -13912,6 +14170,113 @@
           }
         ],
         "summary": "CRM-side template settings (visibility, labels)",
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/templates/{id}/header-upload": {
+      "post": {
+        "operationId": "TemplatesController_stageHeaderMedia",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "card",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 9,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "uploadId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "image",
+                        "audio",
+                        "video",
+                        "document",
+                        "sticker"
+                      ]
+                    },
+                    "mimeType": {
+                      "type": "string"
+                    },
+                    "sizeBytes": {
+                      "type": "number"
+                    },
+                    "filename": {
+                      "type": "string"
+                    },
+                    "durationMs": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "width": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "height": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "uploadId",
+                    "kind",
+                    "mimeType",
+                    "sizeBytes",
+                    "filename",
+                    "durationMs",
+                    "width",
+                    "height",
+                    "expiresAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Stage a template's header file",
         "tags": [
           "Templates"
         ]
@@ -16143,6 +16508,41 @@
                   "maxLength": 1024
                 }
               },
+              "headerMedia": {
+                "type": "object",
+                "properties": {
+                  "uploadId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "uploadId"
+                ]
+              },
+              "cards": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "headerMedia": {
+                      "type": "object",
+                      "properties": {
+                        "uploadId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "uploadId"
+                      ]
+                    }
+                  }
+                }
+              },
               "clientMessageId": {
                 "type": "string",
                 "minLength": 1,
@@ -16302,6 +16702,41 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 1024
+            }
+          },
+          "headerMedia": {
+            "type": "object",
+            "properties": {
+              "uploadId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": [
+              "uploadId"
+            ]
+          },
+          "cards": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "headerMedia": {
+                  "type": "object",
+                  "properties": {
+                    "uploadId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "uploadId"
+                  ]
+                }
+              }
             }
           },
           "clientMessageId": {

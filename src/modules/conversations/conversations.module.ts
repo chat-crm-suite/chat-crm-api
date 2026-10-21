@@ -135,6 +135,7 @@ const commandHandlers = [
     ConversationListService,
     ConversationAssignmentNotifier,
     AgentMessageSender,
+    ConversationUploadsService,
   ],
 })
 export class ConversationsModule {}

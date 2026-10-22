@@ -89,7 +89,7 @@ describe('ChannelsService (App Secret)', () => {
     expect(JSON.stringify(response)).not.toContain(APP_SECRET);
     expect(rows[0].credentials).not.toContain(APP_SECRET);
     expect(
-      decryptCredentials<WhatsAppCredentials>(rows[0].credentials).appSecret,
+      decryptCredentials<WhatsAppCredentials>(rows[0].credentials!).appSecret,
     ).toBe(APP_SECRET);
   });
 
@@ -108,7 +108,7 @@ describe('ChannelsService (App Secret)', () => {
 
     const response = await service.updateWhatsAppConfig({ accessToken: 'new' });
 
-    const stored = decryptCredentials<WhatsAppCredentials>(rows[0].credentials);
+    const stored = decryptCredentials<WhatsAppCredentials>(rows[0].credentials!);
     expect(stored).toMatchObject({ accessToken: 'new', appSecret: APP_SECRET });
     expect(response?.hasAppSecret).toBe(true);
   });
@@ -144,5 +144,105 @@ describe('ChannelsService (App Secret)', () => {
     rows = [channelRow({ accessToken: 'tok' })];
 
     await expect(service.getWebhookAppSecrets('phone-1')).resolves.toEqual([]);
+  });
+});
+
+/**
+ * Every company is born with a `pending` WhatsApp channel (verify token only):
+ * it is readable and verifiable, never used to send, and turns `active` once
+ * it has a phone number ID and an access token.
+ */
+describe('ChannelsService (pending channel)', () => {
+  const originalKey = process.env.CREDENTIALS_ENCRYPTION_KEY;
+
+  let rows: Channel[];
+  let service: ChannelsService;
+
+  const pendingRow = (): Channel =>
+    ({
+      id: 'ch-1',
+      companyId: 'co-1',
+      type: 'whatsapp',
+      name: 'WhatsApp',
+      externalAccountId: null,
+      status: 'pending',
+      credentials: null,
+      settings: { apiVersion: 'v22.0' },
+      webhookVerifyToken: 'verify',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }) as unknown as Channel;
+
+  beforeAll(() => {
+    process.env.CREDENTIALS_ENCRYPTION_KEY = '0'.repeat(64);
+  });
+  afterAll(() => {
+    if (originalKey === undefined) delete process.env.CREDENTIALS_ENCRYPTION_KEY;
+    else process.env.CREDENTIALS_ENCRYPTION_KEY = originalKey;
+  });
+
+  beforeEach(() => {
+    rows = [pendingRow()];
+    const repo = {
+      save: jest.fn((row: Channel) => Promise.resolve(row)),
+      merge: jest.fn((row: Channel, patch: Partial<Channel>) =>
+        Object.assign(row, patch),
+      ),
+      find: jest.fn(() => Promise.resolve(rows)),
+      // Mirrors the `status: 'active'` filters of the senders/routers.
+      findOne: jest.fn(
+        ({ where }: { where: { status?: string } }) =>
+          Promise.resolve(
+            rows.find((row) => !where.status || row.status === where.status) ??
+              null,
+          ),
+      ),
+    };
+    service = new ChannelsService(
+      repo as never,
+      { get: jest.fn().mockReturnValue('co-1') } as never,
+    );
+  });
+
+  it('returns the pending channel with its verify token and no credentials', async () => {
+    const config = await service.getWhatsAppConfigWithToken();
+
+    expect(config).toMatchObject({
+      status: 'pending',
+      externalAccountId: null,
+      webhookVerifyToken: 'verify',
+      hasCredentials: false,
+      hasAppSecret: false,
+      accessToken: null,
+    });
+  });
+
+  it('stays pending while the channel cannot send', async () => {
+    const response = await service.updateWhatsAppConfig({ businessId: 'waba-1' });
+
+    expect(response?.status).toBe('pending');
+    expect(response?.businessId).toBe('waba-1');
+  });
+
+  it('turns active once it has a phone number ID and an access token', async () => {
+    const response = await service.updateWhatsAppConfig({
+      externalAccountId: 'phone-1',
+      accessToken: 'token-123',
+    });
+
+    expect(response).toMatchObject({
+      status: 'active',
+      externalAccountId: 'phone-1',
+      hasCredentials: true,
+      webhookVerifyToken: 'verify',
+    });
+  });
+
+  it('never hands a pending channel to the senders', async () => {
+    await expect(service.getTransmissionForCompany('co-1')).resolves.toBeNull();
+  });
+
+  it('still accepts its verify token for the Meta handshake', async () => {
+    await expect(service.verifyToken('verify')).resolves.toBe(true);
   });
 });

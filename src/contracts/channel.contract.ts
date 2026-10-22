@@ -7,6 +7,7 @@ import {
   type AttachmentType,
   CAPTION_MAX_LENGTH,
   TEXT_MAX_LENGTH,
+  type TemplateHeaderMedia,
 } from './message.contract';
 
 /**
@@ -37,10 +38,48 @@ export const CHANNEL_TYPES = [
 ] as const;
 export const ChannelTypeSchema = z.enum(CHANNEL_TYPES);
 export type ChannelType = z.infer<typeof ChannelTypeSchema>;
+/** Named channel types (`CHANNEL_TYPE.whatsapp`): never spell the string. */
+export const CHANNEL_TYPE = ChannelTypeSchema.enum;
 
-export const CHANNEL_STATUSES = ['active', 'inactive', 'error'] as const;
+/**
+ * `pending`: the channel every company is born with (verify token only, no
+ * credentials yet). It turns `active` once it has a phone number ID and an
+ * access token; senders and inbound routing only use `active` channels.
+ */
+export const CHANNEL_STATUSES = [
+  'pending',
+  'active',
+  'inactive',
+  'error',
+] as const;
 export const ChannelStatusSchema = z.enum(CHANNEL_STATUSES);
 export type ChannelStatus = z.infer<typeof ChannelStatusSchema>;
+/** Named channel statuses (`CHANNEL_STATUS.pending`): never spell the string. */
+export const CHANNEL_STATUS = ChannelStatusSchema.enum;
+
+/**
+ * Only an `active` channel sends. `error` = the provider refused the
+ * credentials (failed send with an authorization fault, or a failed
+ * connection test); it keeps receiving and goes back to `active` after a
+ * passing connection test or a credentials update. Every send path refuses a
+ * non-sendable channel with `channel_unavailable` before saving anything.
+ */
+export function isChannelSendable(status: ChannelStatus | null | undefined) {
+  return status === CHANNEL_STATUS.active;
+}
+
+/** Socket events of the channels (company room of the `conversation` namespace). */
+export const ChannelSocketEvent = {
+  /** `ChannelStatusChangedSchema`: a channel went down or came back. */
+  StatusChanged: 'channel:status:changed',
+} as const;
+
+/** Meta's Graph API host (the only one the API ever calls for WhatsApp). */
+export const WHATSAPP_GRAPH_BASE_URL = 'https://graph.facebook.com';
+/** Route of the WhatsApp webhook controller, relative to the API base URL. */
+export const WHATSAPP_WEBHOOK_PATH = 'integration/webhook/whatsapp';
+/** Name of a WhatsApp channel created without one. */
+export const DEFAULT_WHATSAPP_CHANNEL_NAME = 'WhatsApp';
 
 /** Plaintext keys stored (encrypted) in `channels.credentials` for WhatsApp. */
 export const WhatsAppCredentialsSchema = z.object({
@@ -53,13 +92,19 @@ export type WhatsAppCredentials = z.infer<typeof WhatsAppCredentialsSchema>;
 
 /** Non-secret settings stored in `channels.settings` for WhatsApp. */
 export const WhatsAppChannelSettingsSchema = z.object({
-  apiVersion: z.string().default('v22.0'),
-  apiBaseUrl: z.string().default('https://graph.facebook.com'),
+  apiVersion: z.string().default(DEFAULT_WHATSAPP_API_VERSION),
+  apiBaseUrl: z.string().default(WHATSAPP_GRAPH_BASE_URL),
   webhookUrl: z.string().optional(),
 });
 export type WhatsAppChannelSettings = z.infer<
   typeof WhatsAppChannelSettingsSchema
 >;
+
+/** Settings of a new WhatsApp channel (the `pending` one included). */
+export const DEFAULT_WHATSAPP_SETTINGS = {
+  apiVersion: DEFAULT_WHATSAPP_API_VERSION,
+  apiBaseUrl: WHATSAPP_GRAPH_BASE_URL,
+} as const satisfies WhatsAppChannelSettings;
 
 /** Meta App Secrets are 32 hex chars (App settings → Basic → App secret). */
 export const WhatsAppAppSecretSchema = z
@@ -98,7 +143,8 @@ export const ChannelResponseSchema = z.object({
   id: z.string(),
   type: ChannelTypeSchema,
   name: z.string(),
-  externalAccountId: z.string(),
+  /** Null while the channel is `pending`. */
+  externalAccountId: z.string().nullish(),
   displayAddress: z.string().nullish(),
   status: ChannelStatusSchema,
   webhookVerifyToken: z.string().nullish(),
@@ -109,9 +155,23 @@ export const ChannelResponseSchema = z.object({
   hasCredentials: z.boolean(),
   /** The channel signs its webhooks with its own App Secret. */
   hasAppSecret: z.boolean(),
+  /** Why the channel is `error` (user-facing, Spanish); null otherwise. */
+  statusReason: z.string().nullish(),
+  statusChangedAt: z.coerce.date().nullish(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
+
+/** `channel:status:changed` payload. */
+export const ChannelStatusChangedSchema = z.object({
+  channelId: z.string(),
+  type: ChannelTypeSchema,
+  name: z.string(),
+  status: ChannelStatusSchema,
+  statusReason: z.string().nullable(),
+  at: z.coerce.date(),
+});
+export type ChannelStatusChanged = z.infer<typeof ChannelStatusChangedSchema>;
 
 /**
  * `GET /channels/whatsapp/config` only: the settings form needs the stored
@@ -121,6 +181,39 @@ export const ChannelResponseSchema = z.object({
 export const WhatsAppConfigResponseSchema = ChannelResponseSchema.extend({
   accessToken: z.string().nullish(),
 });
+
+export const CONNECTION_CHECK_STATUSES = ['ok', 'failed', 'skipped'] as const;
+export const ConnectionCheckStatusSchema = z.enum(CONNECTION_CHECK_STATUSES);
+export type ConnectionCheckStatus = z.infer<typeof ConnectionCheckStatusSchema>;
+export const CONNECTION_CHECK = ConnectionCheckStatusSchema.enum;
+
+/** One check of the connection test; `message` is user-facing (Spanish). */
+export const ConnectionCheckSchema = z.object({
+  status: ConnectionCheckStatusSchema,
+  message: z.string(),
+});
+export type ConnectionCheck = z.infer<typeof ConnectionCheckSchema>;
+
+/**
+ * `POST /channels/whatsapp/test`: checks the stored channel of the active
+ * company. Always answered with 200; each check says what failed.
+ */
+export const WhatsAppConnectionTestSchema = z.object({
+  /** Sending and webhook are `ok` and no check `failed`. */
+  ok: z.boolean(),
+  /** Phone number ID + access token (+ App Secret) against Graph. */
+  sending: ConnectionCheckSchema.extend({
+    displayPhoneNumber: z.string().nullish(),
+    verifiedName: z.string().nullish(),
+  }),
+  /** The stored webhook URL answers Meta's verification handshake. */
+  webhook: ConnectionCheckSchema.extend({ url: z.string().nullish() }),
+  /** The Meta app is subscribed to the WhatsApp Business Account webhooks. */
+  subscription: ConnectionCheckSchema,
+});
+export type WhatsAppConnectionTest = z.infer<
+  typeof WhatsAppConnectionTestSchema
+>;
 
 export type CreateChannelInput = z.infer<typeof CreateChannelSchema>;
 export type UpdateChannelInput = z.infer<typeof UpdateChannelSchema>;
@@ -163,6 +256,18 @@ export interface ChannelCapabilities {
   readonly captionMaxLength: number;
   /** Free-form replies only within this window after the last inbound. */
   readonly replyWindowMs: number | null;
+  /**
+   * Provider-approved templates can be listed and sent (the only way to
+   * write outside the reply window). True requires a `TemplateProvider`.
+   */
+  readonly supportsTemplates: boolean;
+  /**
+   * Header files a template can carry on this channel. Each kind also needs
+   * its `media` rule (mime types, size), which the header upload enforces.
+   */
+  readonly templateHeaderMedia: readonly TemplateHeaderMedia[];
+  /** Carousel templates (swipeable cards), or null when unsupported. */
+  readonly templateCarousel: { readonly maxCards: number } | null;
 }
 
 /**
@@ -214,6 +319,10 @@ const WHATSAPP_CAPABILITIES: ChannelCapabilities = {
   textMaxLength: TEXT_MAX_LENGTH,
   captionMaxLength: CAPTION_MAX_LENGTH,
   replyWindowMs: 24 * 60 * 60 * 1000,
+  supportsTemplates: true,
+  templateHeaderMedia: ['image', 'video', 'document'],
+  // Graph media card carousels: 2 to 10 cards.
+  templateCarousel: { maxCards: 10 },
 };
 
 export const CHANNEL_CAPABILITIES: Readonly<

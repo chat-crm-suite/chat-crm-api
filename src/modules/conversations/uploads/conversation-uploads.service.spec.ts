@@ -11,7 +11,11 @@ import {
   MediaNormalizerChain,
   type MediaNormalizer,
 } from '@modules/media/normalize/media-normalizer';
-import { StagedUploadStore } from '@modules/media/staging/staged-upload.store';
+import {
+  conversationUploadScope,
+  StagedUploadStore,
+  templateUploadScope,
+} from '@modules/media/staging/staged-upload.store';
 import type { ConversationSendContextService } from '../send-context/conversation-send-context.service';
 import { ConversationUploadsService } from './conversation-uploads.service';
 
@@ -134,6 +138,27 @@ describe('ConversationUploadsService', () => {
     });
     expect(existsSync(join(root, 'co-1', 'staged', `${staged.uploadId}.png`))).toBe(true);
     expect(staged.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('stages a file outside any conversation with the given channel rules', async () => {
+    sendContext.get.mockClear();
+    const file = upload(png(), 'image/png', 'header.png');
+
+    const staged = await service.stageFor(
+      { companyId: 'co-1', scope: templateUploadScope('tpl-1'), channelType: 'whatsapp' },
+      file,
+      { kind: 'image' },
+    );
+
+    expect(staged).toMatchObject({ kind: 'image', mimeType: 'image/png' });
+    expect(sendContext.get).not.toHaveBeenCalled();
+    await expect(
+      store.find(staged.uploadId, {
+        companyId: 'co-1',
+        scope: templateUploadScope('tpl-1'),
+        kind: 'image',
+      }),
+    ).resolves.not.toBeNull();
   });
 
   it('refuses content that does not match a supported type', async () => {
@@ -308,7 +333,7 @@ describe('StagedUploadStore.consume', () => {
     writeFileSync(sourcePath, 'file');
     return store.stage({
       companyId: 'co-1',
-      conversationId: 'conv-1',
+      scope: conversationUploadScope('conv-1'),
       kind: 'document',
       mimeType: 'application/pdf',
       sizeBytes: 4,
@@ -321,7 +346,11 @@ describe('StagedUploadStore.consume', () => {
     });
   };
 
-  const scope = { companyId: 'co-1', conversationId: 'conv-1', kind: 'document' } as const;
+  const scope = {
+    companyId: 'co-1',
+    scope: conversationUploadScope('conv-1'),
+    kind: 'document',
+  } as const;
 
   it('moves the file out of staging, idempotently', async () => {
     const staged = await stage();
@@ -335,11 +364,12 @@ describe('StagedUploadStore.consume', () => {
     expect(existsSync(join(root, 'co-1', 'staged', `${staged.uploadId}.pdf`))).toBe(false);
   });
 
-  it('never hands an upload to another conversation, company or kind', async () => {
+  it('never hands an upload to another conversation, template, company or kind', async () => {
     const staged = await stage();
 
     for (const wrong of [
-      { ...scope, conversationId: 'conv-2' },
+      { ...scope, scope: conversationUploadScope('conv-2') },
+      { ...scope, scope: templateUploadScope('conv-1') },
       { ...scope, companyId: 'co-2' },
       { ...scope, kind: 'image' as const },
     ]) {
@@ -350,5 +380,18 @@ describe('StagedUploadStore.consume', () => {
     await expect(store.consume('unknown', scope)).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('finds a staged file in its scope without consuming it', async () => {
+    const staged = await stage();
+
+    await expect(store.find(staged.uploadId, scope)).resolves.toMatchObject({
+      uploadId: staged.uploadId,
+      consumed: false,
+    });
+    await expect(
+      store.find(staged.uploadId, { ...scope, kind: 'image' }),
+    ).resolves.toBeNull();
+    expect(existsSync(join(root, 'co-1', 'staged', `${staged.uploadId}.pdf`))).toBe(true);
   });
 });

@@ -55,7 +55,9 @@ export class CasesService {
   /** Inbound customer message: open (or continue) the case. */
   async recordInbound(message: Message): Promise<Case | null> {
     const at = message.createdAt ?? new Date();
-    const open = (await this.findOpen(message.conversationId)) ?? (await this.open(message, at));
+    const open =
+      (await this.findOpen(message.conversationId)) ??
+      (await this.open(message.conversationId, at));
     if (!open) return null;
 
     await this.cases.increment({ id: open.id }, 'inboundCount', 1);
@@ -155,9 +157,17 @@ export class CasesService {
     return (await this.cases.findOneByOrFail({ id: open.id }));
   }
 
-  private async open(message: Message, at: Date): Promise<Case | null> {
+  /**
+   * Explicit reopen of a resolved conversation: the open case, or a new one
+   * (a reopen of the previous case when it closed within the window).
+   */
+  async ensureOpen(conversationId: string, at = new Date()): Promise<Case | null> {
+    return (await this.findOpen(conversationId)) ?? this.open(conversationId, at);
+  }
+
+  private async open(conversationId: string, at: Date): Promise<Case | null> {
     const conversation = await this.dataSource.getRepository(Conversation).findOne({
-      where: { id: message.conversationId },
+      where: { id: conversationId },
       relations: { channel: true },
     });
     if (!conversation) return null;

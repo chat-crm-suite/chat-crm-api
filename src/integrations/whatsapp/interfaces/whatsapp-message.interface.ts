@@ -59,12 +59,56 @@ export interface WhatsAppStickerMessage extends WhatsAppPayloadBase {
   sticker: Pick<WhatsAppMediaContent, 'id' | 'link'>;
 }
 
+/** One template parameter; named templates also carry `parameter_name`. */
+export interface WhatsAppTemplateParameter {
+  type: 'text';
+  text: string;
+  parameter_name?: string;
+}
+
+/** A media header value: the file by its Graph media id. */
+export type WhatsAppTemplateMediaParameter =
+  | { type: 'image'; image: { id: string } }
+  | { type: 'video'; video: { id: string } }
+  | { type: 'document'; document: { id: string; filename?: string } };
+
+export type WhatsAppTemplateComponent =
+  | {
+      type: 'header';
+      parameters: Array<WhatsAppTemplateParameter | WhatsAppTemplateMediaParameter>;
+    }
+  | { type: 'body'; parameters: WhatsAppTemplateParameter[] }
+  | {
+      type: 'button';
+      sub_type: string;
+      index: string;
+      parameters: WhatsAppTemplateParameter[];
+    }
+  | { type: 'carousel'; cards: WhatsAppTemplateCard[] };
+
+/** One carousel card: its own header file, body values and buttons. */
+export interface WhatsAppTemplateCard {
+  card_index: number;
+  components: Exclude<WhatsAppTemplateComponent, { type: 'carousel' }>[];
+}
+
+/** An approved template; only components with values (or a file) are sent. */
+export interface WhatsAppTemplateMessage extends WhatsAppPayloadBase {
+  type: 'template';
+  template: {
+    name: string;
+    language: { code: string };
+    components?: WhatsAppTemplateComponent[];
+  };
+}
+
 export type WhatsAppPayload =
   | WhatsAppTextMessage
   | WhatsAppImageMessage
   | WhatsAppVideoMessage
   | WhatsAppAudioMessage
   | WhatsAppDocumentMessage
-  | WhatsAppStickerMessage;
+  | WhatsAppStickerMessage
+  | WhatsAppTemplateMessage;
 
 export type WhatsAppMessageType = WhatsAppPayload['type'];

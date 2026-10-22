@@ -1,3 +1,30 @@
+## 2.3.0 (2026-10-22)
+
+### Feat
+
+- ✨ carousel templates with one header file per card
+- ✨ template header media and sent template snapshots
+- ✨ notifications phase 2: messages, tasks, channel and IA notices
+- ✨ notifications v2: queued, deduped, role-scoped delivery
+- ✨ channel health: mark down on auth faults, block sends, live status
+- ✨ inbox v2 lifecycle, tasks, templates and work queue
+- ✨ conversation priority endpoint and list/settings response docs
+- ✨ inbox v2 lifecycle, tasks and templates
+- ✨ default pending WhatsApp channel per company and connection test
+
+### Fix
+
+- 🐛 stop flagging WhatsApp format errors as channel auth faults
+- 🔒 restrict channel credentials endpoints to admins
+- 🐛 backfill pending WhatsApp channels through the repositories
+
+### Chore
+
+- 🔧 refresh snapshot metadata for notifications phase 2
+- 🔧 refresh snapshot metadata for notifications v2
+- 🔧 refresh snapshot metadata after inbox v2 merge
+- 🔧 register task contract, regenerate snapshot and openapi
+
 ## 1.0.0 (2026-10-04)
 
 ### Refactor

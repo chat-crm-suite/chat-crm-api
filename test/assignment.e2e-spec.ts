@@ -28,8 +28,10 @@ import { Customer } from '@modules/customers/entities/customer.entity';
 import type { MessageService } from '@modules/message/message.service';
 import { Message } from '@modules/message/entities/message.entity';
 import { Notification } from '@modules/notifications/entities/notification.entity';
-import { NotificationsService } from '@modules/notifications/notifications.service';
 import { User } from '@modules/users/entities/user.entity';
+import { ConversationAccessService } from '@modules/conversations/realtime/conversation-access.service';
+import { ConversationFanoutService } from '@modules/conversations/realtime/conversation-fanout.service';
+import { inlineNotifications } from './helpers/inline-notifications';
 import { getTestConfig, truncateAllTables } from './helpers/test-database.helper';
 
 const entities = Object.values(Entities) as EntityTarget<unknown>[];
@@ -59,21 +61,25 @@ describe('ConversationAssignmentService (e2e)', () => {
     const gateway = {
       revokeConversationAccess: () => Promise.resolve(),
       server: {
-        to: (room: string) => ({
+        // Several rooms in one emit are recorded as one comma-joined entry.
+        to: (target: string | string[]) => ({
           emit: (event: string, payload: unknown) => {
-            events.push({ room, event, payload });
+            events.push({ room: [target].flat().join(','), event, payload });
           },
         }),
       },
     } as unknown as ConversationGateway;
 
-    const notifications = new NotificationsService(
-      dataSource.getRepository(Notification),
-      dataSource.getRepository(CompanyMember),
-    );
-    notifier = new ConversationAssignmentNotifier(
-      notifications,
+    const fanout = new ConversationFanoutService(
       gateway,
+      new ConversationAccessService(dataSource, service, logger),
+      logger,
+    );
+    const { dispatcher } = inlineNotifications(dataSource, gateway, logger);
+    notifier = new ConversationAssignmentNotifier(
+      dispatcher,
+      gateway,
+      fanout,
       dataSource,
       logger,
     );
@@ -487,17 +493,23 @@ describe('ConversationAssignmentService (e2e)', () => {
         events.filter((e) => e.event === ConversationSocketEvent.NewNotification),
       ).toHaveLength(2);
 
-      // Segundo chat sin asignar: dedupe por notificación no leída.
+      // Second queued chat: the unread "queue" row grows instead of stacking.
       await notifier.notifyUnassigned(
         (await seedConversation(company)).id,
         company.id,
       );
-      expect(await dataSource.getRepository(Notification).count()).toBe(2);
+      const grouped = await dataSource.getRepository(Notification).find();
+      expect(grouped).toHaveLength(2);
+      expect(grouped.every((n) => n.count === 2)).toBe(true);
+      expect(
+        events.filter((e) => e.event === ConversationSocketEvent.NotificationUpdated),
+      ).toHaveLength(2);
 
+      // Agents get the queue refresh through their role room, never a notice.
       expect(
         events.some(
           (e) =>
-            e.room === `company:${company.id}` &&
+            e.room.split(',').includes(`company:${company.id}:role:agent`) &&
             e.event === ConversationSocketEvent.ConversationUnassigned,
         ),
       ).toBe(true);
@@ -545,6 +557,23 @@ describe('ConversationAssignmentService (e2e)', () => {
             e.event === ConversationSocketEvent.ConversationAssigned,
         ),
       ).toBe(true);
+      // Exactly one user-facing notice per assignment, even if announced twice.
+      await notifier.notifyAssigned(conversation.id, agent.member.id);
+      expect(
+        events.filter((e) => e.event === ConversationSocketEvent.NewNotification),
+      ).toHaveLength(1);
+    });
+
+    it('never notifies the member who made the assignment', async () => {
+      const { company } = await seedCompany();
+      const supervisor = await seedMember(company, 'supervisor');
+      const conversation = await seedConversation(company);
+
+      await notifier.notifyAssigned(conversation.id, supervisor.member.id, {
+        actorMemberId: supervisor.member.id,
+      });
+
+      expect(await dataSource.getRepository(Notification).count()).toBe(0);
     });
 
     it('does not persist a notification when the agent claims their own conversation', async () => {
@@ -552,7 +581,7 @@ describe('ConversationAssignmentService (e2e)', () => {
       const agent = await seedMember(company);
       const conversation = await seedConversation(company);
 
-      await notifier.notifyAssigned(conversation.id, agent.member.id, false);
+      await notifier.notifyAssigned(conversation.id, agent.member.id, { notify: false });
 
       expect(await dataSource.getRepository(Notification).count()).toBe(0);
       expect(

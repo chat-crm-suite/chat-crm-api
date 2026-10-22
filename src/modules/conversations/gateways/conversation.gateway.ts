@@ -20,6 +20,7 @@ import { JwtService } from '@nestjs/jwt';
 import {
   ConversationSocketEvent,
   SOCKET_NAMESPACES,
+  type MemberRole,
   type SendMessageAck,
 } from '@contracts';
 import { WsAckExceptionFilter } from '@common/filters/ws-ack-exception.filter';
@@ -30,6 +31,7 @@ import { SendConversationMessageDto } from '../dto/send-conversation-message.dto
 import { SendConversationMessageCommand } from '../commands/send-conversation-message.command';
 import { PresenceService } from '../../presence/presence.service';
 import { ConversationAccessService } from '../realtime/conversation-access.service';
+import { ConversationSendGuard } from '../outbound/conversation-send-guard.service';
 
 /** Socket data set once at connect time from the verified cookie. */
 export interface ConversationSocketData {
@@ -51,8 +53,19 @@ export type ConversationSocket = Socket<
 
 /** Room every socket of one user joins (targeted events, revocation kicks). */
 export const userRoom = (userId: string) => `user:${userId}`;
-/** Room for company-wide fan-out. */
+/** Room for company-wide fan-out (ids-only pings every role may see). */
 export const companyRoom = (companyId: string) => `company:${companyId}`;
+/**
+ * Room of one role inside a company, for events only some roles should get
+ * (e.g. queue changes for agents, supervision for admin/supervisor).
+ */
+export const roleRoom = (companyId: string, role: MemberRole) =>
+  `company:${companyId}:role:${role}`;
+/** Admin + supervisor rooms of a company: they see every conversation. */
+export const staffRooms = (companyId: string) => [
+  roleRoom(companyId, 'admin'),
+  roleRoom(companyId, 'supervisor'),
+];
 /** Room of one conversation thread (joined only after the access check). */
 export const conversationRoom = (conversationId: string) =>
   `conversation:${conversationId}`;
@@ -79,6 +92,7 @@ export class ConversationGateway
     private readonly jwt: JwtService,
     private readonly sessions: SessionRevocationService,
     @Optional() private readonly presence?: PresenceService,
+    @Optional() private readonly sendGuard?: ConversationSendGuard,
   ) {
     this.logger.setContext(ConversationGateway.name);
   }
@@ -140,6 +154,7 @@ export class ConversationGateway
     const receivedAt = Date.now();
     const user = this.requireUser(client);
     const membership = this.requireJoinedMembership(client, user, data);
+    await this.sendGuard?.assertCanSend(data.room);
 
     await this.commandBus.execute(
       new SendConversationMessageCommand({
@@ -200,7 +215,10 @@ export class ConversationGateway
     client.data.user = user;
     void client.join([
       userRoom(user.sub),
-      ...user.memberships.map((membership) => companyRoom(membership.cid)),
+      ...user.memberships.flatMap((membership) => [
+        companyRoom(membership.cid),
+        roleRoom(membership.cid, membership.role),
+      ]),
     ]);
 
     this.logger.debug(

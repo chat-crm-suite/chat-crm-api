@@ -4,18 +4,27 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
-import { DataSource, In, Repository, type SelectQueryBuilder } from 'typeorm';
+import {
+  DataSource,
+  In,
+  Repository,
+  type EntityTarget,
+  type ObjectLiteral,
+  type SelectQueryBuilder,
+} from 'typeorm';
 
 import { SessionRevocationService } from '../../auth/session/session-revocation.service';
-import type {
-  PlatformCompanyQuery,
-  PlatformCompanyRow,
-  PlatformCompanyTableResponse,
-  PlatformCreateCompanyInput,
-  PlatformCreateCompanyResult,
-  PlatformDeleteCompanyResult,
-  PlatformUpdateCompanyInput,
+import {
+  CHANNEL_STATUS,
+  type PlatformCompanyQuery,
+  type PlatformCompanyRow,
+  type PlatformCompanyTableResponse,
+  type PlatformCreateCompanyInput,
+  type PlatformCreateCompanyResult,
+  type PlatformDeleteCompanyResult,
+  type PlatformUpdateCompanyInput,
 } from '../../contracts/index';
+import { Channel } from '../channels/entities/channel.entity';
 import { createCompanyWithDefaults } from '../company/company-provisioning';
 import { Company } from '../company/entities/company.entity';
 import { CompanyMember } from '../company-members/entities/company-member.entity';
@@ -23,33 +32,46 @@ import {
   MemberProvisioningService,
   type ProvisionMemberResult,
 } from '../company-members/member-provisioning.service';
+import { Customer } from '../customers/entities/customer.entity';
 
-/** Columns the table can be sorted by (`sort[].id`); anything else is ignored. */
-const SORTABLE = {
+type CountKey = 'membersCount' | 'customersCount' | 'channelsCount';
+type Counts = Record<CountKey, number>;
+
+/**
+ * The live rows that hang from a company. Queried through their entities, so
+ * TypeORM adds the soft-delete filter (`@DeleteDateColumn`) by itself; every
+ * count is driven by an index that starts with `company_id`.
+ */
+const COUNTED: Record<
+  CountKey,
+  {
+    entity: EntityTarget<ObjectLiteral>;
+    scope?: (qb: SelectQueryBuilder<ObjectLiteral>, alias: string) => void;
+  }
+> = {
+  membersCount: { entity: CompanyMember },
+  customersCount: { entity: Customer },
+  // Configured channels only: every company is born with a `pending` one.
+  channelsCount: {
+    entity: Channel,
+    scope: (qb, alias) => {
+      qb.andWhere(`${alias}.status != :pendingStatus`, {
+        pendingStatus: CHANNEL_STATUS.pending,
+      });
+    },
+  },
+};
+
+/** Company columns the table can be sorted by (`sort[].id`), besides counts. */
+const SORTABLE_COLUMNS = {
   name: 'c.name',
   status: 'c.status',
   createdAt: 'c.createdAt',
-  membersCount: 'membersCount',
-  customersCount: 'customersCount',
-  channelsCount: 'channelsCount',
 } as const;
 
-/** The live (not soft-deleted) rows that hang from a company. */
-const COUNT_SUBQUERIES = {
-  membersCount:
-    'SELECT COUNT(*) FROM company_members m WHERE m.company_id = c.id AND m.deleted_at IS NULL',
-  customersCount:
-    'SELECT COUNT(*) FROM customers cu WHERE cu.company_id = c.id AND cu.deleted_at IS NULL',
-  channelsCount:
-    'SELECT COUNT(*) FROM channels ch WHERE ch.company_id = c.id AND ch.deleted_at IS NULL',
-} as const;
-
-type CountRow = {
-  id: string;
-  membersCount: number | string;
-  customersCount: number | string;
-  channelsCount: number | string;
-};
+const isCountKey = (id: string): id is CountKey => id in COUNTED;
+const isSortableColumn = (id: string): id is keyof typeof SORTABLE_COLUMNS =>
+  id in SORTABLE_COLUMNS;
 
 const isUniqueViolation = (error: unknown): boolean => {
   const { code, errno } = (error as { code?: string; errno?: number }) ?? {};
@@ -87,12 +109,27 @@ export class PlatformCompaniesService {
     const base = this.filtered(query);
     const totalItems = await base.clone().getCount();
 
-    const page = this.withCounts(base.clone().select('c.id', 'id'));
-    const sorts = query.sort.filter((s) => s.id in SORTABLE);
+    // The page holds company ids only; their counts are fetched afterwards
+    // for those ids. Sorting by a count is the one case that must compute it
+    // for every filtered company, so only that count joins as a subquery.
+    const page = base.clone().select('c.id', 'id');
+    const sorts = query.sort.filter(
+      (s) => isSortableColumn(s.id) || isCountKey(s.id),
+    );
     if (sorts.length) {
       sorts.forEach((s, index) => {
-        const column = SORTABLE[s.id as keyof typeof SORTABLE];
         const direction = s.desc ? 'DESC' : 'ASC';
+        let column: string;
+        if (isCountKey(s.id)) {
+          const key = s.id;
+          page.addSelect(
+            (sub: SelectQueryBuilder<ObjectLiteral>) => this.countSubQuery(sub, key),
+            key,
+          );
+          column = key;
+        } else {
+          column = SORTABLE_COLUMNS[s.id as keyof typeof SORTABLE_COLUMNS];
+        }
         if (index === 0) page.orderBy(column, direction);
         else page.addOrderBy(column, direction);
       });
@@ -104,8 +141,8 @@ export class PlatformCompaniesService {
     const rows = await page
       .offset((query.page - 1) * query.perPage)
       .limit(query.perPage)
-      .getRawMany<CountRow>();
-    const items = await this.hydrate(rows);
+      .getRawMany<{ id: string }>();
+    const items = await this.hydrate(rows.map((row) => row.id));
 
     return {
       items,
@@ -240,43 +277,81 @@ export class PlatformCompaniesService {
     return qb;
   }
 
-  private withCounts<T extends object>(qb: SelectQueryBuilder<T>): SelectQueryBuilder<T> {
-    for (const [alias, sql] of Object.entries(COUNT_SUBQUERIES)) {
-      qb.addSelect(`(${sql})`, alias);
-    }
+  /** `(SELECT COUNT(*) ...)` correlated with `c.id`, to sort by a count. */
+  private countSubQuery(
+    sub: SelectQueryBuilder<ObjectLiteral>,
+    key: CountKey,
+  ): SelectQueryBuilder<ObjectLiteral> {
+    const { entity, scope } = COUNTED[key];
+    const qb = sub
+      .select('COUNT(*)')
+      .from(entity, key)
+      .where(`${key}.companyId = c.id`);
+    scope?.(qb, key);
 
     return qb;
   }
 
+  /**
+   * One grouped query per counted table, bounded to the given companies (a
+   * page: at most `perPage` ids): `WHERE company_id IN (...) GROUP BY company_id`.
+   */
+  private async countsFor(ids: string[]): Promise<Map<string, Counts>> {
+    const counts = new Map<string, Counts>(
+      ids.map((id) => [
+        id,
+        { membersCount: 0, customersCount: 0, channelsCount: 0 },
+      ]),
+    );
+
+    await Promise.all(
+      (Object.keys(COUNTED) as CountKey[]).map(async (key) => {
+        const { entity, scope } = COUNTED[key];
+        const qb = this.dataSource
+          .getRepository(entity)
+          .createQueryBuilder('x')
+          .select('x.companyId', 'companyId')
+          .addSelect('COUNT(*)', 'total')
+          .where('x.companyId IN (:...ids)', { ids })
+          .groupBy('x.companyId');
+        scope?.(qb, 'x');
+
+        const rows = await qb.getRawMany<{
+          companyId: string;
+          total: number | string;
+        }>();
+        for (const row of rows) {
+          const entry = counts.get(row.companyId);
+          if (entry) entry[key] = Number(row.total);
+        }
+      }),
+    );
+
+    return counts;
+  }
+
   /** Row shape of one company, deleted or not. */
   private async rowOf(id: string): Promise<PlatformCompanyRow> {
-    const rows = await this.withCounts(
-      this.companies
-        .createQueryBuilder('c')
-        .withDeleted()
-        .select('c.id', 'id')
-        .where('c.id = :id', { id }),
-    ).getRawMany<CountRow>();
-
-    const [row] = await this.hydrate(rows);
+    const [row] = await this.hydrate([id]);
     if (!row) throw new NotFoundException('Company not found');
 
     return row;
   }
 
-  /** Joins the counted ids with their entities, keeping the order of `rows`. */
-  private async hydrate(rows: CountRow[]): Promise<PlatformCompanyRow[]> {
-    if (!rows.length) return [];
+  /** Company rows with their counts, keeping the order of `ids`. */
+  private async hydrate(ids: string[]): Promise<PlatformCompanyRow[]> {
+    if (!ids.length) return [];
 
-    const entities = await this.companies.find({
-      where: { id: In(rows.map((row) => row.id)) },
-      withDeleted: true,
-    });
+    const [entities, counts] = await Promise.all([
+      this.companies.find({ where: { id: In(ids) }, withDeleted: true }),
+      this.countsFor(ids),
+    ]);
     const byId = new Map(entities.map((company) => [company.id, company]));
 
-    return rows.flatMap((row) => {
-      const company = byId.get(row.id);
-      if (!company) return [];
+    return ids.flatMap((id) => {
+      const company = byId.get(id);
+      const row = counts.get(id);
+      if (!company || !row) return [];
 
       return [
         {
@@ -287,9 +362,9 @@ export class PlatformCompaniesService {
           address: company.address ?? null,
           timezone: company.timezone,
           status: company.status,
-          membersCount: Number(row.membersCount),
-          customersCount: Number(row.customersCount),
-          channelsCount: Number(row.channelsCount),
+          membersCount: row.membersCount,
+          customersCount: row.customersCount,
+          channelsCount: row.channelsCount,
           createdAt: company.createdAt,
           deletedAt: company.deletedAt ?? null,
         },

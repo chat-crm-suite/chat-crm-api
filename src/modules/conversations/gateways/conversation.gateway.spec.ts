@@ -80,7 +80,7 @@ describe('ConversationGateway', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('handleConnection', () => {
-    it('joins the personal room and every company room of the verified token', async () => {
+    it('joins the personal room plus every company and role room of the verified token', async () => {
       const { gateway, jwt } = build();
       jwt.verifyAsync.mockResolvedValue(claims);
       const client = socket({ headers: { cookie: 'access_token=valid-token' } });
@@ -89,10 +89,13 @@ describe('ConversationGateway', () => {
 
       expect(jwt.verifyAsync).toHaveBeenCalledWith('valid-token');
       expect(client.data).toEqual({ user: claims });
+      // Company rooms carry ids-only pings; role rooms scope queue/staff events.
       expect(client.join).toHaveBeenCalledWith([
         'user:user-1',
         'company:co-1',
+        'company:co-1:role:agent',
         'company:co-2',
+        'company:co-2:role:admin',
       ]);
       expect(client.disconnect).not.toHaveBeenCalled();
     });

@@ -23,18 +23,14 @@ import {
   zonedMonthBounds,
   zonedMonthKey,
 } from '../../lib/zoned-time';
-import {
-  AnalyticsSignalEvent,
-  RealtimeNotificationEvent,
-} from '../analytics/events/analytics.events';
+import { AnalyticsSignalEvent } from '../analytics/events/analytics.events';
 import { Case } from '../cases/entities/case.entity';
 import { Channel } from '../channels/entities/channel.entity';
 import { ChannelPricingRegistry } from '../channels/ports/channel-pricing.registry';
 import { CompanySettings } from '../company/entities/company-settings.entity';
 import { ServiceSettingsService } from '../company/service-settings/service-settings.service';
-import { CompanyMember } from '../company-members/entities/company-member.entity';
 import { Conversation } from '../conversations/entities/conversation.entity';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationDispatcher } from '../notifications/notification.dispatcher';
 import { ChannelCharge } from './entities/channel-charge.entity';
 import { ChannelRate } from './entities/channel-rate.entity';
 import type { ChannelStatusReportedEvent } from './events/channel-status-reported.event';
@@ -70,7 +66,7 @@ export class SpendService {
     @InjectRepository(CompanySettings) private readonly settings: Repository<CompanySettings>,
     private readonly pricing: ChannelPricingRegistry,
     private readonly serviceSettings: ServiceSettingsService,
-    private readonly notifications: NotificationsService,
+    private readonly notifications: NotificationDispatcher,
     private readonly dataSource: DataSource,
     private readonly logger: PinoLogger,
     @Optional() private readonly eventBus?: EventBus,
@@ -352,38 +348,22 @@ export class SpendService {
     }
   }
 
+  /** Once per month and level: `budgetAlertKey` already guards, dedupe backs it. */
   private async notifyAdmins(
     companyId: string,
     threshold: Exclude<BudgetThreshold, 'none'>,
-    data: Record<string, unknown>,
+    data: { month: string; totalUsd: number; budget: number },
   ): Promise<void> {
-    const admins = await this.dataSource.getRepository(CompanyMember).find({
-      where: { companyId, role: 'admin', status: 'active' },
-      select: { id: true, userId: true },
+    await this.notifications.notify({
+      companyId,
+      type: BUDGET_NOTIFICATION_TYPE,
+      audience: { roles: ['admin'] },
+      title: BUDGET_TITLES[threshold],
+      body: BUDGET_BODIES[threshold],
+      severity: threshold === 'exceeded' ? 'critical' : 'warning',
+      dedupeKey: `budget:${data.month}:${threshold}`,
+      dedupeTtlMs: 32 * 24 * 60 * 60 * 1000,
     });
-
-    for (const admin of admins) {
-      const notification = await this.notifications.create({
-        companyId,
-        recipientMemberId: admin.id,
-        type: BUDGET_NOTIFICATION_TYPE,
-        title: BUDGET_TITLES[threshold],
-        body: BUDGET_BODIES[threshold],
-        data: { ...data, threshold },
-      });
-      if (!notification) continue;
-
-      this.eventBus?.publish(
-        new RealtimeNotificationEvent(admin.userId, {
-          id: notification.id,
-          title: notification.title,
-          body: notification.body ?? null,
-          data: notification.data ?? null,
-          readAt: notification.readAt ?? null,
-          time: notification.createdAt,
-        }),
-      );
-    }
   }
 
   private async settingsRow(companyId: string): Promise<CompanySettings> {

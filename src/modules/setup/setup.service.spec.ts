@@ -22,6 +22,7 @@ type MockRepo = {
   create: jest.Mock;
   save: jest.Mock;
   update: jest.Mock;
+  merge: jest.Mock;
 };
 
 const createMockRepo = (): MockRepo => ({
@@ -29,6 +30,7 @@ const createMockRepo = (): MockRepo => ({
   findOne: jest.fn(),
   create: jest.fn((entity: unknown) => entity),
   update: jest.fn(),
+  merge: jest.fn((entity: object, patch: object) => Object.assign(entity, patch)),
   save: jest.fn((entity: unknown) =>
     Promise.resolve(
       Array.isArray(entity)
@@ -432,6 +434,14 @@ describe('SetupService', () => {
       companiesRepo.findOne.mockResolvedValue(null);
       usersRepo.findOne.mockResolvedValue(null);
       membersRepo.findOne.mockResolvedValue(null);
+      // The pending channel `createCompanyWithDefaults` just saved.
+      channelsRepo.findOne.mockResolvedValue({
+        id: 'pending-id',
+        companyId: 'saved-id',
+        type: 'whatsapp',
+        status: 'pending',
+        webhookVerifyToken: 'born-token',
+      });
       const service = await build();
 
       await service.provision({ ...dto(), whatsapp: whatsappDto() });
@@ -454,19 +464,22 @@ describe('SetupService', () => {
           status: 'active',
         }),
       );
-      expect(channelsRepo.save).toHaveBeenCalledWith(
+      // Born pending, then filled in place: one channel, same verify token.
+      expect(channelsRepo.save).toHaveBeenCalledTimes(2);
+      expect(channelsRepo.save).toHaveBeenLastCalledWith(
         expect.objectContaining({
+          id: 'pending-id',
           companyId: 'saved-id',
           type: 'whatsapp',
           externalAccountId: 'phone-1',
           credentials: expect.any(String),
-          webhookVerifyToken: expect.any(String),
+          webhookVerifyToken: 'born-token',
           status: 'active',
         }),
       );
     });
 
-    it('skips the whatsapp channel when the step is omitted', async () => {
+    it('leaves only the pending whatsapp channel when the step is omitted', async () => {
       mockStatusCounts(0, 0, 0, 0);
       companiesRepo.findOne.mockResolvedValue(null);
       usersRepo.findOne.mockResolvedValue(null);
@@ -475,7 +488,16 @@ describe('SetupService', () => {
 
       const result = await service.provision(dto());
 
-      expect(channelsRepo.save).not.toHaveBeenCalled();
+      expect(channelsRepo.save).toHaveBeenCalledTimes(1);
+      expect(channelsRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          companyId: 'saved-id',
+          type: 'whatsapp',
+          externalAccountId: null,
+          credentials: null,
+          status: 'pending',
+        }),
+      );
       expect(result.channel).toBeNull();
     });
 

@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Copyright (c) 2026 Jerremi Aron Chancan Labajos <chancanjeremiaron@gmail.com>
 
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
-import { EventBus } from '@nestjs/cqrs';
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ClsService } from 'nestjs-cls';
 import { createZodDto, ZodSerializerDto } from 'nestjs-zod';
@@ -12,7 +20,7 @@ import type { TenantContext } from '../../auth/index';
 import { CLS_USER_ID } from '../../config/cls.keys';
 import { CaseSchema, CloseCaseSchema, CurrentCaseSchema } from '../../contracts/index';
 import { zodResponseSchema } from '../../docs/zod-response';
-import { AnalyticsSignalEvent } from '../analytics/events/analytics.events';
+import { ConversationLifecycleService } from '../conversations/lifecycle/conversation-lifecycle.service';
 import { ConversationAccessService } from '../conversations/realtime/conversation-access.service';
 import { CasesService } from './cases.service';
 import type { Case } from './entities/case.entity';
@@ -30,7 +38,7 @@ export class CasesController {
   constructor(
     private readonly cases: CasesService,
     private readonly access: ConversationAccessService,
-    private readonly eventBus: EventBus,
+    private readonly lifecycle: ConversationLifecycleService,
     private readonly cls: ClsService,
   ) {}
 
@@ -44,9 +52,14 @@ export class CasesController {
     return { case: latest ? toCase(latest) : null };
   }
 
+  /**
+   * Alias of `POST :id/resolve` kept for older clients: same effect (case
+   * closed, conversation resolved, owner released), answering the closed
+   * case. 409 when the conversation has no open case, as before.
+   */
   @Post(':id/close')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Close the open support case of the conversation' })
+  @ApiOperation({ summary: 'Close the open case (alias of resolve)' })
   @ZodSerializerDto(CaseSchema)
   @ApiOkResponse({ schema: zodResponseSchema(CaseSchema) })
   async close(
@@ -55,9 +68,16 @@ export class CasesController {
     @CurrentTenant() tenant: TenantContext,
   ) {
     await this.assertAccess(id, tenant);
-    const closed = await this.cases.close(id, tenant.memberId, body.note);
-    this.eventBus.publish(new AnalyticsSignalEvent(tenant.companyId, ['live', 'cases']));
-    return toCase(closed);
+    if (!(await this.cases.findOpen(id))) {
+      throw new ConflictException('The conversation has no open case');
+    }
+
+    const result = await this.lifecycle.resolve(
+      id,
+      { ...tenant, userId: this.cls.get<string>(CLS_USER_ID) ?? null },
+      body.note,
+    );
+    return result.case;
   }
 
   private assertAccess(conversationId: string, tenant: TenantContext) {

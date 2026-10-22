@@ -6,6 +6,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -19,18 +20,24 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { tmpdir } from 'node:os';
-import { ApiOkResponse } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import { ClsService } from 'nestjs-cls';
 import { ZodSerializerDto } from 'nestjs-zod';
 
 import {
+  ConversationAssignmentEntrySchema,
+  ConversationListItemSchema,
   ConversationMessageSchema,
   MAX_UPLOAD_BYTES,
   StagedUploadSchema,
-} from '@contracts';
+} from '../../contracts/index';
 
 import { RemoveUploadedFileInterceptor } from '@common/interceptors/remove-uploaded-file.interceptor';
-import { CLS_COMPANY_ID, CLS_USER_ID } from '../../config/cls.keys';
+import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
+import type { TenantContext } from '../../auth/auth.types';
+import { CLS_COMPANY_ID, CLS_MEMBER_ID, CLS_USER_ID } from '../../config/cls.keys';
+import { zodResponseSchema } from '../../docs/zod-response';
+import { memberDisplayName } from '../company-members/member-name';
 import { SentimentService } from '../analysis/sentiment/sentiment.service';
 import { MessageService } from '../message/message.service';
 import { ConversationsService } from './conversations.service';
@@ -38,6 +45,13 @@ import { AssignConversationDto } from './dto/assign-conversation.dto';
 import { StageUploadDto } from './dto/stage-upload.dto';
 import { ConversationSentimentDto } from './dto/conversation-sentiment.dto';
 import { AssignmentOutcome } from './assignment/assignment.types';
+import { ConversationAssignmentService } from './assignment/conversation-assignment.service';
+import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
+import {
+  ConversationListService,
+  isSupervisorRole,
+  type ConversationViewer,
+} from './listing/conversation-list.service';
 import { ConversationAccessService } from './realtime/conversation-access.service';
 import { ConversationUploadsService } from './uploads/conversation-uploads.service';
 
@@ -50,6 +64,8 @@ export class ConversationsController {
     private readonly access: ConversationAccessService,
     private readonly uploads: ConversationUploadsService,
     private readonly cls: ClsService,
+    private readonly listing: ConversationListService,
+    private readonly assignmentHistory: ConversationAssignmentService,
   ) {}
 
   /**
@@ -78,9 +94,41 @@ export class ConversationsController {
     return this.uploads.stage(id, companyId, file, body);
   }
 
+  /** Assignment history of one conversation, newest first (same access as the thread). */
   @Get('assignments/:conversationId')
-  assignments(@Param('conversationId') conversationId: string) {
-    return this.service.getAssigments(conversationId);
+  @ApiOperation({ summary: 'Assignment history of a conversation' })
+  @ZodSerializerDto(ConversationAssignmentEntrySchema.array())
+  @ApiOkResponse({ schema: zodResponseSchema(ConversationAssignmentEntrySchema.array()) })
+  async assignments(@Param('conversationId') conversationId: string) {
+    await this.assertConversationAccess(conversationId);
+    const rows = await this.assignmentHistory.history(conversationId);
+
+    return rows.map((row) => ({
+      id: row.id,
+      memberId: row.memberId,
+      memberName: memberDisplayName(row.member?.user),
+      reason: row.reason,
+      note: row.note ?? null,
+      assignedByMemberId: row.assignedByMemberId ?? null,
+      assignedAt: row.assignedAt,
+      unassignedAt: row.unassignedAt ?? null,
+    }));
+  }
+
+  /**
+   * Inbox list: `scope=mine` (default) = assigned to the caller, `scope=all`
+   * = every conversation of the company (admin/supervisor only, 403 for
+   * agents), optionally narrowed to one assignee or status.
+   */
+  @Get()
+  @ApiOperation({ summary: 'Inbox list (mine, or all for admin/supervisor)' })
+  @ZodSerializerDto(ConversationListItemSchema.array())
+  @ApiOkResponse({ schema: zodResponseSchema(ConversationListItemSchema.array()) })
+  listScoped(
+    @Query() query: ListConversationsQueryDto,
+    @CurrentTenant() tenant: TenantContext,
+  ) {
+    return this.listing.listScoped(toViewer(tenant), query);
   }
 
   @Post('assign')
@@ -89,6 +137,7 @@ export class ConversationsController {
     const outcome = await this.service.assign(conversationId, memberId, {
       companyId: this.cls.get<string>(CLS_COMPANY_ID),
       requesterId: this.cls.get<string>(CLS_USER_ID),
+      actorMemberId: this.cls.get<string>(CLS_MEMBER_ID),
     });
 
     if (outcome === AssignmentOutcome.CONFLICT) {
@@ -108,12 +157,24 @@ export class ConversationsController {
     };
   }
 
+  /**
+   * Conversations of one agent (`agentId` = user id; default the caller).
+   * Another agent's list is admin/supervisor only.
+   */
   @Get('list')
-  list(@Query('agentId') id?: string) {
-    return this.service.list(
-      id ?? this.cls.get<string>(CLS_USER_ID),
-      this.cls.get<string>(CLS_COMPANY_ID),
-    );
+  @ZodSerializerDto(ConversationListItemSchema.array())
+  @ApiOkResponse({ schema: zodResponseSchema(ConversationListItemSchema.array()) })
+  async list(
+    @CurrentTenant() tenant: TenantContext,
+    @Query('agentId') agentId?: string,
+  ) {
+    const userId = this.cls.get<string>(CLS_USER_ID);
+    if (agentId && agentId !== userId && !isSupervisorRole(tenant.role)) {
+      throw new ForbiddenException("Only admins and supervisors can read another agent's list");
+    }
+
+    const ids = await this.service.listIdsForUser(agentId ?? userId, tenant.companyId);
+    return this.listing.hydrate(ids, tenant.memberId);
   }
 
   /**
@@ -121,8 +182,14 @@ export class ConversationsController {
    * agente, ordenada por antigüedad (la que más espera primero).
    */
   @Get('unassigned')
-  unassigned() {
-    return this.service.listUnassigned(this.cls.get<string>(CLS_COMPANY_ID));
+  @ZodSerializerDto(ConversationListItemSchema.array())
+  @ApiOkResponse({ schema: zodResponseSchema(ConversationListItemSchema.array()) })
+  async unassigned(@CurrentTenant() tenant: TenantContext) {
+    const queue = await this.service.listUnassigned(tenant.companyId);
+    return this.listing.hydrate(
+      (queue as { id: string }[]).map((row) => row.id),
+      tenant.memberId,
+    );
   }
 
   /**
@@ -130,16 +197,22 @@ export class ConversationsController {
    * lleva más de `minutes` sin respuesta (default 15, tope 1440).
    */
   @Get('needs-response')
-  needsResponse(@Query('minutes') minutes?: string) {
+  @ZodSerializerDto(ConversationListItemSchema.array())
+  @ApiOkResponse({ schema: zodResponseSchema(ConversationListItemSchema.array()) })
+  async needsResponse(
+    @CurrentTenant() tenant: TenantContext,
+    @Query('minutes') minutes?: string,
+  ) {
     const parsed = minutes ? Number(minutes) : undefined;
     const safeMinutes =
       parsed && Number.isFinite(parsed) && parsed > 0
         ? Math.min(parsed, 1440)
         : undefined;
 
-    return this.service.listNeedsResponse(
-      this.cls.get<string>(CLS_COMPANY_ID),
-      safeMinutes,
+    const rows = await this.service.listNeedsResponse(tenant.companyId, safeMinutes);
+    return this.listing.hydrate(
+      (rows as { id: string }[]).map((row) => row.id),
+      tenant.memberId,
     );
   }
 
@@ -217,3 +290,9 @@ export class ConversationsController {
     return companyId;
   }
 }
+
+const toViewer = (tenant: TenantContext): ConversationViewer => ({
+  companyId: tenant.companyId,
+  memberId: tenant.memberId,
+  role: tenant.role,
+});

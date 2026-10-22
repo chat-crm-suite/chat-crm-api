@@ -62,7 +62,32 @@ describe('OutgoingMediaService', () => {
 
     expect(staged.consume).toHaveBeenCalledWith(
       '0b9f6a3e-5c1d-4f7e-9a2b-3c4d5e6f7a8b',
-      { companyId: 'co-1', conversationId: 'conv-1', kind: 'image' },
+      { companyId: 'co-1', scope: 'conversation:conv-1', kind: 'image' },
+    );
+  });
+
+  it("consumes a template's header file scoped to the template and kind", async () => {
+    const { service, staged } = build();
+    staged.consume.mockResolvedValue({
+      storageUrl: '/uploads/co-1/h.jpg',
+      mimeType: 'image/jpeg',
+      filename: 'h.jpg',
+      sizeBytes: 10,
+      durationMs: null,
+      width: 1,
+      height: 1,
+    });
+
+    await expect(
+      service.prepareTemplateHeader('0b9f6a3e-5c1d-4f7e-9a2b-3c4d5e6f7a8b', {
+        companyId: 'co-1',
+        templateId: 'tpl-1',
+        kind: 'image',
+      }),
+    ).resolves.toMatchObject({ storageUrl: '/uploads/co-1/h.jpg', filename: 'h.jpg' });
+    expect(staged.consume).toHaveBeenCalledWith(
+      '0b9f6a3e-5c1d-4f7e-9a2b-3c4d5e6f7a8b',
+      { companyId: 'co-1', scope: 'template:tpl-1', kind: 'image' },
     );
   });
 

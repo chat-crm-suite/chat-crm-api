@@ -38,17 +38,22 @@ export class Channel extends UuidV7Entity {
   @Column({ length: 100 })
   name: string;
 
-  /** WhatsApp: phone_number_id. */
-  @Column({ name: 'external_account_id', length: 100 })
-  externalAccountId: string;
+  /** WhatsApp: phone_number_id. Null while the channel is `pending`. */
+  @Column({
+    name: 'external_account_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  externalAccountId: string | null;
 
   /** WhatsApp: visible phone number (+51...). */
   @Column({ name: 'display_address', length: 100, nullable: true })
   displayAddress?: string;
 
-  /** Encrypted JSON envelope; plaintext keys per channel type. */
-  @Column({ type: 'text' })
-  credentials: string;
+  /** Encrypted JSON envelope; plaintext keys per channel type. Null while `pending`. */
+  @Column({ type: 'text', nullable: true })
+  credentials: string | null;
 
   /** Non-secret settings: apiVersion, apiBaseUrl, webhookUrl... */
   @Column({ type: 'json', nullable: true })
@@ -59,6 +64,13 @@ export class Channel extends UuidV7Entity {
 
   @Column({ type: 'varchar', length: 50, default: 'active' })
   status: ChannelStatus;
+
+  /** Why the channel is `error` (user-facing, Spanish); null otherwise. */
+  @Column({ name: 'status_reason', type: 'varchar', length: 500, nullable: true })
+  statusReason: string | null;
+
+  @Column({ name: 'status_changed_at', type: 'datetime', nullable: true })
+  statusChangedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

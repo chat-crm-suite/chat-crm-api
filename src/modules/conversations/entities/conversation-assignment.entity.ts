@@ -54,4 +54,8 @@ export class ConversationAssignment extends UuidV7Entity {
   /** NULL = active assignment. */
   @Column({ name: 'unassigned_at', type: 'datetime', nullable: true })
   unassignedAt?: Date | null;
+
+  /** Internal note of a transfer or a release (never sent to the customer). */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  note?: string | null;
 }

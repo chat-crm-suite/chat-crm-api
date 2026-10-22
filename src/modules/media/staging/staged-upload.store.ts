@@ -16,11 +16,23 @@ export const STAGED_FOLDER = 'staged';
 
 const stagedKey = (uploadId: string) => `upload:${uploadId}`;
 
+/** Scope of a file attached to a message of one conversation. */
+export const conversationUploadScope = (conversationId: string) =>
+  `conversation:${conversationId}`;
+
+/**
+ * Scope of a template's header file: staged before the conversation exists
+ * when the template starts one.
+ */
+export const templateUploadScope = (templateId: string) =>
+  `template:${templateId}`;
+
 /** What is known about a staged file (kept in the cache, never in MySQL). */
 export interface StagedFile {
   uploadId: string;
   companyId: string;
-  conversationId: string;
+  /** Where the file may be sent (`conversationUploadScope`, `templateUploadScope`). */
+  scope: string;
   kind: AttachmentType;
   mimeType: string;
   sizeBytes: number;
@@ -79,22 +91,29 @@ export class StagedUploadStore {
   }
 
   /**
+   * The staged file if it is still usable in `scope`, without consuming it:
+   * lets a send be refused before its row exists.
+   */
+  async find(
+    uploadId: string,
+    scope: Pick<StagedFile, 'companyId' | 'scope' | 'kind'>,
+  ): Promise<StagedFile | null> {
+    const staged = await this.cache.get<StagedFile>(stagedKey(uploadId));
+    return staged && matchesScope(staged, scope) ? staged : null;
+  }
+
+  /**
    * Hands a staged file to the send that references it. The scope must match
-   * where it was uploaded (company, conversation and kind), so an upload can
+   * where it was uploaded (company, scope and kind), so an upload can
    * never be sent elsewhere. Idempotent: a retried send gets the same file.
    */
   async consume(
     uploadId: string,
-    scope: Pick<StagedFile, 'companyId' | 'conversationId' | 'kind'>,
+    scope: Pick<StagedFile, 'companyId' | 'scope' | 'kind'>,
   ): Promise<StagedFile> {
     const staged = await this.cache.get<StagedFile>(stagedKey(uploadId));
 
-    if (
-      !staged ||
-      staged.companyId !== scope.companyId ||
-      staged.conversationId !== scope.conversationId ||
-      staged.kind !== scope.kind
-    ) {
+    if (!staged || !matchesScope(staged, scope)) {
       throw new NotFoundException('Upload not found or expired');
     }
     if (staged.consumed) return staged;
@@ -118,4 +137,15 @@ export class StagedUploadStore {
       new Date(now - STAGED_UPLOAD_TTL_MS),
     );
   }
+}
+
+function matchesScope(
+  staged: StagedFile,
+  scope: Pick<StagedFile, 'companyId' | 'scope' | 'kind'>,
+): boolean {
+  return (
+    staged.companyId === scope.companyId &&
+    staged.scope === scope.scope &&
+    staged.kind === scope.kind
+  );
 }

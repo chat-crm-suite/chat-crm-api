@@ -30,7 +30,10 @@ const message = (overrides: Partial<Message> = {}): Message =>
   }) as Message;
 
 function build() {
-  const conversations = { saveOutbound: jest.fn() };
+  const conversations = {
+    saveOutbound: jest.fn(),
+    isReplyWindowOpen: jest.fn().mockResolvedValue(true),
+  };
   const messages = {
     markSent: jest.fn(),
     markSendFailed: jest.fn(),
@@ -40,7 +43,9 @@ function build() {
   const adapters = { for: jest.fn().mockReturnValue(adapter) };
   const media = {
     prepare: jest.fn().mockResolvedValue(null),
+    prepareTemplateHeader: jest.fn(),
     attachmentOf: jest.fn(),
+    attachmentsOf: jest.fn(),
     toProvider: jest.fn(),
   };
   const fanout = { emitStatusPatch: jest.fn(), emitError: jest.fn() };
@@ -54,6 +59,7 @@ function build() {
     }),
   };
   const eventBus = { publish: jest.fn() };
+  const channels = { markChannelDown: jest.fn().mockResolvedValue(true) };
   const logger = {
     debug: jest.fn(),
     info: jest.fn(),
@@ -68,6 +74,7 @@ function build() {
     fanout as never,
     sendContext as never,
     adapters as never,
+    channels as never,
     media as never,
     eventBus as never,
     logger as never,
@@ -83,6 +90,7 @@ function build() {
     fanout,
     sendContext,
     eventBus,
+    channels,
     logger,
   };
 }
@@ -363,6 +371,43 @@ describe('AgentMessageSender channel routing', () => {
       text: 'hola',
     });  });
 
+  it('marks the channel down when the provider refuses its credentials', async () => {
+    const { sender, conversations, adapter, messages, channels } = build();
+    created(conversations);
+    adapter.send.mockResolvedValue({
+      ok: false,
+      error: {
+        authFault: true,
+        retryable: false,
+        code: '190',
+        message: 'Error validating access token',
+        connectionReason: 'El token de acceso de WhatsApp venció o fue revocado.',
+      },
+    });
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    expect(channels.markChannelDown).toHaveBeenCalledWith(
+      'channel-1',
+      'El token de acceso de WhatsApp venció o fue revocado.',
+    );
+  });
+
+  it('keeps the channel up on a failure that is not an authorization fault', async () => {
+    const { sender, conversations, adapter, messages, channels } = build();
+    created(conversations);
+    adapter.send.mockResolvedValue({
+      ok: false,
+      error: { authFault: false, retryable: false, code: '131026', message: 'Undeliverable' },
+    });
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    expect(channels.markChannelDown).not.toHaveBeenCalled();
+  });
+
   it('logs one send.timing line correlated by clientMessageId', async () => {
     const { sender, conversations, adapter, messages, logger } = build();
     created(conversations);
@@ -579,5 +624,291 @@ describe('AgentMessageSender media', () => {
       await sender.send({ ...data, msg });
       expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', expected);
     }
+  });
+});
+
+const textSnapshot = {
+  name: 'welcome',
+  language: 'es',
+  header: null,
+  body: 'Hola',
+  footer: null,
+  buttons: [],
+};
+
+describe('AgentMessageSender reply window (inbox v2)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('fails free-form content outside the window without calling the provider', async () => {
+    const { sender, conversations, messages, adapter, fanout } = build();
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    conversations.isReplyWindowOpen.mockResolvedValue(false);
+    messages.markSendFailed.mockResolvedValue(
+      message({ status: 'failed', errorCode: 'reply_window_closed' }),
+    );
+
+    await sender.send(data, { attemptsMade: 0 });
+
+    expect(adapter.send).not.toHaveBeenCalled();
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: 'reply_window_closed',
+      message: expect.stringContaining('reply window is closed') as unknown,
+    });
+    // The legacy toast offers the template action with the recipient.
+    expect(fanout.emitError).toHaveBeenCalledWith(
+      'conv-1',
+      expect.objectContaining({ hasAction: true, to: '51999000111' }),
+    );
+  });
+
+  it('sends a template whatever the window, stored with its template id', async () => {
+    const { sender, conversations, messages, adapter } = build();
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    conversations.isReplyWindowOpen.mockResolvedValue(false);
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-9' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+    const template = { name: 'welcome', language: 'es', header: [], body: [], buttons: [] };
+
+    await sender.sendTemplate({
+      conversationId: 'conv-1',
+      companyId: 'co-1',
+      senderMemberId: 'member-1',
+      templateId: 'tpl-1',
+      body: 'Hola',
+      snapshot: textSnapshot,
+      template,
+    });
+
+    expect(conversations.saveOutbound).toHaveBeenCalledWith(
+      'conv-1',
+      expect.objectContaining({
+        type: 'template',
+        templateId: 'tpl-1',
+        templateSnapshot: textSnapshot,
+        content: { body: 'Hola' },
+      }),
+      { id: 'member-1', type: 'member' },
+      'co-1',
+    );
+    expect(conversations.isReplyWindowOpen).not.toHaveBeenCalled();
+    expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', {
+      type: 'template',
+      ...template,
+    });
+  });
+});
+
+describe('AgentMessageSender template header media', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const UPLOAD_ID = '0b9f6a3e-5c1d-4f7e-9a2b-3c4d5e6f7a8b';
+  const template = { name: 'image_cta', language: 'es', header: [], body: [], buttons: [] };
+  const job = {
+    conversationId: 'conv-1',
+    companyId: 'co-1',
+    senderMemberId: 'member-1',
+    templateId: 'tpl-1',
+    body: 'Hola',
+    snapshot: {
+      ...textSnapshot,
+      header: { kind: 'media' as const, mediaType: 'image' as const, filename: 'promo.jpg' },
+    },
+    template,
+    headerMedia: { uploadId: UPLOAD_ID, kind: 'image' as const, filename: 'promo.jpg' },
+  };
+  const file = (filename = 'promo.jpg') => ({
+    storageUrl: `/uploads/co-1/${filename}`,
+    mimeType: 'image/jpeg',
+    filename,
+    sizeBytes: 2048,
+    durationMs: null,
+    width: 800,
+    height: 600,
+  });
+
+  interface SavedAttachment {
+    id: string;
+    fileName: string;
+    storageUrl: string;
+  }
+
+  /** The rows saved with the message, as `attachmentsOf` reads them back. */
+  function storedAttachments(conversations: ReturnType<typeof build>['conversations']) {
+    const [, content] = conversations.saveOutbound.mock.calls[0] as [
+      string,
+      { attachments: SavedAttachment[] },
+    ];
+    return content.attachments.map((item) => ({
+      id: item.id,
+      mimeType: 'image/jpeg',
+      fileName: item.fileName,
+      storageUrl: item.storageUrl,
+    }));
+  }
+
+  it('stores the header file on the row, uploads it once and sends it by provider id', async () => {
+    const { sender, conversations, messages, adapter, media } = build();
+    media.prepareTemplateHeader.mockResolvedValue(file());
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentsOf.mockImplementation(() => Promise.resolve(storedAttachments(conversations)));
+    media.toProvider.mockResolvedValue({ ok: true, providerMediaId: 'media-9' });
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-9' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+
+    await sender.sendTemplate(job);
+
+    expect(media.prepareTemplateHeader).toHaveBeenCalledWith(UPLOAD_ID, {
+      companyId: 'co-1',
+      templateId: 'tpl-1',
+      kind: 'image',
+    });
+    const [attachment] = storedAttachments(conversations);
+    expect(conversations.saveOutbound).toHaveBeenCalledWith(
+      'conv-1',
+      expect.objectContaining({
+        type: 'template',
+        content: { body: 'Hola' },
+        attachments: [
+          expect.objectContaining({
+            id: attachment.id,
+            type: 'image',
+            fileName: 'promo.jpg',
+            storageUrl: '/uploads/co-1/promo.jpg',
+            mimeType: 'image/jpeg',
+          }),
+        ],
+        // The snapshot points at the file's attachment row.
+        templateSnapshot: {
+          ...job.snapshot,
+          header: { ...job.snapshot.header, attachmentId: attachment.id },
+        },
+      }),
+      { id: 'member-1', type: 'member' },
+      'co-1',
+    );
+    expect(media.toProvider).toHaveBeenCalledTimes(1);
+    expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', {
+      type: 'template',
+      ...template,
+      headerMedia: {
+        type: 'image',
+        media: { providerMediaId: 'media-9', mimeType: 'image/jpeg' },
+        filename: 'promo.jpg',
+      },
+    });
+  });
+
+  it('keeps a visible failed row when the header upload expired', async () => {
+    const { sender, conversations, messages, adapter, media } = build();
+    media.prepareTemplateHeader.mockRejectedValue(new Error('Upload not found or expired'));
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentsOf.mockResolvedValue([]);
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.sendTemplate(job);
+
+    expect(conversations.saveOutbound).toHaveBeenCalledWith(
+      'conv-1',
+      expect.objectContaining({ attachments: [] }),
+      expect.anything(),
+      'co-1',
+    );
+    expect(adapter.send).not.toHaveBeenCalled();
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: null,
+      message: 'Upload not found or expired',
+    });
+  });
+
+  it('fails the row when the provider refuses the header upload', async () => {
+    const { sender, conversations, messages, adapter, media } = build();
+    media.prepareTemplateHeader.mockResolvedValue(file());
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentsOf.mockImplementation(() => Promise.resolve(storedAttachments(conversations)));
+    media.toProvider.mockResolvedValue({
+      ok: false,
+      error: { authFault: false, retryable: false, code: '131053', message: 'scrutiny failed' },
+    });
+    messages.markSendFailed.mockResolvedValue(message({ status: 'failed' }));
+
+    await sender.sendTemplate(job);
+
+    expect(adapter.send).not.toHaveBeenCalled();
+    expect(messages.markSendFailed).toHaveBeenCalledWith('msg-1', {
+      code: '131053',
+      message: 'scrutiny failed',
+    });
+  });
+
+  it('sends a carousel with each card file uploaded and linked to its own row', async () => {
+    const { sender, conversations, messages, adapter, media } = build();
+    const card = (body: string) => ({
+      header: { kind: 'media' as const, mediaType: 'image' as const, filename: null },
+      body,
+      buttons: [],
+    });
+    const carouselJob = {
+      ...job,
+      snapshot: { ...textSnapshot, cards: [card('Uno'), card('Dos')] },
+      template: {
+        ...template,
+        cards: [
+          { index: 0, body: [], buttons: [] },
+          { index: 1, body: [], buttons: [] },
+        ],
+      },
+      headerMedia: undefined,
+      cardMedia: [
+        { uploadId: UPLOAD_ID, kind: 'image' as const, filename: 'one.jpg' },
+        {
+          uploadId: '1c0a7b4f-6d2e-4a8f-8b3c-4d5e6f7a8b9c',
+          kind: 'image' as const,
+          filename: 'two.jpg',
+        },
+      ],
+    };
+    media.prepareTemplateHeader
+      .mockResolvedValueOnce(file('one.jpg'))
+      .mockResolvedValueOnce(file('two.jpg'));
+    conversations.saveOutbound.mockResolvedValue({ message: message(), created: true });
+    media.attachmentsOf.mockImplementation(() => Promise.resolve(storedAttachments(conversations)));
+    media.toProvider.mockImplementation(
+      (_adapter: unknown, _target: unknown, row: SavedAttachment) =>
+        Promise.resolve({ ok: true, providerMediaId: `media-${row.fileName}` }),
+    );
+    adapter.send.mockResolvedValue({ ok: true, externalId: 'wamid-c' });
+    messages.markSent.mockResolvedValue(message({ status: 'sent' }));
+
+    await sender.sendTemplate(carouselJob);
+
+    const [one, two] = storedAttachments(conversations);
+    const [, saved] = conversations.saveOutbound.mock.calls[0] as [
+      string,
+      { templateSnapshot: unknown },
+    ];
+    const linked = (body: string, id: string, filename: string) => ({
+      ...card(body),
+      header: { ...card(body).header, attachmentId: id, filename },
+    });
+    expect(saved.templateSnapshot).toEqual({
+      ...textSnapshot,
+      cards: [linked('Uno', one.id, 'one.jpg'), linked('Dos', two.id, 'two.jpg')],
+    });
+    expect(media.toProvider).toHaveBeenCalledTimes(2);
+    const sent = (index: number, filename: string) => ({
+      index,
+      body: [],
+      buttons: [],
+      headerMedia: {
+        type: 'image',
+        media: { providerMediaId: `media-${filename}`, mimeType: 'image/jpeg' },
+        filename,
+      },
+    });
+    expect(adapter.send).toHaveBeenCalledWith('channel-1', '51999000111', {
+      type: 'template',
+      ...template,
+      cards: [sent(0, 'one.jpg'), sent(1, 'two.jpg')],
+    });
   });
 });

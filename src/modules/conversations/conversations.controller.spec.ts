@@ -16,7 +16,9 @@ import { App } from 'supertest/types';
 
 import { SentimentService } from '../analysis/sentiment/sentiment.service';
 import { MessageService } from '../message/message.service';
+import { ConversationAssignmentService } from './assignment/conversation-assignment.service';
 import { ConversationsController } from './conversations.controller';
+import { ConversationListService } from './listing/conversation-list.service';
 import { ConversationsService } from './conversations.service';
 import { ConversationAccessService } from './realtime/conversation-access.service';
 import { ConversationUploadsService } from './uploads/conversation-uploads.service';
@@ -51,6 +53,8 @@ describe('ConversationsController sentiment endpoint (T4)', () => {
           useValue: { getConversationSentiment },
         },
         { provide: ClsService, useValue: { get: clsGet } },
+        { provide: ConversationListService, useValue: {} },
+        { provide: ConversationAssignmentService, useValue: {} },
         // Same registration as the app: DI provides the interceptor's Reflector.
         { provide: APP_PIPE, useClass: ZodValidationPipe },
         { provide: APP_INTERCEPTOR, useClass: ZodSerializerInterceptor },

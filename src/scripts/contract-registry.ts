@@ -30,6 +30,7 @@ import * as serviceSettings from '../contracts/service-settings.contract';
 import * as setup from '../contracts/setup.contract';
 import * as socket from '../contracts/socket.contract';
 import * as spend from '../contracts/spend.contract';
+import * as task from '../contracts/task.contract';
 import * as template from '../contracts/template.contract';
 import * as user from '../contracts/user.contract';
 import * as whatsappWebhook from '../contracts/whatsapp-webhook.contract';
@@ -53,6 +54,7 @@ export const CONTRACT_MODULES = {
   setup,
   socket,
   spend,
+  task,
   template,
   user,
   'whatsapp-webhook': whatsappWebhook,

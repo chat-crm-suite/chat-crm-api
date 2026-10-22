@@ -8,8 +8,11 @@ import type {
   ChannelOutcome,
 } from '@modules/channels/ports/channel-adapter.port';
 import { AttachmentStorageService } from '@modules/media/attachment-storage.service';
+import type { TemplateHeaderMedia } from '@contracts';
 import {
+  conversationUploadScope,
   StagedUploadStore,
+  templateUploadScope,
   type StagedFile,
 } from '@modules/media/staging/staged-upload.store';
 import type { MessageAttachment } from '@modules/message/entities/message-attachment.entity';
@@ -43,7 +46,10 @@ export class OutgoingMediaService {
   /** The file a send references, or `null` for text. */
   async prepare(job: AgentSendJob): Promise<OutgoingFile | null> {
     const { msg } = job;
-    const scope = { companyId: job.companyId, conversationId: job.room };
+    const scope = {
+      companyId: job.companyId,
+      scope: conversationUploadScope(job.room),
+    };
 
     switch (msg.type) {
       case 'text':
@@ -65,6 +71,26 @@ export class OutgoingMediaService {
             )
           : this.storedSticker(msg.source.attachmentId, job.companyId);
     }
+  }
+
+  /** A template's header file, staged by `POST /templates/:id/header-upload`. */
+  async prepareTemplateHeader(
+    uploadId: string,
+    scope: { companyId: string; templateId: string; kind: TemplateHeaderMedia },
+  ): Promise<OutgoingFile> {
+    return fromStaged(
+      await this.staged.consume(uploadId, {
+        companyId: scope.companyId,
+        scope: templateUploadScope(scope.templateId),
+        kind: scope.kind,
+      }),
+    );
+  }
+
+  /** Every stored file of a message, oldest first. */
+  async attachmentsOf(messageId: string): Promise<MessageAttachment[]> {
+    const attachments = await this.messages.findAttachments(messageId);
+    return attachments.filter((attachment) => !!attachment.storageUrl);
   }
 
   /** The file persisted with a message (its first attachment). */

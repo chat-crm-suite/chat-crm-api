@@ -68,4 +68,156 @@ describe('toWhatsAppPayload', () => {
       sticker: { id: 'media-1' },
     });
   });
+
+  it('maps a template: positional values by order, named ones by name, URL buttons by index', () => {
+    expect(
+      toWhatsAppPayload('51999000111', {
+        type: 'template',
+        name: 'order_update',
+        language: 'es',
+        header: [{ key: 'customer', value: 'Ana' }],
+        body: [
+          { key: '1', value: '#123' },
+          { key: '2', value: 'lunes' },
+        ],
+        buttons: [{ index: 0, subType: 'url', parameters: [{ key: '1', value: 'abc' }] }],
+      }),
+    ).toEqual({
+      ...base,
+      type: 'template',
+      template: {
+        name: 'order_update',
+        language: { code: 'es' },
+        components: [
+          {
+            type: 'header',
+            parameters: [{ type: 'text', text: 'Ana', parameter_name: 'customer' }],
+          },
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: '#123' },
+              { type: 'text', text: 'lunes' },
+            ],
+          },
+          {
+            type: 'button',
+            sub_type: 'url',
+            index: '0',
+            parameters: [{ type: 'text', text: 'abc' }],
+          },
+        ],
+      },
+    });
+  });
+
+  it('omits components for a template without placeholders', () => {
+    expect(
+      toWhatsAppPayload('51999000111', {
+        type: 'template',
+        name: 'hello_world',
+        language: 'en_US',
+        header: [],
+        body: [],
+        buttons: [],
+      }),
+    ).toEqual({
+      ...base,
+      type: 'template',
+      template: { name: 'hello_world', language: { code: 'en_US' } },
+    });
+  });
+
+  it.each([
+    ['image', undefined, { type: 'image', image: { id: 'media-1' } }],
+    ['video', undefined, { type: 'video', video: { id: 'media-1' } }],
+    [
+      'document',
+      'menu.pdf',
+      { type: 'document', document: { id: 'media-1', filename: 'menu.pdf' } },
+    ],
+  ] as const)('sends a %s header as its Graph media id', (type, filename, parameter) => {
+    const payload = toWhatsAppPayload('51999000111', {
+      type: 'template',
+      name: 'promo',
+      language: 'es',
+      header: [],
+      body: [{ key: '1', value: 'Ana' }],
+      buttons: [],
+      headerMedia: {
+        type,
+        media: { providerMediaId: 'media-1', mimeType: 'application/octet-stream' },
+        ...(filename ? { filename } : {}),
+      },
+    });
+
+    expect(payload).toEqual({
+      ...base,
+      type: 'template',
+      template: {
+        name: 'promo',
+        language: { code: 'es' },
+        components: [
+          { type: 'header', parameters: [parameter] },
+          { type: 'body', parameters: [{ type: 'text', text: 'Ana' }] },
+        ],
+      },
+    });
+  });
+
+  it('sends a carousel: one card per entry with its own header file, body and buttons', () => {
+    const card = (index: number, id: string) => ({
+      index,
+      body: index ? [{ key: '1', value: 'Luis' }] : [],
+      buttons: index
+        ? [{ index: 0, subType: 'url', parameters: [{ key: '1', value: 'abc' }] }]
+        : [],
+      headerMedia: { type: 'image' as const, media: { providerMediaId: id, mimeType: 'image/jpeg' } },
+    });
+
+    const payload = toWhatsAppPayload('51999000111', {
+      type: 'template',
+      name: 'carousel',
+      language: 'en_US',
+      header: [],
+      body: [],
+      buttons: [],
+      cards: [card(0, 'media-a'), card(1, 'media-b')],
+    });
+
+    expect(payload).toEqual({
+      ...base,
+      type: 'template',
+      template: {
+        name: 'carousel',
+        language: { code: 'en_US' },
+        components: [
+          {
+            type: 'carousel',
+            cards: [
+              {
+                card_index: 0,
+                components: [
+                  { type: 'header', parameters: [{ type: 'image', image: { id: 'media-a' } }] },
+                ],
+              },
+              {
+                card_index: 1,
+                components: [
+                  { type: 'header', parameters: [{ type: 'image', image: { id: 'media-b' } }] },
+                  { type: 'body', parameters: [{ type: 'text', text: 'Luis' }] },
+                  {
+                    type: 'button',
+                    sub_type: 'url',
+                    index: '0',
+                    parameters: [{ type: 'text', text: 'abc' }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+  });
 });

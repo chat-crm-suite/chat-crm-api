@@ -12,14 +12,18 @@ import { join } from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-import type { WhatsAppCredentials } from '@contracts';
+import {
+  DEFAULT_WHATSAPP_API_VERSION,
+  WHATSAPP_GRAPH_BASE_URL,
+  type WhatsAppCredentials,
+} from '@contracts';
 import type { ChannelTransmission } from '@modules/channels/channels.service';
 import type { Channel } from '@modules/channels/entities/channel.entity';
 import type { WhatsAppPayload } from '../interfaces/whatsapp-message.interface';
 import type { WhatsAppErrorResponse } from '../interfaces/whatsapp.interface';
 
-const DEFAULT_API_VERSION = 'v22.0';
-const DEFAULT_API_BASE_URL = 'https://graph.facebook.com';
+const DEFAULT_API_VERSION = DEFAULT_WHATSAPP_API_VERSION;
+const DEFAULT_API_BASE_URL = WHATSAPP_GRAPH_BASE_URL;
 const MAX_ATTEMPTS = 4;
 const RETRY_BASE_DELAY_MS = 500;
 const RETRY_MAX_DELAY_MS = 5_000;
@@ -33,6 +37,50 @@ export interface WhatsAppSendResponse {
   contacts?: Array<{ input: string; wa_id: string }>;
   messages?: Array<{ id: string }>;
 }
+
+/** One `GET /{waba-id}/message_templates` item (fields we request). */
+export interface WhatsAppGraphTemplate {
+  id?: string;
+  name: string;
+  language: string;
+  status?: string;
+  category?: string;
+  rejected_reason?: string;
+  parameter_format?: string;
+  components?: WhatsAppGraphTemplateComponent[];
+}
+
+export interface WhatsAppGraphTemplateComponent {
+  type: string;
+  format?: string;
+  text?: string;
+  example?: {
+    header_text?: string[];
+    header_text_named_params?: Array<{ param_name: string; example: string }>;
+    body_text?: string[][];
+    body_text_named_params?: Array<{ param_name: string; example: string }>;
+  };
+  buttons?: Array<{
+    type: string;
+    text?: string;
+    url?: string;
+    phone_number?: string;
+    example?: string[];
+  }>;
+  /** `CAROUSEL` only: each card is a list of components of its own. */
+  cards?: Array<{ components?: WhatsAppGraphTemplateComponent[] }>;
+}
+
+interface WhatsAppTemplatePage {
+  data?: WhatsAppGraphTemplate[];
+  paging?: { next?: string; cursors?: { after?: string } };
+}
+
+const TEMPLATE_FIELDS =
+  'id,name,language,status,category,rejected_reason,parameter_format,components';
+const TEMPLATE_PAGE_SIZE = 100;
+/** Hard stop for a runaway cursor: 50 pages = 5000 templates. */
+const TEMPLATE_MAX_PAGES = 50;
 
 interface WhatsAppMediaMetadata {
   id: string;
@@ -119,6 +167,51 @@ export class WhatsAppClient {
           .pipe(map((res) => res.data)),
       ),
     );
+  }
+
+  /**
+   * Every message template of the channel's WhatsApp Business Account
+   * (`GET /{waba-id}/message_templates`), following the `paging.next`
+   * cursor. Transport faults retry with backoff per page.
+   */
+  async listTemplates(
+    transmission: ChannelTransmission,
+  ): Promise<WhatsAppGraphTemplate[]> {
+    const { channel, credentials } = transmission;
+    const wabaId = credentials.businessId;
+    if (!wabaId) {
+      throw new Error('The WhatsApp channel has no Business Account ID');
+    }
+
+    const templates: WhatsAppGraphTemplate[] = [];
+    let url: string | undefined = `${graphBaseUrl(channel)}/${wabaId}/message_templates`;
+    let params: Record<string, string | number> | undefined = {
+      fields: TEMPLATE_FIELDS,
+      limit: TEMPLATE_PAGE_SIZE,
+    };
+
+    for (let page = 0; url && page < TEMPLATE_MAX_PAGES; page++) {
+      const current: string = url;
+      const query = params;
+      const body = await this.withRetry(() =>
+        firstValueFrom(
+          this.http
+            .get<WhatsAppTemplatePage>(current, {
+              headers: authHeaders(credentials),
+              timeout: REQUEST_TIMEOUT_MS,
+              ...(query ? { params: query } : {}),
+            })
+            .pipe(map((res) => res.data)),
+        ),
+      );
+
+      templates.push(...(body?.data ?? []));
+      // `next` is a full URL that already carries the query and the cursor.
+      url = body?.paging?.next;
+      params = undefined;
+    }
+
+    return templates;
   }
 
   /**
@@ -286,9 +379,21 @@ function authHeaders(credentials: WhatsAppCredentials) {
 }
 
 /**
+ * Graph codes that mean the token or its permissions are unusable: 190
+ * (invalid/expired token), 102 (session), 10 and 200-299 (permissions).
+ * The error `type` is no signal: Meta tags most request errors
+ * `OAuthException`, template format errors (132012) included.
+ * @link https://developers.facebook.com/docs/graph-api/guides/error-handling
+ */
+function isAuthErrorCode(code: number | string | undefined): boolean {
+  const value = Number(code);
+  return value === 190 || value === 102 || value === 10 || (value >= 200 && value <= 299);
+}
+
+/**
  * Classifies a Graph/transport failure. Authorization faults (HTTP 401/403 or
- * Meta `OAuthException`) are never retryable; transport failures (no response)
- * and server/rate-limit statuses are.
+ * a token/permission code) are never retryable; transport failures (no
+ * response) and server/rate-limit statuses are.
  */
 export function classifyWhatsAppError(error: unknown): WhatsAppErrorInfo {
   if (error instanceof WhatsAppMediaTooLargeError) {
@@ -316,7 +421,7 @@ export function classifyWhatsAppError(error: unknown): WhatsAppErrorInfo {
         ? String(status)
         : undefined;
 
-  if (status === 401 || status === 403 || apiError?.type === 'OAuthException') {
+  if (status === 401 || status === 403 || isAuthErrorCode(apiError?.code)) {
     return {
       authFault: true,
       retryable: false,

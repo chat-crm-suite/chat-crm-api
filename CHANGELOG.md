@@ -1,3 +1,9 @@
+## 2.4.0 (2026-10-29)
+
+### Feat
+
+- 🌍 pin MySQL driver and migrations to UTC
+
 ## 2.3.0 (2026-10-22)
 
 ### Feat

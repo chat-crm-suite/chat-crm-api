@@ -40,6 +40,9 @@ export const mysqlDatabaseConfig: TypeOrmModuleOptions = {
   synchronize: false,
   migrationsRun: true,
   namingStrategy: new SnakeNamingStrategy(),
+  // Pin the driver to UTC so MySQL DATETIME values are read and written as
+  // UTC instants regardless of process.env.TZ (which only tunes the logs).
+  timezone: 'Z',
   // logging: ['query'],
   cache: {
     type: 'ioredis',
